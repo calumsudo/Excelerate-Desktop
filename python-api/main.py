@@ -1,8 +1,9 @@
 """Main entry point for the Excelerate API."""
 
+import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-import uvicorn
+
 from excelerate_api.api.portfolio import router as portfolio_router
 
 # Create FastAPI app
