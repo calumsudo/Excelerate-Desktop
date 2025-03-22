@@ -1,4 +1,7 @@
-"""Portfolio API endpoints."""
+"""
+Description: Portfolio API endpoints.
+File Path: excelerate_api/api/portfolio.py
+"""
 
 from typing import List
 

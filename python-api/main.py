@@ -1,9 +1,13 @@
-"""Main entry point for the Excelerate API."""
+"""
+Description: Main entry point for the Excelerate API.
+File Path: main.py
+"""
 
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from excelerate_api.api.file_processing import router as file_processing_router
 from excelerate_api.api.portfolio import router as portfolio_router
 
 # Create FastAPI app
@@ -24,6 +28,9 @@ app.add_middleware(
 
 # Include routers
 app.include_router(portfolio_router, prefix="/api/portfolio", tags=["Portfolio"])
+app.include_router(
+    file_processing_router, prefix="/api/file-processing", tags=["File Processing"]
+)
 
 
 @app.get("/health")
