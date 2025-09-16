@@ -81,6 +81,7 @@ const FridayDatePicker: React.FC<FridayDatePickerProps> = ({
         showMonthAndYearPickers
         classNames={{
           base: "max-w-xs",
+          inputWrapper: "rounded-lg",
           calendar: "bg-background",
           calendarContent: "bg-background",
         }}

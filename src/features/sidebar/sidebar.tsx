@@ -56,6 +56,11 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
   ) => {
     const [selected, setSelected] = React.useState<React.Key>(defaultSelectedKey);
 
+
+    React.useEffect(() => {
+      setSelected(defaultSelectedKey);
+    }, [defaultSelectedKey]);
+
     const sectionClasses = {
       ...sectionClassesProp,
       base: cn(sectionClassesProp?.base, "w-full", {
