@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { DatePicker } from '@heroui/react';
 import { 
   CalendarDate, 
@@ -36,7 +36,15 @@ const FridayDatePicker: React.FC<FridayDatePickerProps> = ({
   };
 
   // Initialize with most recent Friday
-  const [selectedDate, setSelectedDate] = useState<DateValue | null>(getMostRecentFriday());
+  const initialFriday = getMostRecentFriday();
+  const [selectedDate, setSelectedDate] = useState<DateValue | null>(initialFriday);
+  
+  // Notify parent of initial date on mount
+  useEffect(() => {
+    if (initialFriday && onDateChange) {
+      onDateChange(initialFriday);
+    }
+  }, []);
 
   // Function to check if a date is Friday
   const isFriday = (date: DateValue): boolean => {
