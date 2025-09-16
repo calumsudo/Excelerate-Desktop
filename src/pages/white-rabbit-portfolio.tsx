@@ -34,27 +34,44 @@ function WhiteRabbitPortfolio() {
   }, []);
 
   // Define your funders for weekly uploads
-  const weeklyFunders: FunderData[] = [
-    {
-      name: "Funder Alpha",
-      acceptedTypes: [
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'application/vnd.ms-excel'
-      ],
-      acceptedExtensions: ['.xlsx', '.xls'],
-      maxSizeKB: 5120 // 5MB
-    },
-    {
-      name: "Funder Beta",
-      acceptedTypes: [
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'application/pdf'
-      ],
-      acceptedExtensions: ['.xlsx', '.pdf'],
-      maxSizeKB: 10240 // 10MB
-    }
-  ];
-
+const weeklyFunders: FunderData[] = [
+  {
+    name: "BHB",
+    acceptedTypes: [
+      'text/csv',
+      'application/csv'
+    ],
+    acceptedExtensions: ['.csv'],
+    maxSizeKB: 5120 // 5MB
+  },
+  {
+    name: "BIG",
+    acceptedTypes: [
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-excel'
+    ],
+    acceptedExtensions: ['.xlsx', '.xls'],
+    maxSizeKB: 5120 // 5MB
+  },
+  {
+    name: "Clear View",
+    acceptedTypes: [
+      'text/csv',
+      'application/csv'
+    ],
+    acceptedExtensions: ['.csv'],
+    maxSizeKB: 5120 // 5MB
+  },
+  {
+    name: "eFin",
+    acceptedTypes: [
+      'text/csv',
+      'application/csv'
+    ],
+    acceptedExtensions: ['.csv'],
+    maxSizeKB: 5120 // 5MB
+  }
+];
   // Define your funders for monthly uploads
   const monthlyFunders: FunderData[] = [
     {

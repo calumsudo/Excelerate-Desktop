@@ -34,16 +34,48 @@ function AlderPortfolio() {
   }, []);
 
   // Define your funders for weekly uploads
-  const weeklyFunders: FunderData[] = [
-    {
-      name: "BHB",
-      acceptedTypes: [
-        'text/csv'
-      ],
-      acceptedExtensions: ['.csv'],
-      maxSizeKB: 5120 // 5MB
-    }
-  ];
+const weeklyFunders: FunderData[] = [
+  {
+    name: "BHB",
+    acceptedTypes: [
+      'text/csv'
+    ],
+    acceptedExtensions: ['.csv'],
+    maxSizeKB: 5120 // 5MB
+  },
+  {
+    name: "BIG",
+    acceptedTypes: [
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    ],
+    acceptedExtensions: ['.xlsx'],
+    maxSizeKB: 5120 // 5MB
+  },
+  {
+    name: "Clear View",
+    acceptedTypes: [
+      'text/csv'
+    ],
+    acceptedExtensions: ['.csv'],
+    maxSizeKB: 5120 // 5MB
+  },
+  {
+    name: "eFin",
+    acceptedTypes: [
+      'text/csv'
+    ],
+    acceptedExtensions: ['.csv'],
+    maxSizeKB: 5120 // 5MB
+  },
+  {
+    name: "InAdvance",
+    acceptedTypes: [
+      'text/csv'
+    ],
+    acceptedExtensions: ['.csv'],
+    maxSizeKB: 5120 // 5MB
+  }
+];
 
   // Define your funders for monthly uploads
   const monthlyFunders: FunderData[] = [
