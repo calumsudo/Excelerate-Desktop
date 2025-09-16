@@ -4,7 +4,8 @@ use std::sync::Mutex;
 use serde::{Serialize, Deserialize};
 use chrono::Utc;
 use uuid::Uuid;
-use crate::database::{Database, FileVersion, FunderUpload};
+use crate::database::{Database, FileVersion, FunderUpload, FunderPivotTable};
+use crate::parsers::{BaseParser, BhbParser, BigParser};
 
 lazy_static::lazy_static! {
     static ref DB: Mutex<Option<Database>> = Mutex::new(None);
@@ -74,31 +75,41 @@ pub fn ensure_directories() -> Result<(), String> {
         base_dir.join("Alder").join("Funder Uploads"),
         base_dir.join("Alder").join("Funder Uploads").join("Weekly"),
         base_dir.join("Alder").join("Funder Uploads").join("Monthly"),
+        base_dir.join("Alder").join("Funder Pivot Tables"),
+        base_dir.join("Alder").join("Funder Pivot Tables").join("Weekly"),
+        base_dir.join("Alder").join("Funder Pivot Tables").join("Monthly"),
         base_dir.join("White Rabbit"),
         base_dir.join("White Rabbit").join("Workbook"),
         base_dir.join("White Rabbit").join("Workbook").join("versions"),
         base_dir.join("White Rabbit").join("Funder Uploads"),
         base_dir.join("White Rabbit").join("Funder Uploads").join("Weekly"),
         base_dir.join("White Rabbit").join("Funder Uploads").join("Monthly"),
+        base_dir.join("White Rabbit").join("Funder Pivot Tables"),
+        base_dir.join("White Rabbit").join("Funder Pivot Tables").join("Weekly"),
+        base_dir.join("White Rabbit").join("Funder Pivot Tables").join("Monthly"),
     ];
     
     // Add weekly funder directories for Alder
     let alder_weekly_funders = vec!["BHB", "BIG", "Clear View", "eFin", "InAdvance"];
     for funder in &alder_weekly_funders {
         directories.push(base_dir.join("Alder").join("Funder Uploads").join("Weekly").join(funder));
+        directories.push(base_dir.join("Alder").join("Funder Pivot Tables").join("Weekly").join(funder));
     }
     
     // Add monthly funder directories for Alder
     directories.push(base_dir.join("Alder").join("Funder Uploads").join("Monthly").join("Monthly Funder Gamma"));
+    directories.push(base_dir.join("Alder").join("Funder Pivot Tables").join("Monthly").join("Monthly Funder Gamma"));
     
     // Add weekly funder directories for White Rabbit
     let white_rabbit_weekly_funders = vec!["BHB", "BIG", "Clear View", "eFin"];
     for funder in &white_rabbit_weekly_funders {
         directories.push(base_dir.join("White Rabbit").join("Funder Uploads").join("Weekly").join(funder));
+        directories.push(base_dir.join("White Rabbit").join("Funder Pivot Tables").join("Weekly").join(funder));
     }
     
     // Add monthly funder directories for White Rabbit  
     directories.push(base_dir.join("White Rabbit").join("Funder Uploads").join("Monthly").join("Monthly Funder Gamma"));
+    directories.push(base_dir.join("White Rabbit").join("Funder Pivot Tables").join("Monthly").join("Monthly Funder Gamma"));
     
     for dir in directories {
         fs::create_dir_all(&dir)
@@ -350,6 +361,80 @@ pub fn check_workbook_exists(portfolio_name: &str) -> bool {
     }
 }
 
+fn process_funder_file(
+    file_path: &Path,
+    portfolio_name: &str,
+    funder_name: &str,
+    report_date: &str,
+    upload_type: &str,
+    upload_id: &str,
+) -> Result<(), String> {
+    // Select the appropriate parser based on funder name
+    let pivot_table = match funder_name {
+        "BHB" => {
+            let parser = BhbParser::new();
+            parser.process(file_path)
+                .map_err(|e| format!("Failed to parse BHB file: {}", e))?
+        },
+        "BIG" => {
+            let parser = BigParser::new();
+            parser.process(file_path)
+                .map_err(|e| format!("Failed to parse BIG file: {}", e))?
+        },
+        _ => {
+            return Err(format!("Parser not yet implemented for funder: {}", funder_name));
+        }
+    };
+    
+    // Generate pivot table CSV
+    let csv_content = pivot_table.to_csv_string()
+        .map_err(|e| format!("Failed to generate CSV: {}", e))?;
+    
+    // Create pivot table directory and save file
+    let portfolio_dir = get_portfolio_dir(portfolio_name)?;
+    let pivot_dir = portfolio_dir
+        .join("Funder Pivot Tables")
+        .join(if upload_type == "weekly" { "Weekly" } else { "Monthly" })
+        .join(funder_name);
+    
+    fs::create_dir_all(&pivot_dir)
+        .map_err(|e| format!("Failed to create pivot directory: {}", e))?;
+    
+    let pivot_filename = format!("{}.csv", report_date);
+    let pivot_path = pivot_dir.join(&pivot_filename);
+    
+    fs::write(&pivot_path, csv_content.as_bytes())
+        .map_err(|e| format!("Failed to save pivot table: {}", e))?;
+    
+    // Save pivot table metadata to database
+    let pivot_id = Uuid::new_v4().to_string();
+    let pivot_record = FunderPivotTable {
+        id: pivot_id,
+        upload_id: upload_id.to_string(),
+        portfolio_name: portfolio_name.to_string(),
+        funder_name: funder_name.to_string(),
+        report_date: report_date.to_string(),
+        upload_type: upload_type.to_string(),
+        pivot_file_path: pivot_path.to_string_lossy().to_string(),
+        total_gross: pivot_table.total_gross,
+        total_fee: pivot_table.total_fee,
+        total_net: pivot_table.total_net,
+        row_count: (pivot_table.rows.len() - 1) as i32, // Subtract 1 for totals row
+        created_timestamp: Utc::now(),
+    };
+    
+    // Save to database and immediately release the lock
+    {
+        let db_lock = DB.lock().unwrap();
+        if let Some(db) = db_lock.as_ref() {
+            db.insert_funder_pivot_table(&pivot_record)
+                .map_err(|e| format!("Failed to save pivot table to database: {}", e))?;
+        }
+    }  // db_lock is dropped here
+    
+    Ok(())
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct FunderUploadInfo {
     pub id: String,
@@ -427,15 +512,38 @@ pub fn save_funder_upload(
         upload_timestamp: Utc::now(),
     };
     
-    let db_lock = DB.lock().unwrap();
-    if let Some(db) = db_lock.as_ref() {
-        db.insert_funder_upload(&funder_upload)
-            .map_err(|e| format!("Failed to save funder upload to database: {}", e))?;
-    }
+    // Insert funder upload to database and immediately release the lock
+    {
+        let db_lock = DB.lock().unwrap();
+        if let Some(db) = db_lock.as_ref() {
+            db.insert_funder_upload(&funder_upload)
+                .map_err(|e| format!("Failed to save funder upload to database: {}", e))?;
+        }
+    }  // db_lock is dropped here
+    
+    // Try to process the file and create pivot table, but don't block the response
+    let pivot_result = process_funder_file(
+        &file_path,
+        portfolio_name,
+        funder_name,
+        report_date,
+        upload_type,
+        &upload_id,
+    );
+    
+    let (success, message) = match pivot_result {
+        Ok(_) => {
+            (true, format!("Funder file saved and pivot table created successfully for {} - {}", funder_name, report_date))
+        },
+        Err(e) => {
+            // Still return success for file upload even if pivot fails
+            (true, format!("Funder file saved. Note: {}", e))
+        },
+    };
     
     Ok(UploadResponse {
-        success: true,
-        message: format!("Funder file saved successfully for {} - {}", funder_name, report_date),
+        success,
+        message,
         file_path: Some(file_path.to_string_lossy().to_string()),
         version_id: Some(upload_id),
         backup_path: None,

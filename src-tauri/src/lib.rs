@@ -1,5 +1,8 @@
 mod database;
 mod file_handler;
+pub mod parsers;
+#[cfg(test)]
+mod test_big_parser;
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]

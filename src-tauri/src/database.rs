@@ -30,6 +30,22 @@ pub struct FunderUpload {
     pub upload_timestamp: DateTime<Utc>,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct FunderPivotTable {
+    pub id: String,
+    pub upload_id: String, // Reference to the FunderUpload
+    pub portfolio_name: String,
+    pub funder_name: String,
+    pub report_date: String,
+    pub upload_type: String,
+    pub pivot_file_path: String,
+    pub total_gross: f64,
+    pub total_fee: f64,
+    pub total_net: f64,
+    pub row_count: i32,
+    pub created_timestamp: DateTime<Utc>,
+}
+
 pub struct Database {
     conn: Connection,
 }
@@ -91,6 +107,32 @@ impl Database {
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_funder_portfolio_date 
              ON funder_uploads(portfolio_name, funder_name, report_date)",
+            [],
+        )?;
+        
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS funder_pivot_tables (
+                id TEXT PRIMARY KEY,
+                upload_id TEXT NOT NULL,
+                portfolio_name TEXT NOT NULL,
+                funder_name TEXT NOT NULL,
+                report_date TEXT NOT NULL,
+                upload_type TEXT NOT NULL,
+                pivot_file_path TEXT NOT NULL,
+                total_gross REAL NOT NULL,
+                total_fee REAL NOT NULL,
+                total_net REAL NOT NULL,
+                row_count INTEGER NOT NULL,
+                created_timestamp TEXT NOT NULL,
+                FOREIGN KEY (upload_id) REFERENCES funder_uploads(id),
+                UNIQUE(portfolio_name, funder_name, report_date, upload_type)
+            )",
+            [],
+        )?;
+        
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_pivot_upload_id 
+             ON funder_pivot_tables(upload_id)",
             [],
         )?;
 
@@ -419,5 +461,99 @@ impl Database {
             params![id],
         )?;
         Ok(rows_affected > 0)
+    }
+    
+    // Pivot Table Methods
+    pub fn insert_funder_pivot_table(&self, pivot: &FunderPivotTable) -> Result<()> {
+        self.conn.execute(
+            "INSERT OR REPLACE INTO funder_pivot_tables 
+             (id, upload_id, portfolio_name, funder_name, report_date, upload_type,
+              pivot_file_path, total_gross, total_fee, total_net, row_count, created_timestamp) 
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+            params![
+                pivot.id,
+                pivot.upload_id,
+                pivot.portfolio_name,
+                pivot.funder_name,
+                pivot.report_date,
+                pivot.upload_type,
+                pivot.pivot_file_path,
+                pivot.total_gross,
+                pivot.total_fee,
+                pivot.total_net,
+                pivot.row_count,
+                pivot.created_timestamp.to_rfc3339(),
+            ],
+        )?;
+        Ok(())
+    }
+    
+    pub fn get_funder_pivot_table(
+        &self,
+        portfolio_name: &str,
+        funder_name: &str,
+        report_date: &str,
+        upload_type: &str,
+    ) -> Result<Option<FunderPivotTable>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, upload_id, portfolio_name, funder_name, report_date, upload_type,
+                    pivot_file_path, total_gross, total_fee, total_net, row_count, created_timestamp 
+             FROM funder_pivot_tables 
+             WHERE portfolio_name = ?1 AND funder_name = ?2 AND report_date = ?3 AND upload_type = ?4"
+        )?;
+        
+        let pivot = stmt.query_row(
+            params![portfolio_name, funder_name, report_date, upload_type], 
+            |row| {
+                Ok(FunderPivotTable {
+                    id: row.get(0)?,
+                    upload_id: row.get(1)?,
+                    portfolio_name: row.get(2)?,
+                    funder_name: row.get(3)?,
+                    report_date: row.get(4)?,
+                    upload_type: row.get(5)?,
+                    pivot_file_path: row.get(6)?,
+                    total_gross: row.get(7)?,
+                    total_fee: row.get(8)?,
+                    total_net: row.get(9)?,
+                    row_count: row.get(10)?,
+                    created_timestamp: DateTime::parse_from_rfc3339(&row.get::<_, String>(11)?)
+                        .unwrap()
+                        .with_timezone(&Utc),
+                })
+            }
+        ).optional()?;
+        
+        Ok(pivot)
+    }
+    
+    pub fn get_pivot_table_by_upload_id(&self, upload_id: &str) -> Result<Option<FunderPivotTable>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, upload_id, portfolio_name, funder_name, report_date, upload_type,
+                    pivot_file_path, total_gross, total_fee, total_net, row_count, created_timestamp 
+             FROM funder_pivot_tables 
+             WHERE upload_id = ?1"
+        )?;
+        
+        let pivot = stmt.query_row(params![upload_id], |row| {
+            Ok(FunderPivotTable {
+                id: row.get(0)?,
+                upload_id: row.get(1)?,
+                portfolio_name: row.get(2)?,
+                funder_name: row.get(3)?,
+                report_date: row.get(4)?,
+                upload_type: row.get(5)?,
+                pivot_file_path: row.get(6)?,
+                total_gross: row.get(7)?,
+                total_fee: row.get(8)?,
+                total_net: row.get(9)?,
+                row_count: row.get(10)?,
+                created_timestamp: DateTime::parse_from_rfc3339(&row.get::<_, String>(11)?)
+                    .unwrap()
+                    .with_timezone(&Utc),
+            })
+        }).optional()?;
+        
+        Ok(pivot)
     }
 }
