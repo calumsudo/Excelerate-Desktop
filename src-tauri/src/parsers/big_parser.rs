@@ -104,11 +104,14 @@ impl BigParser {
                 })
                 .unwrap_or(0.0);
             
-            // If column AI is 0 or not available, try summing columns AF to AP (31-41)
-            // These are typically the daily payment columns
+            // If column AI is 0 or not available, try summing columns AJ to AP (35-41)
+            // These are the daily payment columns (skip AF which is % completed)
+            // Column 35 (AJ) = "Payments 9/5/25"
+            // Column 36 (AK) = "Payments 9/4/25" 
+            // ... through column 41 (AP)
             if net_amount == 0.0 {
                 let mut sum = 0.0;
-                for col_idx in 31..=41 {
+                for col_idx in 35..=41 {
                     if let Some(cell) = row.get(col_idx) {
                         match cell {
                             Data::Float(f) => sum += f,
