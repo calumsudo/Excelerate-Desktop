@@ -1,12 +1,37 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { DateValue } from '@internationalized/date';
 import BasePortfolio from '@components/portfolio/base-portfolio';
 import { FunderData } from '@components/portfolio/funder-upload-section';
+import FileService from '@services/file-service';
 
 function AlderPortfolio() {
   // State for tracking uploaded funder files (optional)
   const [weeklyFiles, setWeeklyFiles] = useState<Record<string, File>>({});
   const [monthlyFiles, setMonthlyFiles] = useState<Record<string, File>>({});
+  const [existingWorkbook, setExistingWorkbook] = useState<File | null>(null);
+
+  // Check for existing workbook on component mount
+  useEffect(() => {
+    const checkForExistingWorkbook = async () => {
+      const workbookInfo = await FileService.getExistingWorkbookInfo('Alder');
+      if (workbookInfo) {
+        // Create a File object to represent the existing file
+        // Note: We can't read the actual file content from the path in the browser
+        // but we can display the file info
+        const file = new File([], workbookInfo.fileName, {
+          type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        });
+        // Add size property to match the actual file size
+        Object.defineProperty(file, 'size', {
+          value: workbookInfo.fileSize,
+          writable: false
+        });
+        setExistingWorkbook(file);
+      }
+    };
+
+    checkForExistingWorkbook();
+  }, []);
 
   // Define your funders for weekly uploads
   const weeklyFunders: FunderData[] = [
@@ -47,10 +72,23 @@ function AlderPortfolio() {
     // Add your date handling logic here
   };
 
-  const handleFileUpload = (file: File) => {
+  const handleFileUpload = async (file: File) => {
     console.log('Alder Portfolio - File uploaded:', file.name);
-    // Add your file processing logic here
-    // You might want to read the Excel file, parse it, etc.
+    
+    try {
+      const response = await FileService.savePortfolioWorkbook('Alder', file);
+      
+      if (response.success) {
+        console.log('Workbook saved successfully:', response.file_path);
+        setExistingWorkbook(file); // Update the existing workbook state
+        // You can add a toast notification or other UI feedback here
+      } else {
+        console.error('Failed to save workbook:', response.message);
+      }
+    } catch (error) {
+      console.error('Error saving workbook:', error);
+      // Handle error - show user notification
+    }
   };
 
   // Handle weekly funder file uploads
@@ -100,6 +138,7 @@ function AlderPortfolio() {
       onMonthlyClearFile={handleMonthlyClearFile}
       weeklyUploadedFiles={weeklyFiles}
       monthlyUploadedFiles={monthlyFiles}
+      existingWorkbookFile={existingWorkbook}
     />
   );
 }

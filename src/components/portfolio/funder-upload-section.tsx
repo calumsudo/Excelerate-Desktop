@@ -67,6 +67,7 @@ const FunderUploadSection: React.FC<FunderUploadSectionProps> = ({
               acceptedTypes={funder.acceptedTypes}
               acceptedExtensions={funder.acceptedExtensions}
               maxSizeKB={funder.maxSizeKB || 10240}
+              uploadId={`funder-${type}-${funder.name}`}
             />
           </div>
         ))}

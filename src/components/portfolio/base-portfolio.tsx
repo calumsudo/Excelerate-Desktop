@@ -16,6 +16,7 @@ interface BasePortfolioProps {
   onMonthlyClearFile?: (funderName: string) => void;
   weeklyUploadedFiles?: Record<string, File>;
   monthlyUploadedFiles?: Record<string, File>;
+  existingWorkbookFile?: File | null;
   children?: React.ReactNode;
 }
 
@@ -31,9 +32,17 @@ const BasePortfolio: React.FC<BasePortfolioProps> = ({
   onMonthlyClearFile,
   weeklyUploadedFiles,
   monthlyUploadedFiles,
+  existingWorkbookFile,
   children
 }) => {
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(existingWorkbookFile || null);
+
+  // Update selected file when existingWorkbookFile changes
+  React.useEffect(() => {
+    if (existingWorkbookFile) {
+      setSelectedFile(existingWorkbookFile);
+    }
+  }, [existingWorkbookFile]);
 
   // Handle main file upload
   const handleFileUpload = (file: File) => {
@@ -84,6 +93,7 @@ const BasePortfolio: React.FC<BasePortfolioProps> = ({
                 ]}
                 acceptedExtensions={['.xlsx', '.xls']}
                 maxSizeKB={10240}
+                uploadId={`${portfolioName}-main-workbook`}
               />
             </div>
           </div>
