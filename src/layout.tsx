@@ -37,7 +37,7 @@ function Layout() {
           />
         </ScrollShadow>
       </div>
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-auto p-4">
         <Outlet />
       </div>
     </div>
