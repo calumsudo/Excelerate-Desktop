@@ -8,6 +8,7 @@ interface BasePortfolioProps {
   portfolioName: string;
   onDateChange?: (date: DateValue | null) => void;
   onFileUpload?: (file: File) => void;
+  onClearMainFile?: () => void;
   weeklyFunders?: FunderData[];
   monthlyFunders?: FunderData[];
   onWeeklyFunderUpload?: (funderName: string, file: File) => void;
@@ -24,6 +25,7 @@ const BasePortfolio: React.FC<BasePortfolioProps> = ({
   portfolioName,
   onDateChange,
   onFileUpload,
+  onClearMainFile,
   weeklyFunders,
   monthlyFunders,
   onWeeklyFunderUpload,
@@ -51,7 +53,10 @@ const BasePortfolio: React.FC<BasePortfolioProps> = ({
   };
 
   // Clear file handlers
-  const clearMainFile = () => setSelectedFile(null);
+  const clearMainFile = () => {
+    setSelectedFile(null);
+    onClearMainFile?.();
+  };
 
   return (
     <div className="min-h-screen bg-background p-6">

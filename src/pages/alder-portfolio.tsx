@@ -70,12 +70,30 @@ function AlderPortfolio() {
       
       if (response.success) {
         console.log('Workbook saved successfully:', response.file_path);
+        setExistingWorkbook(file); // Update the existing workbook state
         // You can add a toast notification or other UI feedback here
       } else {
         console.error('Failed to save workbook:', response.message);
       }
     } catch (error) {
       console.error('Error saving workbook:', error);
+      // Handle error - show user notification
+    }
+  };
+  
+  const handleClearMainFile = async () => {
+    console.log('Alder Portfolio - Clearing main workbook');
+    
+    try {
+      const deleted = await FileService.deletePortfolioWorkbook('Alder');
+      if (deleted) {
+        console.log('Workbook deleted successfully');
+        setExistingWorkbook(null);
+      } else {
+        console.log('No workbook to delete');
+      }
+    } catch (error) {
+      console.error('Error deleting workbook:', error);
       // Handle error - show user notification
     }
   };
@@ -119,6 +137,7 @@ function AlderPortfolio() {
       portfolioName="Alder"
       onDateChange={handleDateChange}
       onFileUpload={handleFileUpload}
+      onClearMainFile={handleClearMainFile}
       weeklyFunders={weeklyFunders}
       monthlyFunders={monthlyFunders}
       onWeeklyFunderUpload={handleWeeklyFunderUpload}

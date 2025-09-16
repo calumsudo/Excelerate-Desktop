@@ -119,3 +119,24 @@ pub fn get_existing_workbook_info(portfolio_name: &str) -> Result<(String, Strin
     
     Ok((file_name, path_str, file_size))
 }
+
+#[tauri::command]
+pub fn delete_portfolio_workbook(portfolio_name: &str) -> Result<bool, String> {
+    let base_dir = get_excelerate_dir()?;
+    
+    let file_path = match portfolio_name.to_lowercase().as_str() {
+        "alder" => base_dir.join("Alder").join("Workbook").join("alder_portfolio_original.xlsx"),
+        "white rabbit" | "whiterabbit" | "white_rabbit" => {
+            base_dir.join("White Rabbit").join("Workbook").join("white_rabbit_portfolio_original.xlsx")
+        }
+        _ => return Err(format!("Unknown portfolio: {}", portfolio_name)),
+    };
+    
+    if file_path.exists() {
+        fs::remove_file(&file_path)
+            .map_err(|e| format!("Failed to delete file: {}", e))?;
+        Ok(true)
+    } else {
+        Ok(false)
+    }
+}

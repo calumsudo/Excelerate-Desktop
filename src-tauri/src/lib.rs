@@ -21,7 +21,8 @@ pub fn run() {
             file_handler::save_portfolio_workbook,
             file_handler::get_portfolio_workbook_path,
             file_handler::check_workbook_exists,
-            file_handler::get_existing_workbook_info
+            file_handler::get_existing_workbook_info,
+            file_handler::delete_portfolio_workbook
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

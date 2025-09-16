@@ -90,6 +90,23 @@ function WhiteRabbitPortfolio() {
       // Handle error - show user notification
     }
   };
+  
+  const handleClearMainFile = async () => {
+    console.log('WhiteRabbit Portfolio - Clearing main workbook');
+    
+    try {
+      const deleted = await FileService.deletePortfolioWorkbook('White Rabbit');
+      if (deleted) {
+        console.log('Workbook deleted successfully');
+        setExistingWorkbook(null);
+      } else {
+        console.log('No workbook to delete');
+      }
+    } catch (error) {
+      console.error('Error deleting workbook:', error);
+      // Handle error - show user notification
+    }
+  };
 
   // Handle weekly funder file uploads
   const handleWeeklyFunderUpload = (funderName: string, file: File) => {
@@ -130,6 +147,7 @@ function WhiteRabbitPortfolio() {
       portfolioName="White Rabbit"
       onDateChange={handleDateChange}
       onFileUpload={handleFileUpload}
+      onClearMainFile={handleClearMainFile}
       weeklyFunders={weeklyFunders}
       monthlyFunders={monthlyFunders}
       onWeeklyFunderUpload={handleWeeklyFunderUpload}

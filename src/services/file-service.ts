@@ -66,6 +66,18 @@ export class FileService {
       return null;
     }
   }
+  
+  static async deletePortfolioWorkbook(portfolioName: string): Promise<boolean> {
+    try {
+      const deleted = await invoke<boolean>('delete_portfolio_workbook', {
+        portfolioName,
+      });
+      return deleted;
+    } catch (error) {
+      console.error('Error deleting workbook:', error);
+      return false;
+    }
+  }
 }
 
 export default FileService;
