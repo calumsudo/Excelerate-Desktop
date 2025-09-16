@@ -4,12 +4,10 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "start:api": "cd python-api && uv run main.py",
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "tauri": "tauri",
-    "dev:all": "concurrently \"npm run start:api\" \"npm run tauri dev\""
+    "tauri": "tauri"
   },
   "dependencies": {
     "@heroui/react": "^2.7.5",
@@ -18,9 +16,11 @@
     "@tauri-apps/api": "^2.4.0",
     "@tauri-apps/plugin-opener": "^2",
     "@types/node": "^22.13.11",
+    "@types/react-router-dom": "^5.3.3",
     "framer-motion": "^12.5.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-router-dom": "^7.9.1",
     "recharts": "^2.15.1",
     "usehooks-ts": "^3.1.1"
   },

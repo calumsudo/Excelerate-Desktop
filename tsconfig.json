@@ -18,8 +18,25 @@
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+    "baseUrl": "./",
+    "paths": {
+      "@/*": ["src/*"], // Add this line
+      "@utils/*": ["src/utils/*"],
+      "@components/*": ["src/components/*"],
+      "@assets/*": ["src/assets/*"],
+      "@pages/*": ["src/pages/*"],
+      "@features/*": ["src/features/*"],
+      "@services/*": ["src/services/*"], // Remove the ./ prefix
+      "@webdesk/*": ["src/tauri/*"] // This should match your vite config
+    }
   },
-  "include": ["src"],
+  "exclude": ["dist", "node_modules"],
+  "include": [
+    "src",
+    "vite-env.d.ts",
+    "tailwind.config.ts",
+    "vite.config.ts"
+  ],
   "references": [{ "path": "./tsconfig.node.json" }]
 }
