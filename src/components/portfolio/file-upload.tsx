@@ -96,10 +96,17 @@ const FileUpload: React.FC<FileUploadProps> = ({
         unlisten = await getCurrentWebview().onDragDropEvent((event) => {
           // Only process if this specific drop zone is being hovered
           if (!dropZoneRef.current) return;
+
+          const hasPosition = (payload: any): payload is { position: { x: number; y: number } } => {
+          return payload && typeof payload.position === 'object' && 
+                typeof payload.position.x === 'number' && 
+                typeof payload.position.y === 'number';
+          };
+
           
           // Check if the drop zone is being hovered
           const rect = dropZoneRef.current.getBoundingClientRect();
-          const isOverDropZone = event.payload.position && 
+          const isOverDropZone = hasPosition(event.payload) && 
             event.payload.position.x >= rect.left &&
             event.payload.position.x <= rect.right &&
             event.payload.position.y >= rect.top &&

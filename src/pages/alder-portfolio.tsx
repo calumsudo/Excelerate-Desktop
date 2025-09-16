@@ -36,22 +36,12 @@ function AlderPortfolio() {
   // Define your funders for weekly uploads
   const weeklyFunders: FunderData[] = [
     {
-      name: "Funder Alpha",
+      name: "BHB",
       acceptedTypes: [
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'application/vnd.ms-excel'
+        'text/csv'
       ],
-      acceptedExtensions: ['.xlsx', '.xls'],
+      acceptedExtensions: ['.csv'],
       maxSizeKB: 5120 // 5MB
-    },
-    {
-      name: "Funder Beta",
-      acceptedTypes: [
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'application/pdf'
-      ],
-      acceptedExtensions: ['.xlsx', '.pdf'],
-      maxSizeKB: 10240 // 10MB
     }
   ];
 
@@ -80,7 +70,6 @@ function AlderPortfolio() {
       
       if (response.success) {
         console.log('Workbook saved successfully:', response.file_path);
-        setExistingWorkbook(file); // Update the existing workbook state
         // You can add a toast notification or other UI feedback here
       } else {
         console.error('Failed to save workbook:', response.message);
