@@ -8,6 +8,12 @@ pub mod clearview_pivot_processor;
 #[cfg(test)]
 mod test_clearview;
 
+#[cfg(test)]
+mod test_clearview_integration;
+
+#[cfg(test)]
+mod test_combined_pivot;
+
 pub use base_parser::{BaseParser, PivotTable};
 pub use bhb_parser::BhbParser;
 pub use big_parser::BigParser;

@@ -12,6 +12,7 @@ function AlderPortfolio() {
   const [selectedDate, setSelectedDate] = useState<DateValue | null>(null);
   const [versions, setVersions] = useState<VersionInfo[]>([]);
   const [funderUploads, setFunderUploads] = useState<FunderUploadInfo[]>([]);
+  const [clearViewDailyFilesList, setClearViewDailyFilesList] = useState<string[]>([]);
 
   useEffect(() => {
     const loadActiveVersion = async () => {
@@ -45,6 +46,23 @@ function AlderPortfolio() {
         const uploads = await FileService.getFunderUploadsForDate('Alder', reportDate);
         setFunderUploads(uploads);
         
+        // Load Clear View daily files for the week
+        const dailyFiles = await FileService.getClearViewDailyFilesForWeek('Alder', reportDate);
+        setClearViewDailyFilesList(dailyFiles);
+        
+        // Create File objects for Clear View daily files to show in upload component
+        const clearViewFiles: File[] = dailyFiles.map((filePath, index) => {
+          const filename = filePath.split('/').pop() || `daily_file_${index + 1}.csv`;
+          const file = new File([], filename, { type: 'text/csv' });
+          // Add a custom property to indicate this is from backend
+          Object.defineProperty(file, 'isFromBackend', {
+            value: true,
+            writable: false
+          });
+          return file;
+        });
+        setClearViewDailyFiles(clearViewFiles);
+        
         // Create File objects for existing uploads to show in UI
         const weeklyFilesMap: Record<string, File> = {};
         const monthlyFilesMap: Record<string, File> = {};
@@ -70,6 +88,8 @@ function AlderPortfolio() {
         setMonthlyFiles(monthlyFilesMap);
       } else {
         setFunderUploads([]);
+        setClearViewDailyFilesList([]);
+        setClearViewDailyFiles([]);
         setWeeklyFiles({});
         setMonthlyFiles({});
       }
@@ -350,9 +370,24 @@ function AlderPortfolio() {
       }
     }
     
-    // Refresh funder uploads list
+    // Refresh funder uploads list and Clear View daily files
     const uploads = await FileService.getFunderUploadsForDate('Alder', reportDate);
     setFunderUploads(uploads);
+    
+    const dailyFiles = await FileService.getClearViewDailyFilesForWeek('Alder', reportDate);
+    setClearViewDailyFilesList(dailyFiles);
+    
+    // Update the Clear View daily files for the upload component
+    const clearViewFiles: File[] = dailyFiles.map((filePath, index) => {
+      const filename = filePath.split('/').pop() || `daily_file_${index + 1}.csv`;
+      const file = new File([], filename, { type: 'text/csv' });
+      Object.defineProperty(file, 'isFromBackend', {
+        value: true,
+        writable: false
+      });
+      return file;
+    });
+    setClearViewDailyFiles(clearViewFiles);
   };
 
   const handleClearViewDailyRemove = (index: number) => {
@@ -382,7 +417,7 @@ function AlderPortfolio() {
         onClearViewDailyRemove={handleClearViewDailyRemove}
         clearViewDailyFiles={clearViewDailyFiles}
       />
-      {selectedDate && funderUploads.length > 0 && (
+      {selectedDate && (funderUploads.length > 0 || clearViewDailyFilesList.length > 0) && (
         <div className="max-w-6xl mx-auto mt-6 p-6 bg-default-50 rounded-lg border border-default-200">
           <h3 className="text-xl font-semibold mb-4">
             Uploaded Files for {selectedDate.toString()}
@@ -426,6 +461,24 @@ function AlderPortfolio() {
                         ) : (
                           <span className="text-xs text-default-400">Not uploaded</span>
                         )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            {clearViewDailyFilesList.length > 0 && (
+              <div className="md:col-span-2">
+                <h4 className="font-medium text-sm text-default-600 mb-2">Clear View Daily Files</h4>
+                <div className="space-y-2">
+                  {clearViewDailyFilesList.map((filePath, index) => {
+                    const filename = filePath.split('/').pop() || filePath;
+                    return (
+                      <div key={index} className="flex items-center justify-between p-2 bg-default-100 rounded">
+                        <span className="text-sm">Daily File {index + 1}</span>
+                        <span className="text-xs text-success-600 flex items-center gap-1">
+                          ✓ {filename}
+                        </span>
                       </div>
                     );
                   })}

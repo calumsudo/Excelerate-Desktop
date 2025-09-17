@@ -235,6 +235,21 @@ export class FileService {
       throw error;
     }
   }
+  
+  static async getClearViewDailyFilesForWeek(
+    portfolioName: string,
+    reportDate: string
+  ): Promise<string[]> {
+    try {
+      return await invoke<string[]>('get_clearview_daily_files_for_week', {
+        portfolioName,
+        reportDate,
+      });
+    } catch (error) {
+      console.error('Error getting Clear View daily files:', error);
+      return [];
+    }
+  }
 }
 
 export default FileService;
