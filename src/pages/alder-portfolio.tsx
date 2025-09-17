@@ -335,6 +335,21 @@ function AlderPortfolio() {
       }
     }
     
+    // After all files are uploaded, process the pivot table
+    if (files.length > 0) {
+      try {
+        console.log('Processing Clear View daily pivot table...');
+        const pivotResponse = await FileService.processClearViewDailyPivot('Alder', reportDate);
+        if (pivotResponse.success) {
+          console.log('Clear View daily pivot table created successfully:', pivotResponse.message);
+        } else {
+          console.error('Failed to create Clear View daily pivot table:', pivotResponse.message);
+        }
+      } catch (error) {
+        console.error('Error processing Clear View daily pivot:', error);
+      }
+    }
+    
     // Refresh funder uploads list
     const uploads = await FileService.getFunderUploadsForDate('Alder', reportDate);
     setFunderUploads(uploads);

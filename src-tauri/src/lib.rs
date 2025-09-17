@@ -40,7 +40,10 @@ pub fn run() {
             file_handler::check_funder_upload_exists,
             file_handler::get_all_database_files,
             file_handler::read_csv_file,
-            file_handler::read_excel_file
+            file_handler::read_excel_file,
+            file_handler::process_clearview_pivots,
+            file_handler::process_clearview_daily_pivot,
+            file_handler::get_clearview_daily_files_for_week
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

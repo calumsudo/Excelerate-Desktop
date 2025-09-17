@@ -218,6 +218,23 @@ export class FileService {
       return false;
     }
   }
+
+  static async processClearViewDailyPivot(
+    portfolioName: string,
+    reportDate: string
+  ): Promise<UploadResponse> {
+    try {
+      const response = await invoke<UploadResponse>('process_clearview_daily_pivot', {
+        portfolioName,
+        reportDate,
+      });
+      
+      return response;
+    } catch (error) {
+      console.error('Error processing Clear View daily pivot:', error);
+      throw error;
+    }
+  }
 }
 
 export default FileService;

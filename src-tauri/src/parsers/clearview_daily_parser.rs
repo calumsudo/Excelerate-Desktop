@@ -60,9 +60,15 @@ impl ClearViewDailyParser {
     pub fn process(&self) -> ParserResult<PivotTable> {
         let mut all_data: Vec<HashMap<String, String>> = Vec::new();
         
+        println!("[DEBUG] ClearViewDailyParser processing {} files", self.file_paths.len());
+        for path in &self.file_paths {
+            println!("[DEBUG] File to process: {}", path.display());
+        }
+        
         // Read and combine all files
         for file_path in &self.file_paths {
             let file_data = read_csv_file(file_path)?;
+            println!("[DEBUG] Read {} rows from {}", file_data.len(), file_path.display());
             all_data.extend(file_data);
         }
         
