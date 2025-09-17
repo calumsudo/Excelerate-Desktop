@@ -613,3 +613,216 @@ pub fn check_funder_upload_exists(
         Err("Database not initialized".to_string())
     }
 }
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DatabaseFileEntry {
+    pub id: String,
+    pub file_type: String, // "portfolio_workbook", "funder_upload", "pivot_table"
+    pub portfolio_name: String,
+    pub funder_name: Option<String>,
+    pub report_date: String,
+    pub upload_type: Option<String>, // "weekly" or "monthly"
+    pub file_name: String,
+    pub file_path: String,
+    pub file_size: i64,
+    pub upload_timestamp: String,
+    pub is_active: Option<bool>,
+    pub total_gross: Option<f64>,
+    pub total_fee: Option<f64>,
+    pub total_net: Option<f64>,
+    pub row_count: Option<i32>,
+}
+
+#[tauri::command]
+pub fn get_all_database_files() -> Result<Vec<DatabaseFileEntry>, String> {
+    if DB.lock().unwrap().is_none() {
+        init_database()?;
+    }
+    
+    let mut all_files = Vec::new();
+    
+    let db_lock = DB.lock().unwrap();
+    if let Some(db) = db_lock.as_ref() {
+        // Get all portfolio workbook versions
+        let versions = db.get_all_versions()
+            .map_err(|e| format!("Failed to get versions: {}", e))?;
+        
+        for version in versions {
+            all_files.push(DatabaseFileEntry {
+                id: version.id.clone(),
+                file_type: "portfolio_workbook".to_string(),
+                portfolio_name: version.portfolio_name,
+                funder_name: None,
+                report_date: version.report_date,
+                upload_type: None,
+                file_name: version.original_filename,
+                file_path: version.file_path,
+                file_size: version.file_size,
+                upload_timestamp: version.upload_timestamp.to_rfc3339(),
+                is_active: Some(version.is_active),
+                total_gross: None,
+                total_fee: None,
+                total_net: None,
+                row_count: None,
+            });
+        }
+        
+        // Get all funder uploads
+        let funder_uploads = db.get_all_funder_uploads()
+            .map_err(|e| format!("Failed to get funder uploads: {}", e))?;
+        
+        for upload in funder_uploads {
+            all_files.push(DatabaseFileEntry {
+                id: upload.id.clone(),
+                file_type: "funder_upload".to_string(),
+                portfolio_name: upload.portfolio_name,
+                funder_name: Some(upload.funder_name),
+                report_date: upload.report_date,
+                upload_type: Some(upload.upload_type),
+                file_name: upload.original_filename,
+                file_path: upload.file_path,
+                file_size: upload.file_size,
+                upload_timestamp: upload.upload_timestamp.to_rfc3339(),
+                is_active: None,
+                total_gross: None,
+                total_fee: None,
+                total_net: None,
+                row_count: None,
+            });
+        }
+        
+        // Get all pivot tables
+        let pivot_tables = db.get_all_pivot_tables()
+            .map_err(|e| format!("Failed to get pivot tables: {}", e))?;
+        
+        for pivot in pivot_tables {
+            let file_name = pivot.pivot_file_path.split('/').last()
+                .unwrap_or("pivot_table.csv")
+                .to_string();
+            
+            all_files.push(DatabaseFileEntry {
+                id: pivot.id.clone(),
+                file_type: "pivot_table".to_string(),
+                portfolio_name: pivot.portfolio_name,
+                funder_name: Some(pivot.funder_name),
+                report_date: pivot.report_date,
+                upload_type: Some(pivot.upload_type),
+                file_name,
+                file_path: pivot.pivot_file_path,
+                file_size: 0, // We don't store file size for pivot tables, could calculate if needed
+                upload_timestamp: pivot.created_timestamp.to_rfc3339(),
+                is_active: None,
+                total_gross: Some(pivot.total_gross),
+                total_fee: Some(pivot.total_fee),
+                total_net: Some(pivot.total_net),
+                row_count: Some(pivot.row_count),
+            });
+        }
+        
+        Ok(all_files)
+    } else {
+        Err("Database not initialized".to_string())
+    }
+}
+
+#[tauri::command]
+pub fn read_csv_file(file_path: &str) -> Result<(Vec<String>, Vec<Vec<String>>), String> {
+    use csv::ReaderBuilder;
+    
+    let path = Path::new(file_path);
+    if !path.exists() {
+        return Err("File not found".to_string());
+    }
+    
+    let file = fs::File::open(path)
+        .map_err(|e| format!("Failed to open file: {}", e))?;
+    
+    let mut reader = ReaderBuilder::new()
+        .has_headers(true)
+        .from_reader(file);
+    
+    // Get headers
+    let headers = reader.headers()
+        .map_err(|e| format!("Failed to read CSV headers: {}", e))?
+        .iter()
+        .map(|s| s.to_string())
+        .collect::<Vec<String>>();
+    
+    // Get rows
+    let mut rows = Vec::new();
+    for result in reader.records() {
+        let record = result
+            .map_err(|e| format!("Failed to read CSV record: {}", e))?;
+        let row: Vec<String> = record.iter()
+            .map(|s| s.to_string())
+            .collect();
+        
+        // Ensure the row has the same number of columns as headers
+        // Pad with empty strings if necessary
+        let mut padded_row = row.clone();
+        while padded_row.len() < headers.len() {
+            padded_row.push(String::new());
+        }
+        // Truncate if too many columns
+        padded_row.truncate(headers.len());
+        
+        rows.push(padded_row);
+    }
+    
+    Ok((headers, rows))
+}
+
+#[tauri::command]
+pub fn read_excel_file(file_path: &str) -> Result<serde_json::Value, String> {
+    use calamine::{Reader, open_workbook, Xlsx};
+    
+    let path = Path::new(file_path);
+    if !path.exists() {
+        return Err("File not found".to_string());
+    }
+    
+    let mut workbook: Xlsx<_> = open_workbook(path)
+        .map_err(|e| format!("Failed to open Excel file: {}", e))?;
+    
+    let mut sheets_data = Vec::new();
+    
+    for sheet_name in workbook.sheet_names() {
+        if let Ok(range) = workbook.worksheet_range(&sheet_name) {
+            let mut sheet_rows = Vec::new();
+            
+            for row in range.rows() {
+                let mut row_data = Vec::new();
+                for cell in row {
+                    let value = match cell {
+                        calamine::Data::Empty => serde_json::Value::Null,
+                        calamine::Data::String(s) => serde_json::Value::String(s.clone()),
+                        calamine::Data::Float(f) => {
+                            serde_json::Value::Number(serde_json::Number::from_f64(*f).unwrap_or(serde_json::Number::from(0)))
+                        },
+                        calamine::Data::DateTime(dt) => {
+                            // Convert Excel datetime to string
+                            serde_json::Value::String(dt.to_string())
+                        },
+                        calamine::Data::Int(i) => serde_json::Value::Number(serde_json::Number::from(*i)),
+                        calamine::Data::Bool(b) => serde_json::Value::Bool(*b),
+                        calamine::Data::Error(_) => serde_json::Value::String("ERROR".to_string()),
+                        calamine::Data::DateTimeIso(s) => serde_json::Value::String(s.clone()),
+                        calamine::Data::DurationIso(s) => serde_json::Value::String(s.clone()),
+                    };
+                    row_data.push(serde_json::json!({ "value": value }));
+                }
+                sheet_rows.push(row_data);
+            }
+            
+            sheets_data.push(serde_json::json!({
+                "name": sheet_name,
+                "data": sheet_rows
+            }));
+        }
+    }
+    
+    Ok(serde_json::json!({
+        "sheets": sheets_data,
+        "activeSheet": 0
+    }))
+}

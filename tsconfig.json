@@ -31,12 +31,11 @@
       "@webdesk/*": ["src/tauri/*"] // This should match your vite config
     }
   },
-  "exclude": ["dist", "node_modules"],
+  "exclude": ["dist", "node_modules", "vite.config.ts"],
   "include": [
     "src",
     "vite-env.d.ts",
-    "tailwind.config.ts",
-    "vite.config.ts"
+    "tailwind.config.ts"
   ],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

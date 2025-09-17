@@ -463,6 +463,34 @@ impl Database {
         Ok(rows_affected > 0)
     }
     
+    pub fn get_all_funder_uploads(&self) -> Result<Vec<FunderUpload>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, portfolio_name, funder_name, report_date, upload_type,
+                    original_filename, stored_filename, file_path, file_size, upload_timestamp 
+             FROM funder_uploads 
+             ORDER BY report_date DESC, upload_timestamp DESC"
+        )?;
+        
+        let uploads = stmt.query_map([], |row| {
+            Ok(FunderUpload {
+                id: row.get(0)?,
+                portfolio_name: row.get(1)?,
+                funder_name: row.get(2)?,
+                report_date: row.get(3)?,
+                upload_type: row.get(4)?,
+                original_filename: row.get(5)?,
+                stored_filename: row.get(6)?,
+                file_path: row.get(7)?,
+                file_size: row.get(8)?,
+                upload_timestamp: DateTime::parse_from_rfc3339(&row.get::<_, String>(9)?)
+                    .unwrap()
+                    .with_timezone(&Utc),
+            })
+        })?;
+        
+        uploads.collect()
+    }
+    
     // Pivot Table Methods
     pub fn insert_funder_pivot_table(&self, pivot: &FunderPivotTable) -> Result<()> {
         self.conn.execute(
@@ -555,5 +583,35 @@ impl Database {
         }).optional()?;
         
         Ok(pivot)
+    }
+    
+    pub fn get_all_pivot_tables(&self) -> Result<Vec<FunderPivotTable>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, upload_id, portfolio_name, funder_name, report_date, upload_type,
+                    pivot_file_path, total_gross, total_fee, total_net, row_count, created_timestamp 
+             FROM funder_pivot_tables 
+             ORDER BY report_date DESC, created_timestamp DESC"
+        )?;
+        
+        let pivots = stmt.query_map([], |row| {
+            Ok(FunderPivotTable {
+                id: row.get(0)?,
+                upload_id: row.get(1)?,
+                portfolio_name: row.get(2)?,
+                funder_name: row.get(3)?,
+                report_date: row.get(4)?,
+                upload_type: row.get(5)?,
+                pivot_file_path: row.get(6)?,
+                total_gross: row.get(7)?,
+                total_fee: row.get(8)?,
+                total_net: row.get(9)?,
+                row_count: row.get(10)?,
+                created_timestamp: DateTime::parse_from_rfc3339(&row.get::<_, String>(11)?)
+                    .unwrap()
+                    .with_timezone(&Utc),
+            })
+        })?;
+        
+        pivots.collect()
     }
 }

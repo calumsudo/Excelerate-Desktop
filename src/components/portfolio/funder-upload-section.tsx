@@ -9,7 +9,7 @@ export interface FunderData {
 }
 
 interface FunderUploadSectionProps {
-  type: 'weekly' | 'monthly';
+  type: 'daily' | 'weekly' | 'monthly';
   funders: FunderData[];
   onFileUpload?: (funderName: string, file: File) => void;
   uploadedFiles?: Record<string, File>;

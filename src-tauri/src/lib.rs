@@ -1,8 +1,6 @@
 mod database;
 mod file_handler;
 pub mod parsers;
-#[cfg(test)]
-mod test_big_parser;
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
@@ -39,7 +37,10 @@ pub fn run() {
             file_handler::save_funder_upload,
             file_handler::get_funder_upload_info,
             file_handler::get_funder_uploads_for_date,
-            file_handler::check_funder_upload_exists
+            file_handler::check_funder_upload_exists,
+            file_handler::get_all_database_files,
+            file_handler::read_csv_file,
+            file_handler::read_excel_file
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

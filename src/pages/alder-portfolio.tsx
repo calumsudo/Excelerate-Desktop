@@ -7,6 +7,7 @@ import FileService, { VersionInfo, FunderUploadInfo } from '@services/file-servi
 function AlderPortfolio() {
   const [weeklyFiles, setWeeklyFiles] = useState<Record<string, File>>({});
   const [monthlyFiles, setMonthlyFiles] = useState<Record<string, File>>({});
+  const [clearViewDailyFiles, setClearViewDailyFiles] = useState<File[]>([]);
   const [existingWorkbook, setExistingWorkbook] = useState<File | null>(null);
   const [selectedDate, setSelectedDate] = useState<DateValue | null>(null);
   const [versions, setVersions] = useState<VersionInfo[]>([]);
@@ -285,6 +286,66 @@ function AlderPortfolio() {
     });
   };
 
+  const handleClearViewDailyUpload = async (files: File[]) => {
+    console.log(`Alder Portfolio - Clear View Daily upload, ${files.length} files`);
+    
+    if (!selectedDate) {
+      console.error('No report date selected. Please select a Friday date first.');
+      return;
+    }
+
+    const reportDate = selectedDate.toString();
+    setClearViewDailyFiles(files);
+    
+    // Save each file
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      try {
+        const funderName = `ClearView_Daily_${i + 1}`;
+        
+        const exists = await FileService.checkFunderUploadExists(
+          'Alder',
+          funderName,
+          reportDate,
+          'daily'
+        );
+        
+        if (exists) {
+          const confirmOverwrite = window.confirm(
+            `A Clear View daily file ${i + 1} already exists for ${reportDate}. Do you want to overwrite it?`
+          );
+          if (!confirmOverwrite) {
+            continue;
+          }
+        }
+        
+        const response = await FileService.saveFunderUpload(
+          'Alder',
+          funderName,
+          file,
+          reportDate,
+          'daily'
+        );
+        
+        if (response.success) {
+          console.log(`Clear View daily file ${i + 1} saved: ${response.file_path}`);
+        }
+      } catch (error) {
+        console.error(`Error uploading Clear View daily file ${i + 1}:`, error);
+      }
+    }
+    
+    // Refresh funder uploads list
+    const uploads = await FileService.getFunderUploadsForDate('Alder', reportDate);
+    setFunderUploads(uploads);
+  };
+
+  const handleClearViewDailyRemove = (index: number) => {
+    console.log(`Alder Portfolio - Removing Clear View daily file ${index + 1}`);
+    const newFiles = clearViewDailyFiles.filter((_, i) => i !== index);
+    setClearViewDailyFiles(newFiles);
+  };
+
   return (
     <>
       <BasePortfolio
@@ -301,6 +362,10 @@ function AlderPortfolio() {
         weeklyUploadedFiles={weeklyFiles}
         monthlyUploadedFiles={monthlyFiles}
         existingWorkbookFile={existingWorkbook}
+        showClearViewDaily={true}
+        onClearViewDailyUpload={handleClearViewDailyUpload}
+        onClearViewDailyRemove={handleClearViewDailyRemove}
+        clearViewDailyFiles={clearViewDailyFiles}
       />
       {selectedDate && funderUploads.length > 0 && (
         <div className="max-w-6xl mx-auto mt-6 p-6 bg-default-50 rounded-lg border border-default-200">

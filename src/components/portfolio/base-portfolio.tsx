@@ -3,6 +3,7 @@ import { DateValue } from '@internationalized/date';
 import FridayDatePicker from '@components/date/friday-date-picker';
 import FileUpload from './file-upload';
 import FunderUploadSection, { FunderData } from './funder-upload-section';
+import ClearViewDailyUpload from './clearview-daily-upload';
 
 interface BasePortfolioProps {
   portfolioName: string;
@@ -11,14 +12,23 @@ interface BasePortfolioProps {
   onClearMainFile?: () => void;
   weeklyFunders?: FunderData[];
   monthlyFunders?: FunderData[];
+  dailyFunders?: FunderData[];
   onWeeklyFunderUpload?: (funderName: string, file: File) => void;
   onMonthlyFunderUpload?: (funderName: string, file: File) => void;
+  onDailyFunderUpload?: (funderName: string, file: File) => void;
   onWeeklyClearFile?: (funderName: string) => void;
   onMonthlyClearFile?: (funderName: string) => void;
+  onDailyClearFile?: (funderName: string) => void;
   weeklyUploadedFiles?: Record<string, File>;
   monthlyUploadedFiles?: Record<string, File>;
+  dailyUploadedFiles?: Record<string, File>;
   existingWorkbookFile?: File | null;
   children?: React.ReactNode;
+  // Clear View Daily specific props
+  showClearViewDaily?: boolean;
+  onClearViewDailyUpload?: (files: File[]) => void;
+  onClearViewDailyRemove?: (index: number) => void;
+  clearViewDailyFiles?: File[];
 }
 
 const BasePortfolio: React.FC<BasePortfolioProps> = ({
@@ -28,14 +38,22 @@ const BasePortfolio: React.FC<BasePortfolioProps> = ({
   onClearMainFile,
   weeklyFunders,
   monthlyFunders,
+  dailyFunders,
   onWeeklyFunderUpload,
   onMonthlyFunderUpload,
+  onDailyFunderUpload,
   onWeeklyClearFile,
   onMonthlyClearFile,
+  onDailyClearFile,
   weeklyUploadedFiles,
   monthlyUploadedFiles,
+  dailyUploadedFiles,
   existingWorkbookFile,
-  children
+  children,
+  showClearViewDaily,
+  onClearViewDailyUpload,
+  onClearViewDailyRemove,
+  clearViewDailyFiles
 }) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(existingWorkbookFile || null);
 
@@ -103,14 +121,34 @@ const BasePortfolio: React.FC<BasePortfolioProps> = ({
             </div>
           </div>
 
+          {/* Clear View Daily Upload Section */}
+          {showClearViewDaily && (
+            <ClearViewDailyUpload
+              onFileUpload={onClearViewDailyUpload}
+              uploadedFiles={clearViewDailyFiles}
+              onRemoveFile={onClearViewDailyRemove}
+              maxUploads={5}
+            />
+          )}
+
           {/* Funder Upload Section */}
-          {(weeklyFunders?.length || monthlyFunders?.length) && (
+          {(weeklyFunders?.length || monthlyFunders?.length || dailyFunders?.length) && (
             <div className="bg-default-50 rounded-lg p-6 border border-default-200">
               <h2 className="text-2xl font-semibold mb-6 text-foreground text-center">
                 Funder Upload
               </h2>
               
               <div className="space-y-6">
+                {dailyFunders?.length && (
+                  <FunderUploadSection
+                    type="daily"
+                    funders={dailyFunders}
+                    onFileUpload={onDailyFunderUpload}
+                    uploadedFiles={dailyUploadedFiles}
+                    onClearFile={onDailyClearFile}
+                  />
+                )}
+                
                 {weeklyFunders?.length && (
                   <FunderUploadSection
                     type="weekly"

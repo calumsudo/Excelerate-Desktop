@@ -144,7 +144,7 @@ export class FileService {
     funderName: string,
     file: File,
     reportDate: string,
-    uploadType: 'weekly' | 'monthly'
+    uploadType: 'daily' | 'weekly' | 'monthly'
   ): Promise<UploadResponse> {
     try {
       const arrayBuffer = await file.arrayBuffer();
@@ -170,7 +170,7 @@ export class FileService {
     portfolioName: string,
     funderName: string,
     reportDate: string,
-    uploadType: 'weekly' | 'monthly'
+    uploadType: 'daily' | 'weekly' | 'monthly'
   ): Promise<FunderUploadInfo | null> {
     try {
       return await invoke<FunderUploadInfo | null>('get_funder_upload_info', {
@@ -204,7 +204,7 @@ export class FileService {
     portfolioName: string,
     funderName: string,
     reportDate: string,
-    uploadType: 'weekly' | 'monthly'
+    uploadType: 'daily' | 'weekly' | 'monthly'
   ): Promise<boolean> {
     try {
       return await invoke<boolean>('check_funder_upload_exists', {

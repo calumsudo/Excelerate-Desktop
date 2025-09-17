@@ -35,7 +35,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
   const [localSelectedFile, setLocalSelectedFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const dragCounter = useRef(0);
+  // const dragCounter = useRef(0);
   const dropZoneRef = useRef<HTMLDivElement>(null);
   const isHoveredRef = useRef(false);
 
