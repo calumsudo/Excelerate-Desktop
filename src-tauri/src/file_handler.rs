@@ -5,7 +5,7 @@ use serde::{Serialize, Deserialize};
 use chrono::Utc;
 use uuid::Uuid;
 use crate::database::{Database, FileVersion, FunderUpload, FunderPivotTable};
-use crate::parsers::{BaseParser, BhbParser, BigParser, EfinParser, ClearViewPivotProcessor};
+use crate::parsers::{BaseParser, BhbParser, BigParser, EfinParser, InAdvParser, ClearViewPivotProcessor};
 
 lazy_static::lazy_static! {
     static ref DB: Mutex<Option<Database>> = Mutex::new(None);
@@ -512,6 +512,11 @@ fn process_funder_file(
             let parser = EfinParser::new();
             parser.process(file_path)
                 .map_err(|e| format!("Failed to parse eFin file: {}", e))?
+        },
+        "InAdvance" => {
+            let parser = InAdvParser::new();
+            parser.process(file_path)
+                .map_err(|e| format!("Failed to parse InAdvance file: {}", e))?
         },
         _ => {
             return Err(format!("Parser not yet implemented for funder: {}", funder_name));
