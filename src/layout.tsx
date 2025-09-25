@@ -2,7 +2,7 @@ import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { ScrollShadow, Button } from "@heroui/react";
 import Sidebar from "@features/sidebar/sidebar";
 import { items } from "@features/sidebar/sidebar-items";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Icon } from "@iconify/react";
 
 function Layout() {
@@ -13,19 +13,50 @@ function Layout() {
     const saved = localStorage.getItem("sidebarCompact");
     return saved === "true";
   });
+  const navigationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isNavigatingRef = useRef(false);
 
   useEffect(() => {
     const path = location.pathname === "/" ? "/dashboard" : location.pathname;
     const key = path.substring(1);
     setSelectedKey(key);
+    isNavigatingRef.current = false;
   }, [location]);
 
   useEffect(() => {
     localStorage.setItem("sidebarCompact", isCompact.toString());
   }, [isCompact]);
 
+  useEffect(() => {
+    return () => {
+      if (navigationTimeoutRef.current) {
+        clearTimeout(navigationTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const handleSelect = (key: string) => {
-    navigate(`/${key}`);
+    // Prevent navigation with undefined or empty key
+    if (!key || key === "undefined") {
+      return;
+    }
+    
+    if (isNavigatingRef.current) {
+      return;
+    }
+    
+    if (navigationTimeoutRef.current) {
+      clearTimeout(navigationTimeoutRef.current);
+    }
+    
+    isNavigatingRef.current = true;
+    
+    navigationTimeoutRef.current = setTimeout(() => {
+      if (location.pathname !== `/${key}`) {
+        navigate(`/${key}`);
+      }
+      navigationTimeoutRef.current = null;
+    }, 50);
   };
 
   return (
@@ -63,6 +94,7 @@ function Layout() {
             items={items} 
             isCompact={isCompact}
             onSelect={(key: string) => handleSelect(key)}
+            className="select-none"
           />
         </ScrollShadow>
       </div>
