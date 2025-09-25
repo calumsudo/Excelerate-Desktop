@@ -196,9 +196,9 @@ impl BaseParser for BigParser {
             pivot.add_row(
                 advance_id,
                 merchant_name,
-                (gross * 100.0).round() / 100.0,
-                (fee * 100.0).round() / 100.0,
-                (net * 100.0).round() / 100.0,
+                gross,
+                fee,
+                net,
             );
         }
         
