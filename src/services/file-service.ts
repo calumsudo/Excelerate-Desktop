@@ -129,6 +129,25 @@ export class FileService {
     }
   }
   
+  static async deleteClearViewFile(
+    uploadId: string,
+    portfolioName: string,
+    reportDate: string,
+    isDaily: boolean
+  ): Promise<UploadResponse> {
+    try {
+      return await invoke<UploadResponse>('delete_clearview_file', {
+        uploadId,
+        portfolioName,
+        reportDate,
+        isDaily,
+      });
+    } catch (error) {
+      console.error('Error deleting Clear View file:', error);
+      throw error;
+    }
+  }
+  
   static async getPortfolioWorkbookPath(portfolioName: string): Promise<string> {
     try {
       return await invoke<string>('get_portfolio_workbook_path', {

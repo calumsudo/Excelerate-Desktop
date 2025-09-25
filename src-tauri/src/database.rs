@@ -54,6 +54,9 @@ impl Database {
     pub fn new(db_path: &PathBuf) -> Result<Self> {
         let conn = Connection::open(db_path)?;
         
+        // Run migrations before creating tables
+        Self::run_migrations(&conn)?;
+        
         conn.execute(
             "CREATE TABLE IF NOT EXISTS file_versions (
                 id TEXT PRIMARY KEY,
@@ -99,7 +102,7 @@ impl Database {
                 file_path TEXT NOT NULL,
                 file_size INTEGER NOT NULL,
                 upload_timestamp TEXT NOT NULL,
-                UNIQUE(portfolio_name, funder_name, report_date, upload_type)
+                UNIQUE(portfolio_name, funder_name, report_date, upload_type, original_filename)
             )",
             [],
         )?;
@@ -124,8 +127,7 @@ impl Database {
                 total_net REAL NOT NULL,
                 row_count INTEGER NOT NULL,
                 created_timestamp TEXT NOT NULL,
-                FOREIGN KEY (upload_id) REFERENCES funder_uploads(id),
-                UNIQUE(portfolio_name, funder_name, report_date, upload_type)
+                FOREIGN KEY (upload_id) REFERENCES funder_uploads(id)
             )",
             [],
         )?;
@@ -621,5 +623,139 @@ impl Database {
             params![upload_id],
         )?;
         Ok(rows_affected > 0)
+    }
+    
+    fn run_migrations(conn: &Connection) -> Result<()> {
+        // Check if we need to migrate the funder_uploads table
+        // First, check if the table exists and what constraints it has
+        let table_exists: i32 = conn.query_row(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='funder_uploads'",
+            [],
+            |row| row.get(0)
+        ).unwrap_or(0);
+        
+        if table_exists > 0 {
+            // Check if we have the old constraint (without original_filename)
+            let constraint_info = conn.prepare(
+                "SELECT sql FROM sqlite_master WHERE type='table' AND name='funder_uploads'"
+            )?.query_row([], |row| {
+                let sql: String = row.get(0)?;
+                Ok(sql)
+            }).unwrap_or_default();
+            
+            // If the constraint doesn't include original_filename, we need to migrate
+            if !constraint_info.contains("original_filename") || 
+               !constraint_info.contains("UNIQUE(portfolio_name, funder_name, report_date, upload_type, original_filename)") {
+                
+                // Begin transaction for safe migration
+                conn.execute("BEGIN TRANSACTION", [])?;
+                
+                // Create new table with updated schema
+                conn.execute(
+                    "CREATE TABLE IF NOT EXISTS funder_uploads_new (
+                        id TEXT PRIMARY KEY,
+                        portfolio_name TEXT NOT NULL,
+                        funder_name TEXT NOT NULL,
+                        report_date TEXT NOT NULL,
+                        upload_type TEXT NOT NULL,
+                        original_filename TEXT NOT NULL,
+                        stored_filename TEXT NOT NULL,
+                        file_path TEXT NOT NULL,
+                        file_size INTEGER NOT NULL,
+                        upload_timestamp TEXT NOT NULL,
+                        UNIQUE(portfolio_name, funder_name, report_date, upload_type, original_filename)
+                    )",
+                    [],
+                )?;
+                
+                // Copy data from old table
+                conn.execute(
+                    "INSERT OR IGNORE INTO funder_uploads_new 
+                     SELECT * FROM funder_uploads",
+                    [],
+                )?;
+                
+                // Drop old table
+                conn.execute("DROP TABLE funder_uploads", [])?;
+                
+                // Rename new table
+                conn.execute("ALTER TABLE funder_uploads_new RENAME TO funder_uploads", [])?;
+                
+                // Recreate index
+                conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_funder_portfolio_date 
+                     ON funder_uploads(portfolio_name, funder_name, report_date)",
+                    [],
+                )?;
+                
+                // Commit transaction
+                conn.execute("COMMIT", [])?;
+            }
+        }
+        
+        // Similar migration for funder_pivot_tables to remove UNIQUE constraint
+        let pivot_table_exists: i32 = conn.query_row(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='funder_pivot_tables'",
+            [],
+            |row| row.get(0)
+        ).unwrap_or(0);
+        
+        if pivot_table_exists > 0 {
+            let constraint_info = conn.prepare(
+                "SELECT sql FROM sqlite_master WHERE type='table' AND name='funder_pivot_tables'"
+            )?.query_row([], |row| {
+                let sql: String = row.get(0)?;
+                Ok(sql)
+            }).unwrap_or_default();
+            
+            // If it has the old UNIQUE constraint, remove it
+            if constraint_info.contains("UNIQUE(portfolio_name, funder_name, report_date, upload_type)") {
+                conn.execute("BEGIN TRANSACTION", [])?;
+                
+                // Create new table without the UNIQUE constraint
+                conn.execute(
+                    "CREATE TABLE IF NOT EXISTS funder_pivot_tables_new (
+                        id TEXT PRIMARY KEY,
+                        upload_id TEXT NOT NULL,
+                        portfolio_name TEXT NOT NULL,
+                        funder_name TEXT NOT NULL,
+                        report_date TEXT NOT NULL,
+                        upload_type TEXT NOT NULL,
+                        pivot_file_path TEXT NOT NULL,
+                        total_gross REAL NOT NULL,
+                        total_fee REAL NOT NULL,
+                        total_net REAL NOT NULL,
+                        row_count INTEGER NOT NULL,
+                        created_timestamp TEXT NOT NULL,
+                        FOREIGN KEY (upload_id) REFERENCES funder_uploads(id)
+                    )",
+                    [],
+                )?;
+                
+                // Copy data
+                conn.execute(
+                    "INSERT OR IGNORE INTO funder_pivot_tables_new 
+                     SELECT * FROM funder_pivot_tables",
+                    [],
+                )?;
+                
+                // Drop old table
+                conn.execute("DROP TABLE funder_pivot_tables", [])?;
+                
+                // Rename new table
+                conn.execute("ALTER TABLE funder_pivot_tables_new RENAME TO funder_pivot_tables", [])?;
+                
+                // Recreate index
+                conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_pivot_upload_id 
+                     ON funder_pivot_tables(upload_id)",
+                    [],
+                )?;
+                
+                conn.execute("COMMIT", [])?;
+            }
+        }
+        
+        Ok(())
     }
 }

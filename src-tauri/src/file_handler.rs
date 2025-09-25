@@ -703,7 +703,7 @@ pub fn save_funder_upload(
         portfolio_name: portfolio_name.to_string(),
         funder_name: final_funder_name.clone(),
         report_date: report_date.to_string(),
-        upload_type: if is_clearview && upload_type == "daily" { "weekly".to_string() } else { upload_type.to_string() },
+        upload_type: upload_type.to_string(), // Keep the original upload_type (daily remains daily)
         original_filename: file_name.to_string(),
         stored_filename: stored_filename.clone(),
         file_path: file_path.to_string_lossy().to_string(),
@@ -1273,6 +1273,119 @@ pub fn process_clearview_daily_pivot(
         message: format!("Clear View daily pivot table created successfully. Total gross: ${:.2}, Total net: ${:.2}", 
                         pivot.total_gross, pivot.total_net),
         file_path: Some(pivot_path),
+        version_id: None,
+        backup_path: None,
+    })
+}
+
+#[tauri::command]
+pub fn delete_clearview_file(
+    upload_id: &str,
+    portfolio_name: &str,
+    report_date: &str,
+    is_daily: bool,
+) -> Result<UploadResponse, String> {
+    if DB.lock().unwrap().is_none() {
+        init_database()?;
+    }
+    
+    // First delete the file using the standard deletion
+    delete_funder_upload(upload_id)?;
+    
+    if is_daily {
+        // After deleting a daily file, regenerate the daily aggregated pivot
+        // if there are remaining daily files
+        let processor = ClearViewPivotProcessor::new(
+            portfolio_name.to_string(),
+            report_date.to_string(),
+        );
+        
+        let remaining_files = processor.get_daily_files_for_week("")
+            .map_err(|e| format!("Failed to get remaining daily files: {}", e))?;
+        
+        if !remaining_files.is_empty() {
+            // Regenerate the daily aggregated pivot
+            let (pivot, pivot_path) = processor.process_all_daily_files()
+                .map_err(|e| format!("Failed to regenerate daily pivot: {:?}", e))?;
+            
+            // Store updated pivot metadata
+            let db_lock = DB.lock().unwrap();
+            if let Some(db) = db_lock.as_ref() {
+                let new_upload_id = uuid::Uuid::new_v4().to_string();
+                processor.store_pivot_metadata(
+                    db,
+                    &new_upload_id,
+                    &pivot_path,
+                    &pivot,
+                    crate::parsers::clearview_pivot_processor::PivotTableType::DailyAggregated,
+                ).map_err(|e| format!("Failed to store pivot metadata: {}", e))?;
+                
+                // Check if we need to update the combined pivot
+                if let Ok(Some((combined_pivot, combined_path))) = processor.update_combined_pivot_if_needed() {
+                    processor.store_pivot_metadata(
+                        db,
+                        &new_upload_id,
+                        &combined_path,
+                        &combined_pivot,
+                        crate::parsers::clearview_pivot_processor::PivotTableType::Combined,
+                    ).map_err(|e| format!("Failed to store combined pivot metadata: {}", e))?;
+                }
+            }
+            
+            return Ok(UploadResponse {
+                success: true,
+                message: "Clear View daily file deleted and pivots updated".to_string(),
+                file_path: Some(pivot_path),
+                version_id: None,
+                backup_path: None,
+            });
+        } else {
+            // No remaining daily files, delete the daily pivot and combined pivot
+            let base_dir = get_excelerate_dir()?;
+            let daily_pivot_path = base_dir
+                .join(portfolio_name)
+                .join("Funder Pivot Tables")
+                .join("Weekly")
+                .join("Clear View")
+                .join("Daily")
+                .join(format!("{}.csv", report_date.replace('/', "-")));
+            
+            if daily_pivot_path.exists() {
+                fs::remove_file(&daily_pivot_path).ok();
+            }
+            
+            let combined_pivot_path = base_dir
+                .join(portfolio_name)
+                .join("Funder Pivot Tables")
+                .join("Weekly")
+                .join("Clear View")
+                .join("Combined")
+                .join(format!("{}.csv", report_date.replace('/', "-")));
+            
+            if combined_pivot_path.exists() {
+                fs::remove_file(&combined_pivot_path).ok();
+            }
+        }
+    } else {
+        // Weekly file deleted, also delete the combined pivot
+        let base_dir = get_excelerate_dir()?;
+        let combined_pivot_path = base_dir
+            .join(portfolio_name)
+            .join("Funder Pivot Tables")
+            .join("Weekly")
+            .join("Clear View")
+            .join("Combined")
+            .join(format!("{}.csv", report_date.replace('/', "-")));
+        
+        if combined_pivot_path.exists() {
+            fs::remove_file(&combined_pivot_path).ok();
+        }
+    }
+    
+    Ok(UploadResponse {
+        success: true,
+        message: "Clear View file deleted successfully".to_string(),
+        file_path: None,
         version_id: None,
         backup_path: None,
     })

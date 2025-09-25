@@ -50,10 +50,20 @@ function AlderPortfolio() {
         const dailyFiles = await FileService.getClearViewDailyFilesForWeek('Alder', reportDate);
         setClearViewDailyFilesList(dailyFiles);
         
+        // Get the Clear View daily uploads to get file sizes
+        const clearViewDailyUploads = uploads.filter(u => 
+          u.funder_name === "Clear View" && 
+          u.upload_type === 'daily'
+        );
+        
         // Create File objects for Clear View daily files to show in upload component
-        const clearViewFiles: File[] = dailyFiles.map((filePath, index) => {
-          const filename = filePath.split('/').pop() || `daily_file_${index + 1}.csv`;
-          const file = new File([], filename, { type: 'text/csv' });
+        const clearViewFiles: File[] = clearViewDailyUploads.map((upload) => {
+          const file = new File([], upload.original_filename, { type: 'text/csv' });
+          // Add the actual file size
+          Object.defineProperty(file, 'size', {
+            value: upload.file_size,
+            writable: false
+          });
           // Add a custom property to indicate this is from backend
           Object.defineProperty(file, 'isFromBackend', {
             value: true,
@@ -301,13 +311,26 @@ function AlderPortfolio() {
       
       if (uploads.length > 0) {
         try {
-          const success = await FileService.deleteFunderUpload(uploads[0].id);
-          if (success) {
-            console.log(`Successfully deleted ${funderName} weekly upload from database`);
-            // Refresh the uploads list
-            const updatedUploads = await FileService.getFunderUploadsForDate('Alder', reportDate);
-            setFunderUploads(updatedUploads);
+          // Use specialized handler for Clear View files
+          if (funderName === "Clear View") {
+            const response = await FileService.deleteClearViewFile(
+              uploads[0].id,
+              'Alder',
+              reportDate,
+              false // is_daily = false (this is a weekly file)
+            );
+            if (response.success) {
+              console.log(`Successfully deleted ${funderName} weekly upload and combined pivot`);
+            }
+          } else {
+            const success = await FileService.deleteFunderUpload(uploads[0].id);
+            if (success) {
+              console.log(`Successfully deleted ${funderName} weekly upload from database`);
+            }
           }
+          // Refresh the uploads list
+          const updatedUploads = await FileService.getFunderUploadsForDate('Alder', reportDate);
+          setFunderUploads(updatedUploads);
         } catch (error) {
           console.error(`Error deleting ${funderName} weekly upload:`, error);
         }
@@ -367,26 +390,30 @@ function AlderPortfolio() {
     const reportDate = selectedDate.toString();
     setClearViewDailyFiles(files);
     
-    // Save each file
+    // Save each file with Clear View as the funder name
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       try {
-        const funderName = `ClearView_Daily_${i + 1}`;
+        // Use "Clear View" as the funder name for all daily files
+        // The backend will handle the file naming and organization
+        const funderName = "Clear View";
         
-        const exists = await FileService.checkFunderUploadExists(
-          'Alder',
-          funderName,
-          reportDate,
-          'daily'
+        // Check if this specific file already exists (by filename)
+        const existingUploads = funderUploads.filter(u => 
+          u.funder_name === funderName && 
+          u.upload_type === 'daily' &&
+          u.original_filename === file.name
         );
         
-        if (exists) {
+        if (existingUploads.length > 0) {
           const confirmOverwrite = window.confirm(
-            `A Clear View daily file ${i + 1} already exists for ${reportDate}. Do you want to overwrite it?`
+            `The file "${file.name}" already exists for ${reportDate}. Do you want to overwrite it?`
           );
           if (!confirmOverwrite) {
             continue;
           }
+          // Delete the existing upload before re-uploading
+          await FileService.deleteFunderUpload(existingUploads[0].id);
         }
         
         const response = await FileService.saveFunderUpload(
@@ -398,16 +425,24 @@ function AlderPortfolio() {
         );
         
         if (response.success) {
-          console.log(`Clear View daily file ${i + 1} saved: ${response.file_path}`);
+          console.log(`Clear View daily file "${file.name}" saved: ${response.file_path}`);
+        }
+        
+        // Add a small delay between uploads to ensure file system synchronization
+        if (i < files.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 100));
         }
       } catch (error) {
-        console.error(`Error uploading Clear View daily file ${i + 1}:`, error);
+        console.error(`Error uploading Clear View daily file "${file.name}":`, error);
       }
     }
     
     // After all files are uploaded, process the pivot table
     if (files.length > 0) {
       try {
+        // Add a delay to ensure all files are fully written to disk
+        await new Promise(resolve => setTimeout(resolve, 200));
+        
         console.log('Processing Clear View daily pivot table...');
         const pivotResponse = await FileService.processClearViewDailyPivot('Alder', reportDate);
         if (pivotResponse.success) {
@@ -427,10 +462,19 @@ function AlderPortfolio() {
     const dailyFiles = await FileService.getClearViewDailyFilesForWeek('Alder', reportDate);
     setClearViewDailyFilesList(dailyFiles);
     
+    // Get the Clear View daily uploads with file sizes
+    const clearViewDailyUploads = uploads.filter(u => 
+      u.funder_name === "Clear View" && 
+      u.upload_type === 'daily'
+    );
+    
     // Update the Clear View daily files for the upload component
-    const clearViewFiles: File[] = dailyFiles.map((filePath, index) => {
-      const filename = filePath.split('/').pop() || `daily_file_${index + 1}.csv`;
-      const file = new File([], filename, { type: 'text/csv' });
+    const clearViewFiles: File[] = clearViewDailyUploads.map((upload) => {
+      const file = new File([], upload.original_filename, { type: 'text/csv' });
+      Object.defineProperty(file, 'size', {
+        value: upload.file_size,
+        writable: false
+      });
       Object.defineProperty(file, 'isFromBackend', {
         value: true,
         writable: false
@@ -440,8 +484,76 @@ function AlderPortfolio() {
     setClearViewDailyFiles(clearViewFiles);
   };
 
-  const handleClearViewDailyRemove = (index: number) => {
-    console.log(`Alder Portfolio - Removing Clear View daily file ${index + 1}`);
+  const handleClearViewDailyRemove = async (index: number) => {
+    const fileToRemove = clearViewDailyFiles[index];
+    console.log(`Alder Portfolio - Removing Clear View daily file at index ${index}:`, fileToRemove);
+    console.log('File name:', fileToRemove?.name);
+    console.log('Current funderUploads:', funderUploads);
+    
+    // If there's a report date and this file was uploaded to the backend
+    if (selectedDate && fileToRemove) {
+      const reportDate = selectedDate.toString();
+      
+      // Find the upload record for this file
+      const uploadRecord = funderUploads.find(u => 
+        u.funder_name === "Clear View" && 
+        u.upload_type === 'daily' &&
+        u.original_filename === fileToRemove.name
+      );
+      
+      console.log('Found upload record:', uploadRecord);
+      
+      if (uploadRecord) {
+        try {
+          // Use the specialized Clear View deletion handler
+          const response = await FileService.deleteClearViewFile(
+            uploadRecord.id,
+            'Alder',
+            reportDate,
+            true // is_daily = true
+          );
+          
+          if (response.success) {
+            console.log(`Successfully deleted Clear View daily file: ${fileToRemove.name}`);
+            
+            // Refresh the uploads list
+            const updatedUploads = await FileService.getFunderUploadsForDate('Alder', reportDate);
+            setFunderUploads(updatedUploads);
+            
+            // Refresh the daily files list
+            const dailyFiles = await FileService.getClearViewDailyFilesForWeek('Alder', reportDate);
+            setClearViewDailyFilesList(dailyFiles);
+            
+            // Update Clear View daily files with proper file sizes
+            const clearViewDailyUploads = updatedUploads.filter(u => 
+              u.funder_name === "Clear View" && 
+              u.upload_type === 'daily'
+            );
+            
+            const clearViewFiles: File[] = clearViewDailyUploads.map((upload) => {
+              const file = new File([], upload.original_filename, { type: 'text/csv' });
+              Object.defineProperty(file, 'size', {
+                value: upload.file_size,
+                writable: false
+              });
+              Object.defineProperty(file, 'isFromBackend', {
+                value: true,
+                writable: false
+              });
+              return file;
+            });
+            setClearViewDailyFiles(clearViewFiles);
+            return; // Exit early since we've already updated the state
+          }
+        } catch (error) {
+          console.error(`Error deleting Clear View daily file:`, error);
+        }
+      } else {
+        console.log('No upload record found for file:', fileToRemove.name);
+      }
+    }
+    
+    // Update local state only if backend deletion didn't happen
     const newFiles = clearViewDailyFiles.filter((_, i) => i !== index);
     setClearViewDailyFiles(newFiles);
   };
