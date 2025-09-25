@@ -614,4 +614,12 @@ impl Database {
         
         pivots.collect()
     }
+    
+    pub fn delete_pivot_table_by_upload_id(&self, upload_id: &str) -> Result<bool> {
+        let rows_affected = self.conn.execute(
+            "DELETE FROM funder_pivot_tables WHERE upload_id = ?1",
+            params![upload_id],
+        )?;
+        Ok(rows_affected > 0)
+    }
 }

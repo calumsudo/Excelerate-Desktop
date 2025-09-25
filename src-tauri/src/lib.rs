@@ -38,6 +38,7 @@ pub fn run() {
             file_handler::get_funder_upload_info,
             file_handler::get_funder_uploads_for_date,
             file_handler::check_funder_upload_exists,
+            file_handler::delete_funder_upload,
             file_handler::get_all_database_files,
             file_handler::read_csv_file,
             file_handler::read_excel_file,

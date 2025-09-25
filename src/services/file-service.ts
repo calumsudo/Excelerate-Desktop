@@ -21,6 +21,7 @@ export interface FunderUploadInfo {
   id: string;
   funder_name: string;
   report_date: string;
+  upload_type: string;
   original_filename: string;
   upload_timestamp: string;
   file_size: number;
@@ -113,6 +114,17 @@ export class FileService {
       });
     } catch (error) {
       console.error('Error deleting version:', error);
+      return false;
+    }
+  }
+  
+  static async deleteFunderUpload(uploadId: string): Promise<boolean> {
+    try {
+      return await invoke<boolean>('delete_funder_upload', {
+        uploadId,
+      });
+    } catch (error) {
+      console.error('Error deleting funder upload:', error);
       return false;
     }
   }

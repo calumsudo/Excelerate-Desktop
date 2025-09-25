@@ -77,9 +77,9 @@ function AlderPortfolio() {
             writable: false
           });
           
-          if (upload.funder_name.includes('Monthly')) {
+          if (upload.upload_type === 'monthly') {
             monthlyFilesMap[upload.funder_name] = file;
-          } else {
+          } else if (upload.upload_type === 'weekly') {
             weeklyFilesMap[upload.funder_name] = file;
           }
         });
@@ -288,8 +288,33 @@ function AlderPortfolio() {
     }
   };
 
-  const handleWeeklyClearFile = (funderName: string) => {
+  const handleWeeklyClearFile = async (funderName: string) => {
     console.log(`Alder Portfolio - Clearing weekly file for ${funderName}`);
+    
+    // If there's an uploaded file in the database, delete it
+    if (selectedDate) {
+      const reportDate = selectedDate.toString();
+      const uploads = funderUploads.filter(u => 
+        u.funder_name === funderName && 
+        u.upload_type === 'weekly'
+      );
+      
+      if (uploads.length > 0) {
+        try {
+          const success = await FileService.deleteFunderUpload(uploads[0].id);
+          if (success) {
+            console.log(`Successfully deleted ${funderName} weekly upload from database`);
+            // Refresh the uploads list
+            const updatedUploads = await FileService.getFunderUploadsForDate('Alder', reportDate);
+            setFunderUploads(updatedUploads);
+          }
+        } catch (error) {
+          console.error(`Error deleting ${funderName} weekly upload:`, error);
+        }
+      }
+    }
+    
+    // Clear from local state
     setWeeklyFiles(prev => {
       const updated = { ...prev };
       delete updated[funderName];
@@ -297,8 +322,33 @@ function AlderPortfolio() {
     });
   };
 
-  const handleMonthlyClearFile = (funderName: string) => {
+  const handleMonthlyClearFile = async (funderName: string) => {
     console.log(`Alder Portfolio - Clearing monthly file for ${funderName}`);
+    
+    // If there's an uploaded file in the database, delete it
+    if (selectedDate) {
+      const reportDate = selectedDate.toString();
+      const uploads = funderUploads.filter(u => 
+        u.funder_name === funderName && 
+        u.upload_type === 'monthly'
+      );
+      
+      if (uploads.length > 0) {
+        try {
+          const success = await FileService.deleteFunderUpload(uploads[0].id);
+          if (success) {
+            console.log(`Successfully deleted ${funderName} monthly upload from database`);
+            // Refresh the uploads list
+            const updatedUploads = await FileService.getFunderUploadsForDate('Alder', reportDate);
+            setFunderUploads(updatedUploads);
+          }
+        } catch (error) {
+          console.error(`Error deleting ${funderName} monthly upload:`, error);
+        }
+      }
+    }
+    
+    // Clear from local state
     setMonthlyFiles(prev => {
       const updated = { ...prev };
       delete updated[funderName];

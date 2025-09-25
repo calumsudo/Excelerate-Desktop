@@ -572,6 +572,7 @@ pub struct FunderUploadInfo {
     pub id: String,
     pub funder_name: String,
     pub report_date: String,
+    pub upload_type: String,
     pub original_filename: String,
     pub upload_timestamp: String,
     pub file_size: i64,
@@ -583,6 +584,7 @@ impl From<FunderUpload> for FunderUploadInfo {
             id: upload.id,
             funder_name: upload.funder_name,
             report_date: upload.report_date,
+            upload_type: upload.upload_type,
             original_filename: upload.original_filename,
             upload_timestamp: upload.upload_timestamp.to_rfc3339(),
             file_size: upload.file_size,
@@ -812,6 +814,53 @@ pub fn check_funder_upload_exists(
             .map_err(|e| format!("Failed to check funder upload: {}", e))?;
         
         Ok(upload.is_some())
+    } else {
+        Err("Database not initialized".to_string())
+    }
+}
+
+#[tauri::command]
+pub fn delete_funder_upload(upload_id: &str) -> Result<bool, String> {
+    if DB.lock().unwrap().is_none() {
+        init_database()?;
+    }
+    
+    let db_lock = DB.lock().unwrap();
+    if let Some(db) = db_lock.as_ref() {
+        // First, get the upload details to find the file paths
+        let uploads = db.get_all_funder_uploads()
+            .map_err(|e| format!("Failed to get funder uploads: {}", e))?;
+        
+        let upload = uploads.iter().find(|u| u.id == upload_id)
+            .ok_or_else(|| "Upload not found".to_string())?;
+        
+        // Get the associated pivot table to delete its file too
+        let pivot = db.get_pivot_table_by_upload_id(upload_id)
+            .map_err(|e| format!("Failed to get pivot table: {}", e))?;
+        
+        // Delete the upload file from filesystem
+        let upload_path = Path::new(&upload.file_path);
+        if upload_path.exists() {
+            fs::remove_file(upload_path)
+                .map_err(|e| format!("Failed to delete upload file: {}", e))?;
+        }
+        
+        // Delete the pivot table file from filesystem if it exists
+        if let Some(pivot_table) = pivot {
+            let pivot_path = Path::new(&pivot_table.pivot_file_path);
+            if pivot_path.exists() {
+                fs::remove_file(pivot_path)
+                    .map_err(|e| format!("Failed to delete pivot table file: {}", e))?;
+            }
+            
+            // Delete the pivot table from database
+            db.delete_pivot_table_by_upload_id(upload_id)
+                .map_err(|e| format!("Failed to delete pivot table from database: {}", e))?;
+        }
+        
+        // Delete the upload from database
+        db.delete_funder_upload(upload_id)
+            .map_err(|e| format!("Failed to delete upload from database: {}", e))
     } else {
         Err("Database not initialized".to_string())
     }
