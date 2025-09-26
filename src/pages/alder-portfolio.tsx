@@ -143,9 +143,9 @@ function AlderPortfolio() {
 
   const monthlyFunders: FunderData[] = [
     {
-      name: "Monthly Funder Gamma",
-      acceptedTypes: ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
-      acceptedExtensions: ['.xlsx'],
+      name: "Kings",
+      acceptedTypes: ['text/csv'],
+      acceptedExtensions: ['.csv'],
       maxSizeKB: 15360
     }
   ];

@@ -5,7 +5,7 @@ use serde::{Serialize, Deserialize};
 use chrono::Utc;
 use uuid::Uuid;
 use crate::database::{Database, FileVersion, FunderUpload, FunderPivotTable};
-use crate::parsers::{BaseParser, BhbParser, BigParser, EfinParser, InAdvParser, ClearViewPivotProcessor};
+use crate::parsers::{BaseParser, BhbParser, BigParser, EfinParser, InAdvParser, KingsParser, ClearViewPivotProcessor};
 
 lazy_static::lazy_static! {
     static ref DB: Mutex<Option<Database>> = Mutex::new(None);
@@ -106,8 +106,8 @@ pub fn ensure_directories() -> Result<(), String> {
     directories.push(base_dir.join("Alder").join("Funder Pivot Tables").join("Weekly").join("Clear View").join("Combined"));
     
     // Add monthly funder directories for Alder
-    directories.push(base_dir.join("Alder").join("Funder Uploads").join("Monthly").join("Monthly Funder Gamma"));
-    directories.push(base_dir.join("Alder").join("Funder Pivot Tables").join("Monthly").join("Monthly Funder Gamma"));
+    directories.push(base_dir.join("Alder").join("Funder Uploads").join("Monthly").join("Kings"));
+    directories.push(base_dir.join("Alder").join("Funder Pivot Tables").join("Monthly").join("Kings"));
     
     // Add weekly funder directories for White Rabbit
     let white_rabbit_weekly_funders = vec!["BHB", "BIG", "eFin"];
@@ -126,8 +126,8 @@ pub fn ensure_directories() -> Result<(), String> {
     directories.push(base_dir.join("White Rabbit").join("Funder Pivot Tables").join("Weekly").join("Clear View").join("Combined"));
     
     // Add monthly funder directories for White Rabbit  
-    directories.push(base_dir.join("White Rabbit").join("Funder Uploads").join("Monthly").join("Monthly Funder Gamma"));
-    directories.push(base_dir.join("White Rabbit").join("Funder Pivot Tables").join("Monthly").join("Monthly Funder Gamma"));
+    directories.push(base_dir.join("White Rabbit").join("Funder Uploads").join("Monthly").join("Kings"));
+    directories.push(base_dir.join("White Rabbit").join("Funder Pivot Tables").join("Monthly").join("Kings"));
     
     for dir in directories {
         fs::create_dir_all(&dir)
@@ -517,6 +517,11 @@ fn process_funder_file(
             let parser = InAdvParser::new();
             parser.process(file_path)
                 .map_err(|e| format!("Failed to parse InAdvance file: {}", e))?
+        },
+        "Kings" => {
+            let parser = KingsParser::new();
+            parser.process(file_path)
+                .map_err(|e| format!("Failed to parse Kings file: {}", e))?
         },
         _ => {
             return Err(format!("Parser not yet implemented for funder: {}", funder_name));
