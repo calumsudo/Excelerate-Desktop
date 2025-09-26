@@ -664,19 +664,19 @@ function AlderPortfolio() {
           <h3 className="text-xl font-semibold mb-4">Version History</h3>
           <div className="space-y-2">
             {versions.slice(0, 5).map(version => (
-              <div key={version.id} className="flex justify-between items-center p-3 bg-default-100 rounded">
-                <div>
-                  <span className="font-medium">{version.report_date}</span>
-                  <span className="text-sm text-default-500 ml-2">
+              <div key={version.id} className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 p-3 bg-default-100 rounded">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 min-w-0">
+                  <span className="font-medium whitespace-nowrap">{version.report_date}</span>
+                  <span className="text-sm text-default-500 truncate" title={version.original_filename}>
                     {version.original_filename}
                   </span>
                   {version.is_active && (
-                    <span className="ml-2 text-xs bg-success-100 text-success-700 px-2 py-1 rounded">
+                    <span className="text-xs bg-success-100 text-success-700 px-2 py-1 rounded self-start sm:self-auto whitespace-nowrap">
                       Active
                     </span>
                   )}
                 </div>
-                <span className="text-sm text-default-500">
+                <span className="text-sm text-default-500 whitespace-nowrap">
                   {new Date(version.upload_timestamp).toLocaleString()}
                 </span>
               </div>

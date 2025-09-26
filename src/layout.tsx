@@ -1,7 +1,7 @@
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
-import { ScrollShadow, Button } from "@heroui/react";
+import { ScrollShadow, Button, Listbox, ListboxItem, Tooltip } from "@heroui/react";
 import Sidebar from "@features/sidebar/sidebar";
-import { items } from "@features/sidebar/sidebar-items";
+import { items, settingsItem } from "@features/sidebar/sidebar-items";
 import { useEffect, useState, useRef } from "react";
 import { Icon } from "@iconify/react";
 
@@ -62,7 +62,7 @@ function Layout() {
   return (
     <div className="h-screen flex">
       <div 
-        className={`border-r-small border-divider h-full ${isCompact ? 'w-20' : 'w-72'} p-6 flex flex-col transition-all duration-300 ease-in-out relative`}
+        className={`border-r-small border-divider h-full ${isCompact ? 'w-20' : 'w-72'} p-2 pt-6 flex flex-col transition-all duration-300 ease-in-out relative`}
       >
         <div className={`flex items-center gap-2 px-2 mb-4 ${isCompact ? 'justify-center' : ''}`}>
           <img 
@@ -88,7 +88,7 @@ function Layout() {
           />
         </Button>
 
-        <ScrollShadow className="h-full max-h-full py-[10vh]">
+        <ScrollShadow className="flex-1 max-h-full py-2">
           <Sidebar 
             defaultSelectedKey={selectedKey} 
             items={items} 
@@ -97,6 +97,51 @@ function Layout() {
             className="select-none"
           />
         </ScrollShadow>
+        
+        {/* Settings button fixed at the bottom */}
+        <div className="mt-auto pb-2">
+          <Listbox
+            as="nav"
+            className="list-none select-none"
+            selectedKeys={selectedKey === "settings" ? ["settings"] : []}
+            selectionMode="single"
+            hideSelectedIcon
+            onSelectionChange={(keys) => {
+              const key = Array.from(keys)[0];
+              if (key) handleSelect(key as string);
+            }}
+          >
+            <ListboxItem
+              key={settingsItem.key}
+              className={`px-3 min-h-11 rounded-large h-[44px] ${
+                selectedKey === "settings" ? "bg-default-100" : ""
+              } select-none ${isCompact ? "w-11 h-11 gap-0 p-0" : ""}`}
+              startContent={
+                isCompact ? null : (
+                  <Icon
+                    className="text-default-500 group-data-[selected=true]:text-foreground"
+                    icon={settingsItem.icon!}
+                    width={24}
+                  />
+                )
+              }
+              textValue={settingsItem.title}
+              title={isCompact ? null : settingsItem.title}
+            >
+              {isCompact ? (
+                <Tooltip content={settingsItem.title} placement="right">
+                  <div className="flex w-full items-center justify-center">
+                    <Icon
+                      className="text-default-500 group-data-[selected=true]:text-foreground"
+                      icon={settingsItem.icon!}
+                      width={24}
+                    />
+                  </div>
+                </Tooltip>
+              ) : null}
+            </ListboxItem>
+          </Listbox>
+        </div>
       </div>
       <div className="flex-1 overflow-auto p-4">
         <Outlet />

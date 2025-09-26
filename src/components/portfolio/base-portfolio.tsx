@@ -89,7 +89,7 @@ const BasePortfolio: React.FC<BasePortfolioProps> = ({
           <div className="flex flex-row gap-6">
             {/* Friday Date Picker Section */}
             <div className="flex-1 bg-default-50 rounded-lg p-2 border border-default-200">
-              <h2 className="text-xl font-semibold text-foreground">
+              <h2 className="text-base sm:text-lg md:text-xl font-semibold text-foreground">
                 Select Report Date
               </h2>
               <FridayDatePicker
@@ -100,11 +100,13 @@ const BasePortfolio: React.FC<BasePortfolioProps> = ({
             </div>
 
             {/* Excel Upload Section */}
-            <div className="flex-1 bg-default-50 rounded-lg p-2 border border-default-200">
-              <h2 className="text-xl font-semibold text-foreground">
-                {portfolioName} Portfolio Workbook Upload
+            <div className="flex-1 bg-default-50 rounded-lg p-2 border border-default-200 min-w-0">
+              <h2 className="text-base md:text-md lg:text-lg xl:text-xl font-semibold text-foreground">
+                <span className="hidden md:inline">{portfolioName} Portfolio Workbook Upload</span>
+                <span className="md:hidden">{portfolioName} Upload</span>
               </h2>
               <FileUpload
+                className="w-full"
                 onFileUpload={handleFileUpload}
                 selectedFile={selectedFile}
                 onClearFile={clearMainFile}

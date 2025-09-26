@@ -29,12 +29,13 @@ export const items: SidebarItem[] = [
     icon: "solar:folder-with-files-outline",
     title: "File Explorer",
   },
-  {
-    key: "settings",
-    icon: "solar:settings-outline",
-    title: "Settings",
-  },
 ];
+
+export const settingsItem: SidebarItem = {
+  key: "settings",
+  icon: "solar:settings-outline",
+  title: "Settings",
+};
 
 export const sectionItems: SidebarItem[] = [
   {

@@ -11,12 +11,14 @@ interface FridayDatePickerProps {
   onDateChange?: (date: DateValue | null) => void;
   label?: string;
   description?: string;
+  className?: string;
 }
 
 const FridayDatePicker: React.FC<FridayDatePickerProps> = ({
   onDateChange,
   label = "Select Friday",
-  description = "Choose a Friday date"
+  description = "Choose a Friday date",
+  className
 }) => {
   // Function to get the most recent Friday
   const getMostRecentFriday = (): CalendarDate => {
@@ -77,7 +79,7 @@ const FridayDatePicker: React.FC<FridayDatePickerProps> = ({
   }, []);
 
   return (
-    <div className="w-full max-w-xl">
+    <div className={`w-full ${className || ''}`}>
       <DatePicker
         label={label}
         description={description}
@@ -88,7 +90,7 @@ const FridayDatePicker: React.FC<FridayDatePickerProps> = ({
         maxValue={maxDate}
         showMonthAndYearPickers
         classNames={{
-          base: "max-w-xs",
+          base: "w-full",
           inputWrapper: "rounded-lg",
           calendar: "bg-background",
           calendarContent: "bg-background",
@@ -105,18 +107,6 @@ const FridayDatePicker: React.FC<FridayDatePickerProps> = ({
         }}
         errorMessage={selectedDate && !isFriday(selectedDate) ? "Please select a Friday" : undefined}
       />
-      
-      {/* Display selected date information */}
-      {selectedDate && (
-        <div className="mt-4 text-sm text-default-500">
-          <p>Selected: {selectedDate.toDate(getLocalTimeZone()).toLocaleDateString('en-US', { 
-            weekday: 'long', 
-            year: 'numeric', 
-            month: 'long', 
-            day: 'numeric' 
-          })}</p>
-        </div>
-      )}
     </div>
   );
 };

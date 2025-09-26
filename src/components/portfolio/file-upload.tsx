@@ -292,11 +292,11 @@ const FileUpload: React.FC<FileUploadProps> = ({
   return (
     <div className={className}>
       <div className="border border-default-300 rounded-lg p-3 bg-default-100">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <Icon icon="vscode-icons:file-type-excel" className="w-6 h-6" />
-            <div>
-              <p className="text-sm font-medium text-foreground">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <Icon icon="vscode-icons:file-type-excel" className="w-6 h-6 flex-shrink-0" />
+            <div className="min-w-0 flex-1 overflow-hidden">
+              <p className="text-sm font-medium text-foreground truncate" title={currentFile.name}>
                 {currentFile.name}
               </p>
               <p className="text-xs text-default-500">
