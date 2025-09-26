@@ -94,6 +94,27 @@ impl BigParser {
                 .map(|cell| cell.to_string())
                 .unwrap_or_default();
             
+            // Column Q (16): Management Fee %
+            let management_fee_pct = row.get(16)
+                .and_then(|cell| match cell {
+                    Data::Float(f) => Some(*f),
+                    Data::Int(i) => Some(*i as f64),
+                    Data::String(s) => {
+                        // Handle percentage strings like "3%" or "0.03"
+                        let cleaned = s.trim().replace('%', "");
+                        cleaned.parse::<f64>().ok()
+                    },
+                    _ => None,
+                })
+                .unwrap_or(3.0); // Default to 3% if not found
+            
+            // Convert to decimal if it's a whole number percentage (e.g., 3 -> 0.03)
+            let fee_rate = if management_fee_pct > 1.0 {
+                management_fee_pct / 100.0
+            } else {
+                management_fee_pct
+            };
+            
             // Column AI (34): Total amount (usually has SUM formula)
             // First try column AI
             let mut net_amount = row.get(34)
@@ -130,11 +151,16 @@ impl BigParser {
                 continue;
             }
             
+            // Calculate gross and fees from net using the actual management fee % from column Q
+            // If net = gross * (1 - fee_rate), then gross = net / (1 - fee_rate)
+            let gross_amount = net_amount / (1.0 - fee_rate);
+            let management_fee = gross_amount * fee_rate;
+            
             processed_data.push(ProcessedData {
                 advance_id: advance_id.unwrap(),
                 merchant_name,
-                gross_payment: net_amount,  // BIG doesn't separate gross/net
-                fees: 0.0,  // BIG doesn't provide separate fee information
+                gross_payment: gross_amount,
+                fees: management_fee,
                 net: net_amount,
             });
         }
