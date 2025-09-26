@@ -46,6 +46,26 @@ pub struct FunderPivotTable {
     pub created_timestamp: DateTime<Utc>,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Merchant {
+    pub id: String,
+    pub portfolio_name: String,
+    pub funder_name: String,
+    pub date_funded: Option<String>,
+    pub merchant_name: String,
+    pub website: Option<String>,
+    pub advance_id: Option<String>,
+    pub funder_advance_id: Option<String>,
+    pub industry_naics_or_sic: Option<String>,
+    pub state: Option<String>,
+    pub fico: Option<String>,
+    pub buy_rate: Option<f64>,
+    pub commission: Option<f64>,
+    pub total_amount_funded: Option<f64>,
+    pub created_timestamp: DateTime<Utc>,
+    pub updated_timestamp: DateTime<Utc>,
+}
+
 pub struct Database {
     conn: Connection,
 }
@@ -135,6 +155,41 @@ impl Database {
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_pivot_upload_id 
              ON funder_pivot_tables(upload_id)",
+            [],
+        )?;
+
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS merchants (
+                id TEXT PRIMARY KEY,
+                portfolio_name TEXT NOT NULL,
+                funder_name TEXT NOT NULL,
+                date_funded TEXT,
+                merchant_name TEXT NOT NULL,
+                website TEXT,
+                advance_id TEXT,
+                funder_advance_id TEXT,
+                industry_naics_or_sic TEXT,
+                state TEXT,
+                fico TEXT,
+                buy_rate REAL,
+                commission REAL,
+                total_amount_funded REAL,
+                created_timestamp TEXT NOT NULL,
+                updated_timestamp TEXT NOT NULL,
+                UNIQUE(portfolio_name, funder_name, merchant_name, advance_id)
+            )",
+            [],
+        )?;
+        
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_merchants_portfolio_funder 
+             ON merchants(portfolio_name, funder_name)",
+            [],
+        )?;
+        
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_merchants_advance_id 
+             ON merchants(advance_id)",
             [],
         )?;
 
@@ -623,6 +678,133 @@ impl Database {
             params![upload_id],
         )?;
         Ok(rows_affected > 0)
+    }
+    
+    // Merchant Methods
+    pub fn insert_or_update_merchant(&self, merchant: &Merchant) -> Result<()> {
+        self.conn.execute(
+            "INSERT OR REPLACE INTO merchants 
+             (id, portfolio_name, funder_name, date_funded, merchant_name, website,
+              advance_id, funder_advance_id, industry_naics_or_sic, state, fico,
+              buy_rate, commission, total_amount_funded, created_timestamp, updated_timestamp) 
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)",
+            params![
+                merchant.id,
+                merchant.portfolio_name,
+                merchant.funder_name,
+                merchant.date_funded,
+                merchant.merchant_name,
+                merchant.website,
+                merchant.advance_id,
+                merchant.funder_advance_id,
+                merchant.industry_naics_or_sic,
+                merchant.state,
+                merchant.fico,
+                merchant.buy_rate,
+                merchant.commission,
+                merchant.total_amount_funded,
+                merchant.created_timestamp.to_rfc3339(),
+                merchant.updated_timestamp.to_rfc3339(),
+            ],
+        )?;
+        Ok(())
+    }
+    
+    pub fn get_merchant(
+        &self,
+        portfolio_name: &str,
+        funder_name: &str,
+        merchant_name: &str,
+        advance_id: Option<&str>,
+    ) -> Result<Option<Merchant>> {
+        let query = if let Some(advance_id) = advance_id {
+            "SELECT id, portfolio_name, funder_name, date_funded, merchant_name, website,
+                    advance_id, funder_advance_id, industry_naics_or_sic, state, fico,
+                    buy_rate, commission, total_amount_funded, created_timestamp, updated_timestamp 
+             FROM merchants 
+             WHERE portfolio_name = ?1 AND funder_name = ?2 AND merchant_name = ?3 AND advance_id = ?4"
+        } else {
+            "SELECT id, portfolio_name, funder_name, date_funded, merchant_name, website,
+                    advance_id, funder_advance_id, industry_naics_or_sic, state, fico,
+                    buy_rate, commission, total_amount_funded, created_timestamp, updated_timestamp 
+             FROM merchants 
+             WHERE portfolio_name = ?1 AND funder_name = ?2 AND merchant_name = ?3 AND advance_id IS NULL"
+        };
+        
+        let mut stmt = self.conn.prepare(query)?;
+        
+        let merchant = if let Some(advance_id) = advance_id {
+            stmt.query_row(params![portfolio_name, funder_name, merchant_name, advance_id], Self::row_to_merchant)
+        } else {
+            stmt.query_row(params![portfolio_name, funder_name, merchant_name], Self::row_to_merchant)
+        }.optional()?;
+        
+        Ok(merchant)
+    }
+    
+    pub fn get_merchants_by_portfolio(&self, portfolio_name: &str) -> Result<Vec<Merchant>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, portfolio_name, funder_name, date_funded, merchant_name, website,
+                    advance_id, funder_advance_id, industry_naics_or_sic, state, fico,
+                    buy_rate, commission, total_amount_funded, created_timestamp, updated_timestamp 
+             FROM merchants 
+             WHERE portfolio_name = ?1 
+             ORDER BY funder_name, merchant_name"
+        )?;
+        
+        let merchants = stmt.query_map(params![portfolio_name], Self::row_to_merchant)?;
+        merchants.collect()
+    }
+    
+    pub fn get_merchants_by_funder(
+        &self,
+        portfolio_name: &str,
+        funder_name: &str,
+    ) -> Result<Vec<Merchant>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, portfolio_name, funder_name, date_funded, merchant_name, website,
+                    advance_id, funder_advance_id, industry_naics_or_sic, state, fico,
+                    buy_rate, commission, total_amount_funded, created_timestamp, updated_timestamp 
+             FROM merchants 
+             WHERE portfolio_name = ?1 AND funder_name = ?2 
+             ORDER BY merchant_name"
+        )?;
+        
+        let merchants = stmt.query_map(params![portfolio_name, funder_name], Self::row_to_merchant)?;
+        merchants.collect()
+    }
+    
+    pub fn delete_merchants_by_portfolio(&self, portfolio_name: &str) -> Result<usize> {
+        let rows_affected = self.conn.execute(
+            "DELETE FROM merchants WHERE portfolio_name = ?1",
+            params![portfolio_name],
+        )?;
+        Ok(rows_affected)
+    }
+    
+    fn row_to_merchant(row: &rusqlite::Row) -> rusqlite::Result<Merchant> {
+        Ok(Merchant {
+            id: row.get(0)?,
+            portfolio_name: row.get(1)?,
+            funder_name: row.get(2)?,
+            date_funded: row.get(3)?,
+            merchant_name: row.get(4)?,
+            website: row.get(5)?,
+            advance_id: row.get(6)?,
+            funder_advance_id: row.get(7)?,
+            industry_naics_or_sic: row.get(8)?,
+            state: row.get(9)?,
+            fico: row.get(10)?,
+            buy_rate: row.get(11)?,
+            commission: row.get(12)?,
+            total_amount_funded: row.get(13)?,
+            created_timestamp: DateTime::parse_from_rfc3339(&row.get::<_, String>(14)?)
+                .unwrap()
+                .with_timezone(&Utc),
+            updated_timestamp: DateTime::parse_from_rfc3339(&row.get::<_, String>(15)?)
+                .unwrap()
+                .with_timezone(&Utc),
+        })
     }
     
     fn run_migrations(conn: &Connection) -> Result<()> {

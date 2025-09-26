@@ -4,8 +4,8 @@ use std::sync::Mutex;
 use serde::{Serialize, Deserialize};
 use chrono::Utc;
 use uuid::Uuid;
-use crate::database::{Database, FileVersion, FunderUpload, FunderPivotTable};
-use crate::parsers::{BaseParser, BhbParser, BigParser, BoomParser, EfinParser, InAdvParser, KingsParser, ClearViewPivotProcessor};
+use crate::database::{Database, FileVersion, FunderUpload, FunderPivotTable, Merchant};
+use crate::parsers::{BaseParser, BhbParser, BigParser, BoomParser, EfinParser, InAdvParser, KingsParser, ClearViewPivotProcessor, PortfolioParser};
 
 lazy_static::lazy_static! {
     static ref DB: Mutex<Option<Database>> = Mutex::new(None);
@@ -215,6 +215,18 @@ pub fn save_portfolio_workbook_with_version(
     if let Some(db) = db_lock.as_ref() {
         db.insert_file_version(&version)
             .map_err(|e| format!("Failed to save version to database: {}", e))?;
+        
+        // Extract merchants from the workbook
+        let parser = PortfolioParser::new(portfolio_name.to_string());
+        match parser.parse_portfolio_workbook(&main_path, db) {
+            Ok(merchant_count) => {
+                println!("Extracted {} merchants from portfolio workbook", merchant_count);
+            }
+            Err(e) => {
+                eprintln!("Failed to extract merchants: {}", e);
+                // Don't fail the upload if merchant extraction fails
+            }
+        }
     }
     
     Ok(UploadResponse {
@@ -1424,4 +1436,125 @@ pub fn get_clearview_daily_files_for_week(
     Ok(files.iter()
         .map(|p| p.to_string_lossy().to_string())
         .collect())
+}
+
+#[tauri::command]
+pub fn extract_merchants_from_portfolio(portfolio_name: &str) -> Result<ExtractMerchantsResponse, String> {
+    if DB.lock().unwrap().is_none() {
+        init_database()?;
+    }
+    
+    let portfolio_path = get_portfolio_workbook_path(portfolio_name)?;
+    let file_path = Path::new(&portfolio_path);
+    
+    if !file_path.exists() {
+        return Err(format!("Portfolio workbook not found: {}", portfolio_path));
+    }
+    
+    let db_lock = DB.lock().unwrap();
+    let db = db_lock.as_ref().ok_or("Database not initialized")?;
+    
+    // Create parser and extract merchants
+    let parser = PortfolioParser::new(portfolio_name.to_string());
+    let merchant_count = parser.parse_portfolio_workbook(file_path, db)
+        .map_err(|e| format!("Failed to extract merchants: {}", e))?;
+    
+    Ok(ExtractMerchantsResponse {
+        success: true,
+        message: format!("Successfully extracted {} merchants from portfolio", merchant_count),
+        merchant_count,
+    })
+}
+
+#[tauri::command]
+pub fn get_merchants_by_portfolio(portfolio_name: &str) -> Result<Vec<MerchantInfo>, String> {
+    if DB.lock().unwrap().is_none() {
+        init_database()?;
+    }
+    
+    let db_lock = DB.lock().unwrap();
+    let db = db_lock.as_ref().ok_or("Database not initialized")?;
+    
+    let merchants = db.get_merchants_by_portfolio(portfolio_name)
+        .map_err(|e| format!("Failed to get merchants: {}", e))?;
+    
+    Ok(merchants.into_iter().map(MerchantInfo::from).collect())
+}
+
+#[tauri::command]
+pub fn get_merchants_by_funder(portfolio_name: &str, funder_name: &str) -> Result<Vec<MerchantInfo>, String> {
+    if DB.lock().unwrap().is_none() {
+        init_database()?;
+    }
+    
+    let db_lock = DB.lock().unwrap();
+    let db = db_lock.as_ref().ok_or("Database not initialized")?;
+    
+    let merchants = db.get_merchants_by_funder(portfolio_name, funder_name)
+        .map_err(|e| format!("Failed to get merchants: {}", e))?;
+    
+    Ok(merchants.into_iter().map(MerchantInfo::from).collect())
+}
+
+#[tauri::command]
+pub fn clear_merchants_for_portfolio(portfolio_name: &str) -> Result<usize, String> {
+    if DB.lock().unwrap().is_none() {
+        init_database()?;
+    }
+    
+    let db_lock = DB.lock().unwrap();
+    let db = db_lock.as_ref().ok_or("Database not initialized")?;
+    
+    db.delete_merchants_by_portfolio(portfolio_name)
+        .map_err(|e| format!("Failed to delete merchants: {}", e))
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ExtractMerchantsResponse {
+    pub success: bool,
+    pub message: String,
+    pub merchant_count: usize,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct MerchantInfo {
+    pub id: String,
+    pub portfolio_name: String,
+    pub funder_name: String,
+    pub date_funded: Option<String>,
+    pub merchant_name: String,
+    pub website: Option<String>,
+    pub advance_id: Option<String>,
+    pub funder_advance_id: Option<String>,
+    pub industry_naics_or_sic: Option<String>,
+    pub state: Option<String>,
+    pub fico: Option<String>,
+    pub buy_rate: Option<f64>,
+    pub commission: Option<f64>,
+    pub total_amount_funded: Option<f64>,
+    pub created_timestamp: String,
+    pub updated_timestamp: String,
+}
+
+impl From<Merchant> for MerchantInfo {
+    fn from(merchant: Merchant) -> Self {
+        MerchantInfo {
+            id: merchant.id,
+            portfolio_name: merchant.portfolio_name,
+            funder_name: merchant.funder_name,
+            date_funded: merchant.date_funded,
+            merchant_name: merchant.merchant_name,
+            website: merchant.website,
+            advance_id: merchant.advance_id,
+            funder_advance_id: merchant.funder_advance_id,
+            industry_naics_or_sic: merchant.industry_naics_or_sic,
+            state: merchant.state,
+            fico: merchant.fico,
+            buy_rate: merchant.buy_rate,
+            commission: merchant.commission,
+            total_amount_funded: merchant.total_amount_funded,
+            created_timestamp: merchant.created_timestamp.to_rfc3339(),
+            updated_timestamp: merchant.updated_timestamp.to_rfc3339(),
+        }
+    }
 }

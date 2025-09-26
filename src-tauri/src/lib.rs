@@ -45,7 +45,11 @@ pub fn run() {
             file_handler::read_excel_file,
             file_handler::process_clearview_pivots,
             file_handler::process_clearview_daily_pivot,
-            file_handler::get_clearview_daily_files_for_week
+            file_handler::get_clearview_daily_files_for_week,
+            file_handler::extract_merchants_from_portfolio,
+            file_handler::get_merchants_by_portfolio,
+            file_handler::get_merchants_by_funder,
+            file_handler::clear_merchants_for_portfolio
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -8,6 +8,7 @@ pub mod clearview_pivot_processor;
 pub mod efin_parser;
 pub mod inadv_parser;
 pub mod kings_parser;
+pub mod portfolio_parser;
 
 #[cfg(test)]
 mod test_clearview;
@@ -31,3 +32,4 @@ pub use clearview_pivot_processor::ClearViewPivotProcessor;
 pub use efin_parser::EfinParser;
 pub use inadv_parser::InAdvParser;
 pub use kings_parser::KingsParser;
+pub use portfolio_parser::PortfolioParser;
