@@ -144,6 +144,15 @@ function WhiteRabbitPortfolio() {
       acceptedTypes: ['text/csv', 'application/csv'],
       acceptedExtensions: ['.csv'],
       maxSizeKB: 15360
+    },
+    {
+      name: "Boom",
+      acceptedTypes: [
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/vnd.ms-excel'
+      ],
+      acceptedExtensions: ['.xlsx', '.xls'],
+      maxSizeKB: 10240
     }
   ];
 

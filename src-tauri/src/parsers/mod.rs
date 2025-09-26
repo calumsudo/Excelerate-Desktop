@@ -1,6 +1,7 @@
 pub mod base_parser;
 pub mod bhb_parser;
 pub mod big_parser;
+pub mod boom_parser;
 pub mod clearview_daily_parser;
 pub mod clearview_weekly_parser;
 pub mod clearview_pivot_processor;
@@ -23,6 +24,7 @@ mod test_inadv;
 pub use base_parser::{BaseParser, PivotTable};
 pub use bhb_parser::BhbParser;
 pub use big_parser::BigParser;
+pub use boom_parser::BoomParser;
 pub use clearview_daily_parser::ClearViewDailyParser;
 pub use clearview_weekly_parser::ClearViewWeeklyParser;
 pub use clearview_pivot_processor::ClearViewPivotProcessor;
