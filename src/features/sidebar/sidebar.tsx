@@ -26,7 +26,7 @@ export type SidebarItem = {
   className?: string;
 };
 
-export type SidebarProps = Omit<ListboxProps<SidebarItem>, "children"> & {
+export type SidebarProps = Omit<ListboxProps<SidebarItem>, "children" | "onSelect"> & {
   items: SidebarItem[];
   isCompact?: boolean;
   hideEndContent?: boolean;
@@ -55,6 +55,11 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
     ref,
   ) => {
     const [selected, setSelected] = React.useState<React.Key>(defaultSelectedKey);
+
+
+    React.useEffect(() => {
+      setSelected(defaultSelectedKey);
+    }, [defaultSelectedKey]);
 
     const sectionClasses = {
       ...sectionClassesProp,
@@ -253,7 +258,7 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
         ref={ref}
         hideSelectedIcon
         as="nav"
-        className={cn("list-none", className)}
+        className={cn("list-none select-none", className)}
         classNames={{
           ...classNames,
           list: cn("items-center", classNames?.list),
@@ -262,11 +267,11 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
         itemClasses={{
           ...itemClasses,
           base: cn(
-            "px-3 min-h-11 rounded-large h-[44px] data-[selected=true]:bg-default-100",
+            "px-3 min-h-11 rounded-large h-[44px] data-[selected=true]:bg-default-100 select-none",
             itemClasses?.base,
           ),
           title: cn(
-            "text-small font-medium text-default-500 group-data-[selected=true]:text-foreground",
+            "text-small font-medium text-default-500 group-data-[selected=true]:text-foreground select-none",
             itemClasses?.title,
           ),
         }}
@@ -276,9 +281,11 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
         variant="flat"
         onSelectionChange={(keys) => {
           const key = Array.from(keys)[0];
-
-          setSelected(key as React.Key);
-          onSelect?.(key as string);
+          
+          if (key && key !== undefined && key !== "undefined") {
+            setSelected(key as React.Key);
+            onSelect?.(key as string);
+          }
         }}
         {...props}
       >

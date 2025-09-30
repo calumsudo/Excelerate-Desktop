@@ -11,35 +11,31 @@ import TeamAvatar from "./team-avatar";
 export const items: SidebarItem[] = [
   {
     key: "dashboard",
-    href: "/dashboard",
     icon: "solar:widget-add-line-duotone",
     title: "Dashboard",
   },
   {
     key: "alder-portfolio",
-    href: "/alder-portfolio",
     icon: "solar:wallet-money-outline",
     title: "Alder Portfolio",
   },
   {
     key: "white-rabbit-portfolio",
-    href: "/white-rabbit-portfolio",
     icon: "solar:safe-square-outline",
     title: "White Rabbit Portfolio",
   },
   {
     key: "file-explorer",
-    href: "/file-explorer",
     icon: "solar:folder-with-files-outline",
     title: "File Explorer",
   },
-  {
-    key: "settings",
-    href: "/settings",
-    icon: "solar:settings-outline",
-    title: "Settings",
-  },
 ];
+
+export const settingsItem: SidebarItem = {
+  key: "settings",
+  icon: "solar:settings-outline",
+  title: "Settings",
+};
 
 export const sectionItems: SidebarItem[] = [
   {

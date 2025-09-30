@@ -1,0 +1,951 @@
+use rusqlite::{Connection, Result, params, OptionalExtension};
+use chrono::{DateTime, Utc};
+use serde::{Serialize, Deserialize};
+use std::path::PathBuf;
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct FileVersion {
+    pub id: String,
+    pub portfolio_name: String,
+    pub report_date: String,
+    pub original_filename: String,
+    pub version_filename: String,
+    pub file_path: String,
+    pub file_size: i64,
+    pub upload_timestamp: DateTime<Utc>,
+    pub is_active: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct FunderUpload {
+    pub id: String,
+    pub portfolio_name: String,
+    pub funder_name: String,
+    pub report_date: String,
+    pub upload_type: String, // "weekly" or "monthly"
+    pub original_filename: String,
+    pub stored_filename: String,
+    pub file_path: String,
+    pub file_size: i64,
+    pub upload_timestamp: DateTime<Utc>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct FunderPivotTable {
+    pub id: String,
+    pub upload_id: String, // Reference to the FunderUpload
+    pub portfolio_name: String,
+    pub funder_name: String,
+    pub report_date: String,
+    pub upload_type: String,
+    pub pivot_file_path: String,
+    pub total_gross: f64,
+    pub total_fee: f64,
+    pub total_net: f64,
+    pub row_count: i32,
+    pub created_timestamp: DateTime<Utc>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Merchant {
+    pub id: String,
+    pub portfolio_name: String,
+    pub funder_name: String,
+    pub date_funded: Option<String>,
+    pub merchant_name: String,
+    pub website: Option<String>,
+    pub advance_id: Option<String>,
+    pub funder_advance_id: Option<String>,
+    pub industry_naics_or_sic: Option<String>,
+    pub state: Option<String>,
+    pub fico: Option<String>,
+    pub buy_rate: Option<f64>,
+    pub commission: Option<f64>,
+    pub total_amount_funded: Option<f64>,
+    pub created_timestamp: DateTime<Utc>,
+    pub updated_timestamp: DateTime<Utc>,
+}
+
+pub struct Database {
+    conn: Connection,
+}
+
+impl Database {
+    pub fn new(db_path: &PathBuf) -> Result<Self> {
+        let conn = Connection::open(db_path)?;
+        
+        // Run migrations before creating tables
+        Self::run_migrations(&conn)?;
+        
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS file_versions (
+                id TEXT PRIMARY KEY,
+                portfolio_name TEXT NOT NULL,
+                report_date TEXT NOT NULL,
+                original_filename TEXT NOT NULL,
+                version_filename TEXT NOT NULL,
+                file_path TEXT NOT NULL,
+                file_size INTEGER NOT NULL,
+                upload_timestamp TEXT NOT NULL,
+                is_active BOOLEAN DEFAULT 0
+            )",
+            [],
+        )?;
+        
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_portfolio_date 
+             ON file_versions(portfolio_name, report_date)",
+            [],
+        )?;
+        
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_report_date 
+             ON file_versions(report_date)",
+            [],
+        )?;
+        
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_active 
+             ON file_versions(is_active)",
+            [],
+        )?;
+
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS funder_uploads (
+                id TEXT PRIMARY KEY,
+                portfolio_name TEXT NOT NULL,
+                funder_name TEXT NOT NULL,
+                report_date TEXT NOT NULL,
+                upload_type TEXT NOT NULL,
+                original_filename TEXT NOT NULL,
+                stored_filename TEXT NOT NULL,
+                file_path TEXT NOT NULL,
+                file_size INTEGER NOT NULL,
+                upload_timestamp TEXT NOT NULL,
+                UNIQUE(portfolio_name, funder_name, report_date, upload_type, original_filename)
+            )",
+            [],
+        )?;
+        
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_funder_portfolio_date 
+             ON funder_uploads(portfolio_name, funder_name, report_date)",
+            [],
+        )?;
+        
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS funder_pivot_tables (
+                id TEXT PRIMARY KEY,
+                upload_id TEXT NOT NULL,
+                portfolio_name TEXT NOT NULL,
+                funder_name TEXT NOT NULL,
+                report_date TEXT NOT NULL,
+                upload_type TEXT NOT NULL,
+                pivot_file_path TEXT NOT NULL,
+                total_gross REAL NOT NULL,
+                total_fee REAL NOT NULL,
+                total_net REAL NOT NULL,
+                row_count INTEGER NOT NULL,
+                created_timestamp TEXT NOT NULL,
+                FOREIGN KEY (upload_id) REFERENCES funder_uploads(id)
+            )",
+            [],
+        )?;
+        
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_pivot_upload_id 
+             ON funder_pivot_tables(upload_id)",
+            [],
+        )?;
+
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS merchants (
+                id TEXT PRIMARY KEY,
+                portfolio_name TEXT NOT NULL,
+                funder_name TEXT NOT NULL,
+                date_funded TEXT,
+                merchant_name TEXT NOT NULL,
+                website TEXT,
+                advance_id TEXT,
+                funder_advance_id TEXT,
+                industry_naics_or_sic TEXT,
+                state TEXT,
+                fico TEXT,
+                buy_rate REAL,
+                commission REAL,
+                total_amount_funded REAL,
+                created_timestamp TEXT NOT NULL,
+                updated_timestamp TEXT NOT NULL,
+                UNIQUE(portfolio_name, funder_name, merchant_name, advance_id)
+            )",
+            [],
+        )?;
+        
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_merchants_portfolio_funder 
+             ON merchants(portfolio_name, funder_name)",
+            [],
+        )?;
+        
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_merchants_advance_id 
+             ON merchants(advance_id)",
+            [],
+        )?;
+
+        Ok(Database { conn })
+    }
+    
+    pub fn insert_file_version(&self, version: &FileVersion) -> Result<()> {
+        self.conn.execute(
+            "UPDATE file_versions SET is_active = 0 
+             WHERE portfolio_name = ?1 AND is_active = 1",
+            params![version.portfolio_name],
+        )?;
+        
+        self.conn.execute(
+            "INSERT INTO file_versions 
+             (id, portfolio_name, report_date, original_filename, version_filename, 
+              file_path, file_size, upload_timestamp, is_active) 
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+            params![
+                version.id,
+                version.portfolio_name,
+                version.report_date,
+                version.original_filename,
+                version.version_filename,
+                version.file_path,
+                version.file_size,
+                version.upload_timestamp.to_rfc3339(),
+                version.is_active,
+            ],
+        )?;
+        Ok(())
+    }
+    
+    pub fn get_version_by_id(&self, id: &str) -> Result<Option<FileVersion>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, portfolio_name, report_date, original_filename, version_filename, 
+                    file_path, file_size, upload_timestamp, is_active 
+             FROM file_versions 
+             WHERE id = ?1"
+        )?;
+        
+        let version = stmt.query_row(params![id], |row| {
+            Ok(FileVersion {
+                id: row.get(0)?,
+                portfolio_name: row.get(1)?,
+                report_date: row.get(2)?,
+                original_filename: row.get(3)?,
+                version_filename: row.get(4)?,
+                file_path: row.get(5)?,
+                file_size: row.get(6)?,
+                upload_timestamp: DateTime::parse_from_rfc3339(&row.get::<_, String>(7)?)
+                    .unwrap()
+                    .with_timezone(&Utc),
+                is_active: row.get(8)?,
+            })
+        }).optional()?;
+        
+        Ok(version)
+    }
+    
+    pub fn get_active_version(&self, portfolio_name: &str) -> Result<Option<FileVersion>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, portfolio_name, report_date, original_filename, version_filename, 
+                    file_path, file_size, upload_timestamp, is_active 
+             FROM file_versions 
+             WHERE portfolio_name = ?1 AND is_active = 1"
+        )?;
+        
+        let version = stmt.query_row(params![portfolio_name], |row| {
+            Ok(FileVersion {
+                id: row.get(0)?,
+                portfolio_name: row.get(1)?,
+                report_date: row.get(2)?,
+                original_filename: row.get(3)?,
+                version_filename: row.get(4)?,
+                file_path: row.get(5)?,
+                file_size: row.get(6)?,
+                upload_timestamp: DateTime::parse_from_rfc3339(&row.get::<_, String>(7)?)
+                    .unwrap()
+                    .with_timezone(&Utc),
+                is_active: row.get(8)?,
+            })
+        }).optional()?;
+        
+        Ok(version)
+    }
+    
+    pub fn get_versions_by_portfolio(&self, portfolio_name: &str) -> Result<Vec<FileVersion>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, portfolio_name, report_date, original_filename, version_filename, 
+                    file_path, file_size, upload_timestamp, is_active 
+             FROM file_versions 
+             WHERE portfolio_name = ?1 
+             ORDER BY report_date DESC, upload_timestamp DESC"
+        )?;
+        
+        let versions = stmt.query_map(params![portfolio_name], |row| {
+            Ok(FileVersion {
+                id: row.get(0)?,
+                portfolio_name: row.get(1)?,
+                report_date: row.get(2)?,
+                original_filename: row.get(3)?,
+                version_filename: row.get(4)?,
+                file_path: row.get(5)?,
+                file_size: row.get(6)?,
+                upload_timestamp: DateTime::parse_from_rfc3339(&row.get::<_, String>(7)?)
+                    .unwrap()
+                    .with_timezone(&Utc),
+                is_active: row.get(8)?,
+            })
+        })?;
+        
+        versions.collect()
+    }
+    
+    pub fn get_versions_by_date(&self, report_date: &str) -> Result<Vec<FileVersion>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, portfolio_name, report_date, original_filename, version_filename, 
+                    file_path, file_size, upload_timestamp, is_active 
+             FROM file_versions 
+             WHERE report_date = ?1 
+             ORDER BY portfolio_name, upload_timestamp DESC"
+        )?;
+        
+        let versions = stmt.query_map(params![report_date], |row| {
+            Ok(FileVersion {
+                id: row.get(0)?,
+                portfolio_name: row.get(1)?,
+                report_date: row.get(2)?,
+                original_filename: row.get(3)?,
+                version_filename: row.get(4)?,
+                file_path: row.get(5)?,
+                file_size: row.get(6)?,
+                upload_timestamp: DateTime::parse_from_rfc3339(&row.get::<_, String>(7)?)
+                    .unwrap()
+                    .with_timezone(&Utc),
+                is_active: row.get(8)?,
+            })
+        })?;
+        
+        versions.collect()
+    }
+    
+    pub fn get_version_by_portfolio_and_date(
+        &self, 
+        portfolio_name: &str, 
+        report_date: &str
+    ) -> Result<Option<FileVersion>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, portfolio_name, report_date, original_filename, version_filename, 
+                    file_path, file_size, upload_timestamp, is_active 
+             FROM file_versions 
+             WHERE portfolio_name = ?1 AND report_date = ?2
+             ORDER BY upload_timestamp DESC
+             LIMIT 1"
+        )?;
+        
+        let version = stmt.query_row(params![portfolio_name, report_date], |row| {
+            Ok(FileVersion {
+                id: row.get(0)?,
+                portfolio_name: row.get(1)?,
+                report_date: row.get(2)?,
+                original_filename: row.get(3)?,
+                version_filename: row.get(4)?,
+                file_path: row.get(5)?,
+                file_size: row.get(6)?,
+                upload_timestamp: DateTime::parse_from_rfc3339(&row.get::<_, String>(7)?)
+                    .unwrap()
+                    .with_timezone(&Utc),
+                is_active: row.get(8)?,
+            })
+        }).optional()?;
+        
+        Ok(version)
+    }
+    
+    pub fn delete_version(&self, id: &str) -> Result<bool> {
+        let rows_affected = self.conn.execute(
+            "DELETE FROM file_versions WHERE id = ?1",
+            params![id],
+        )?;
+        Ok(rows_affected > 0)
+    }
+    
+    pub fn set_active_version(&self, id: &str) -> Result<()> {
+        let version = self.get_version_by_id(id)?
+            .ok_or_else(|| rusqlite::Error::QueryReturnedNoRows)?;
+        
+        self.conn.execute(
+            "UPDATE file_versions SET is_active = 0 
+             WHERE portfolio_name = ?1 AND is_active = 1",
+            params![version.portfolio_name],
+        )?;
+        
+        self.conn.execute(
+            "UPDATE file_versions SET is_active = 1 WHERE id = ?1",
+            params![id],
+        )?;
+        
+        Ok(())
+    }
+    
+    pub fn deactivate_all_versions(&self, portfolio_name: &str) -> Result<()> {
+        self.conn.execute(
+            "UPDATE file_versions SET is_active = 0 WHERE portfolio_name = ?1",
+            params![portfolio_name],
+        )?;
+        Ok(())
+    }
+    
+    pub fn get_all_versions(&self) -> Result<Vec<FileVersion>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, portfolio_name, report_date, original_filename, version_filename, 
+                    file_path, file_size, upload_timestamp, is_active 
+             FROM file_versions 
+             ORDER BY report_date DESC, portfolio_name, upload_timestamp DESC"
+        )?;
+        
+        let versions = stmt.query_map([], |row| {
+            Ok(FileVersion {
+                id: row.get(0)?,
+                portfolio_name: row.get(1)?,
+                report_date: row.get(2)?,
+                original_filename: row.get(3)?,
+                version_filename: row.get(4)?,
+                file_path: row.get(5)?,
+                file_size: row.get(6)?,
+                upload_timestamp: DateTime::parse_from_rfc3339(&row.get::<_, String>(7)?)
+                    .unwrap()
+                    .with_timezone(&Utc),
+                is_active: row.get(8)?,
+            })
+        })?;
+        
+        versions.collect()
+    }
+    
+    // Funder Upload Methods
+    pub fn insert_funder_upload(&self, upload: &FunderUpload) -> Result<()> {
+        self.conn.execute(
+            "INSERT OR REPLACE INTO funder_uploads 
+             (id, portfolio_name, funder_name, report_date, upload_type,
+              original_filename, stored_filename, file_path, file_size, upload_timestamp) 
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            params![
+                upload.id,
+                upload.portfolio_name,
+                upload.funder_name,
+                upload.report_date,
+                upload.upload_type,
+                upload.original_filename,
+                upload.stored_filename,
+                upload.file_path,
+                upload.file_size,
+                upload.upload_timestamp.to_rfc3339(),
+            ],
+        )?;
+        Ok(())
+    }
+    
+    pub fn get_funder_upload(
+        &self,
+        portfolio_name: &str,
+        funder_name: &str,
+        report_date: &str,
+        upload_type: &str,
+    ) -> Result<Option<FunderUpload>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, portfolio_name, funder_name, report_date, upload_type,
+                    original_filename, stored_filename, file_path, file_size, upload_timestamp 
+             FROM funder_uploads 
+             WHERE portfolio_name = ?1 AND funder_name = ?2 AND report_date = ?3 AND upload_type = ?4"
+        )?;
+        
+        let upload = stmt.query_row(
+            params![portfolio_name, funder_name, report_date, upload_type], 
+            |row| {
+                Ok(FunderUpload {
+                    id: row.get(0)?,
+                    portfolio_name: row.get(1)?,
+                    funder_name: row.get(2)?,
+                    report_date: row.get(3)?,
+                    upload_type: row.get(4)?,
+                    original_filename: row.get(5)?,
+                    stored_filename: row.get(6)?,
+                    file_path: row.get(7)?,
+                    file_size: row.get(8)?,
+                    upload_timestamp: DateTime::parse_from_rfc3339(&row.get::<_, String>(9)?)
+                        .unwrap()
+                        .with_timezone(&Utc),
+                })
+            }
+        ).optional()?;
+        
+        Ok(upload)
+    }
+    
+    pub fn get_funder_uploads_by_portfolio_and_date(
+        &self,
+        portfolio_name: &str,
+        report_date: &str,
+    ) -> Result<Vec<FunderUpload>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, portfolio_name, funder_name, report_date, upload_type,
+                    original_filename, stored_filename, file_path, file_size, upload_timestamp 
+             FROM funder_uploads 
+             WHERE portfolio_name = ?1 AND report_date = ?2 
+             ORDER BY upload_type, funder_name"
+        )?;
+        
+        let uploads = stmt.query_map(params![portfolio_name, report_date], |row| {
+            Ok(FunderUpload {
+                id: row.get(0)?,
+                portfolio_name: row.get(1)?,
+                funder_name: row.get(2)?,
+                report_date: row.get(3)?,
+                upload_type: row.get(4)?,
+                original_filename: row.get(5)?,
+                stored_filename: row.get(6)?,
+                file_path: row.get(7)?,
+                file_size: row.get(8)?,
+                upload_timestamp: DateTime::parse_from_rfc3339(&row.get::<_, String>(9)?)
+                    .unwrap()
+                    .with_timezone(&Utc),
+            })
+        })?;
+        
+        uploads.collect()
+    }
+    
+    pub fn delete_funder_upload(&self, id: &str) -> Result<bool> {
+        let rows_affected = self.conn.execute(
+            "DELETE FROM funder_uploads WHERE id = ?1",
+            params![id],
+        )?;
+        Ok(rows_affected > 0)
+    }
+    
+    pub fn get_all_funder_uploads(&self) -> Result<Vec<FunderUpload>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, portfolio_name, funder_name, report_date, upload_type,
+                    original_filename, stored_filename, file_path, file_size, upload_timestamp 
+             FROM funder_uploads 
+             ORDER BY report_date DESC, upload_timestamp DESC"
+        )?;
+        
+        let uploads = stmt.query_map([], |row| {
+            Ok(FunderUpload {
+                id: row.get(0)?,
+                portfolio_name: row.get(1)?,
+                funder_name: row.get(2)?,
+                report_date: row.get(3)?,
+                upload_type: row.get(4)?,
+                original_filename: row.get(5)?,
+                stored_filename: row.get(6)?,
+                file_path: row.get(7)?,
+                file_size: row.get(8)?,
+                upload_timestamp: DateTime::parse_from_rfc3339(&row.get::<_, String>(9)?)
+                    .unwrap()
+                    .with_timezone(&Utc),
+            })
+        })?;
+        
+        uploads.collect()
+    }
+    
+    // Pivot Table Methods
+    pub fn insert_funder_pivot_table(&self, pivot: &FunderPivotTable) -> Result<()> {
+        self.conn.execute(
+            "INSERT OR REPLACE INTO funder_pivot_tables 
+             (id, upload_id, portfolio_name, funder_name, report_date, upload_type,
+              pivot_file_path, total_gross, total_fee, total_net, row_count, created_timestamp) 
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+            params![
+                pivot.id,
+                pivot.upload_id,
+                pivot.portfolio_name,
+                pivot.funder_name,
+                pivot.report_date,
+                pivot.upload_type,
+                pivot.pivot_file_path,
+                pivot.total_gross,
+                pivot.total_fee,
+                pivot.total_net,
+                pivot.row_count,
+                pivot.created_timestamp.to_rfc3339(),
+            ],
+        )?;
+        Ok(())
+    }
+    
+    pub fn get_funder_pivot_table(
+        &self,
+        portfolio_name: &str,
+        funder_name: &str,
+        report_date: &str,
+        upload_type: &str,
+    ) -> Result<Option<FunderPivotTable>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, upload_id, portfolio_name, funder_name, report_date, upload_type,
+                    pivot_file_path, total_gross, total_fee, total_net, row_count, created_timestamp 
+             FROM funder_pivot_tables 
+             WHERE portfolio_name = ?1 AND funder_name = ?2 AND report_date = ?3 AND upload_type = ?4"
+        )?;
+        
+        let pivot = stmt.query_row(
+            params![portfolio_name, funder_name, report_date, upload_type], 
+            |row| {
+                Ok(FunderPivotTable {
+                    id: row.get(0)?,
+                    upload_id: row.get(1)?,
+                    portfolio_name: row.get(2)?,
+                    funder_name: row.get(3)?,
+                    report_date: row.get(4)?,
+                    upload_type: row.get(5)?,
+                    pivot_file_path: row.get(6)?,
+                    total_gross: row.get(7)?,
+                    total_fee: row.get(8)?,
+                    total_net: row.get(9)?,
+                    row_count: row.get(10)?,
+                    created_timestamp: DateTime::parse_from_rfc3339(&row.get::<_, String>(11)?)
+                        .unwrap()
+                        .with_timezone(&Utc),
+                })
+            }
+        ).optional()?;
+        
+        Ok(pivot)
+    }
+    
+    pub fn get_pivot_table_by_upload_id(&self, upload_id: &str) -> Result<Option<FunderPivotTable>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, upload_id, portfolio_name, funder_name, report_date, upload_type,
+                    pivot_file_path, total_gross, total_fee, total_net, row_count, created_timestamp 
+             FROM funder_pivot_tables 
+             WHERE upload_id = ?1"
+        )?;
+        
+        let pivot = stmt.query_row(params![upload_id], |row| {
+            Ok(FunderPivotTable {
+                id: row.get(0)?,
+                upload_id: row.get(1)?,
+                portfolio_name: row.get(2)?,
+                funder_name: row.get(3)?,
+                report_date: row.get(4)?,
+                upload_type: row.get(5)?,
+                pivot_file_path: row.get(6)?,
+                total_gross: row.get(7)?,
+                total_fee: row.get(8)?,
+                total_net: row.get(9)?,
+                row_count: row.get(10)?,
+                created_timestamp: DateTime::parse_from_rfc3339(&row.get::<_, String>(11)?)
+                    .unwrap()
+                    .with_timezone(&Utc),
+            })
+        }).optional()?;
+        
+        Ok(pivot)
+    }
+    
+    pub fn get_all_pivot_tables(&self) -> Result<Vec<FunderPivotTable>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, upload_id, portfolio_name, funder_name, report_date, upload_type,
+                    pivot_file_path, total_gross, total_fee, total_net, row_count, created_timestamp 
+             FROM funder_pivot_tables 
+             ORDER BY report_date DESC, created_timestamp DESC"
+        )?;
+        
+        let pivots = stmt.query_map([], |row| {
+            Ok(FunderPivotTable {
+                id: row.get(0)?,
+                upload_id: row.get(1)?,
+                portfolio_name: row.get(2)?,
+                funder_name: row.get(3)?,
+                report_date: row.get(4)?,
+                upload_type: row.get(5)?,
+                pivot_file_path: row.get(6)?,
+                total_gross: row.get(7)?,
+                total_fee: row.get(8)?,
+                total_net: row.get(9)?,
+                row_count: row.get(10)?,
+                created_timestamp: DateTime::parse_from_rfc3339(&row.get::<_, String>(11)?)
+                    .unwrap()
+                    .with_timezone(&Utc),
+            })
+        })?;
+        
+        pivots.collect()
+    }
+    
+    pub fn delete_pivot_table_by_upload_id(&self, upload_id: &str) -> Result<bool> {
+        let rows_affected = self.conn.execute(
+            "DELETE FROM funder_pivot_tables WHERE upload_id = ?1",
+            params![upload_id],
+        )?;
+        Ok(rows_affected > 0)
+    }
+    
+    // Merchant Methods
+    pub fn insert_or_update_merchant(&self, merchant: &Merchant) -> Result<()> {
+        self.conn.execute(
+            "INSERT OR REPLACE INTO merchants 
+             (id, portfolio_name, funder_name, date_funded, merchant_name, website,
+              advance_id, funder_advance_id, industry_naics_or_sic, state, fico,
+              buy_rate, commission, total_amount_funded, created_timestamp, updated_timestamp) 
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)",
+            params![
+                merchant.id,
+                merchant.portfolio_name,
+                merchant.funder_name,
+                merchant.date_funded,
+                merchant.merchant_name,
+                merchant.website,
+                merchant.advance_id,
+                merchant.funder_advance_id,
+                merchant.industry_naics_or_sic,
+                merchant.state,
+                merchant.fico,
+                merchant.buy_rate,
+                merchant.commission,
+                merchant.total_amount_funded,
+                merchant.created_timestamp.to_rfc3339(),
+                merchant.updated_timestamp.to_rfc3339(),
+            ],
+        )?;
+        Ok(())
+    }
+    
+    pub fn get_merchant(
+        &self,
+        portfolio_name: &str,
+        funder_name: &str,
+        merchant_name: &str,
+        advance_id: Option<&str>,
+    ) -> Result<Option<Merchant>> {
+        let query = if let Some(_advance_id) = advance_id {
+            "SELECT id, portfolio_name, funder_name, date_funded, merchant_name, website,
+                    advance_id, funder_advance_id, industry_naics_or_sic, state, fico,
+                    buy_rate, commission, total_amount_funded, created_timestamp, updated_timestamp 
+             FROM merchants 
+             WHERE portfolio_name = ?1 AND funder_name = ?2 AND merchant_name = ?3 AND advance_id = ?4"
+        } else {
+            "SELECT id, portfolio_name, funder_name, date_funded, merchant_name, website,
+                    advance_id, funder_advance_id, industry_naics_or_sic, state, fico,
+                    buy_rate, commission, total_amount_funded, created_timestamp, updated_timestamp 
+             FROM merchants 
+             WHERE portfolio_name = ?1 AND funder_name = ?2 AND merchant_name = ?3 AND advance_id IS NULL"
+        };
+        
+        let mut stmt = self.conn.prepare(query)?;
+        
+        let merchant = if let Some(advance_id) = advance_id {
+            stmt.query_row(params![portfolio_name, funder_name, merchant_name, advance_id], Self::row_to_merchant)
+        } else {
+            stmt.query_row(params![portfolio_name, funder_name, merchant_name], Self::row_to_merchant)
+        }.optional()?;
+        
+        Ok(merchant)
+    }
+    
+    pub fn get_merchants_by_portfolio(&self, portfolio_name: &str) -> Result<Vec<Merchant>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, portfolio_name, funder_name, date_funded, merchant_name, website,
+                    advance_id, funder_advance_id, industry_naics_or_sic, state, fico,
+                    buy_rate, commission, total_amount_funded, created_timestamp, updated_timestamp 
+             FROM merchants 
+             WHERE portfolio_name = ?1 
+             ORDER BY funder_name, merchant_name"
+        )?;
+        
+        let merchants = stmt.query_map(params![portfolio_name], Self::row_to_merchant)?;
+        merchants.collect()
+    }
+    
+    pub fn get_merchants_by_funder(
+        &self,
+        portfolio_name: &str,
+        funder_name: &str,
+    ) -> Result<Vec<Merchant>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, portfolio_name, funder_name, date_funded, merchant_name, website,
+                    advance_id, funder_advance_id, industry_naics_or_sic, state, fico,
+                    buy_rate, commission, total_amount_funded, created_timestamp, updated_timestamp 
+             FROM merchants 
+             WHERE portfolio_name = ?1 AND funder_name = ?2 
+             ORDER BY merchant_name"
+        )?;
+        
+        let merchants = stmt.query_map(params![portfolio_name, funder_name], Self::row_to_merchant)?;
+        merchants.collect()
+    }
+    
+    pub fn delete_merchants_by_portfolio(&self, portfolio_name: &str) -> Result<usize> {
+        let rows_affected = self.conn.execute(
+            "DELETE FROM merchants WHERE portfolio_name = ?1",
+            params![portfolio_name],
+        )?;
+        Ok(rows_affected)
+    }
+    
+    fn row_to_merchant(row: &rusqlite::Row) -> rusqlite::Result<Merchant> {
+        Ok(Merchant {
+            id: row.get(0)?,
+            portfolio_name: row.get(1)?,
+            funder_name: row.get(2)?,
+            date_funded: row.get(3)?,
+            merchant_name: row.get(4)?,
+            website: row.get(5)?,
+            advance_id: row.get(6)?,
+            funder_advance_id: row.get(7)?,
+            industry_naics_or_sic: row.get(8)?,
+            state: row.get(9)?,
+            fico: row.get(10)?,
+            buy_rate: row.get(11)?,
+            commission: row.get(12)?,
+            total_amount_funded: row.get(13)?,
+            created_timestamp: DateTime::parse_from_rfc3339(&row.get::<_, String>(14)?)
+                .unwrap()
+                .with_timezone(&Utc),
+            updated_timestamp: DateTime::parse_from_rfc3339(&row.get::<_, String>(15)?)
+                .unwrap()
+                .with_timezone(&Utc),
+        })
+    }
+    
+    fn run_migrations(conn: &Connection) -> Result<()> {
+        // Check if we need to migrate the funder_uploads table
+        // First, check if the table exists and what constraints it has
+        let table_exists: i32 = conn.query_row(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='funder_uploads'",
+            [],
+            |row| row.get(0)
+        ).unwrap_or(0);
+        
+        if table_exists > 0 {
+            // Check if we have the old constraint (without original_filename)
+            let constraint_info = conn.prepare(
+                "SELECT sql FROM sqlite_master WHERE type='table' AND name='funder_uploads'"
+            )?.query_row([], |row| {
+                let sql: String = row.get(0)?;
+                Ok(sql)
+            }).unwrap_or_default();
+            
+            // If the constraint doesn't include original_filename, we need to migrate
+            if !constraint_info.contains("original_filename") || 
+               !constraint_info.contains("UNIQUE(portfolio_name, funder_name, report_date, upload_type, original_filename)") {
+                
+                // Begin transaction for safe migration
+                conn.execute("BEGIN TRANSACTION", [])?;
+                
+                // Create new table with updated schema
+                conn.execute(
+                    "CREATE TABLE IF NOT EXISTS funder_uploads_new (
+                        id TEXT PRIMARY KEY,
+                        portfolio_name TEXT NOT NULL,
+                        funder_name TEXT NOT NULL,
+                        report_date TEXT NOT NULL,
+                        upload_type TEXT NOT NULL,
+                        original_filename TEXT NOT NULL,
+                        stored_filename TEXT NOT NULL,
+                        file_path TEXT NOT NULL,
+                        file_size INTEGER NOT NULL,
+                        upload_timestamp TEXT NOT NULL,
+                        UNIQUE(portfolio_name, funder_name, report_date, upload_type, original_filename)
+                    )",
+                    [],
+                )?;
+                
+                // Copy data from old table
+                conn.execute(
+                    "INSERT OR IGNORE INTO funder_uploads_new 
+                     SELECT * FROM funder_uploads",
+                    [],
+                )?;
+                
+                // Drop old table
+                conn.execute("DROP TABLE funder_uploads", [])?;
+                
+                // Rename new table
+                conn.execute("ALTER TABLE funder_uploads_new RENAME TO funder_uploads", [])?;
+                
+                // Recreate index
+                conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_funder_portfolio_date 
+                     ON funder_uploads(portfolio_name, funder_name, report_date)",
+                    [],
+                )?;
+                
+                // Commit transaction
+                conn.execute("COMMIT", [])?;
+            }
+        }
+        
+        // Similar migration for funder_pivot_tables to remove UNIQUE constraint
+        let pivot_table_exists: i32 = conn.query_row(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='funder_pivot_tables'",
+            [],
+            |row| row.get(0)
+        ).unwrap_or(0);
+        
+        if pivot_table_exists > 0 {
+            let constraint_info = conn.prepare(
+                "SELECT sql FROM sqlite_master WHERE type='table' AND name='funder_pivot_tables'"
+            )?.query_row([], |row| {
+                let sql: String = row.get(0)?;
+                Ok(sql)
+            }).unwrap_or_default();
+            
+            // If it has the old UNIQUE constraint, remove it
+            if constraint_info.contains("UNIQUE(portfolio_name, funder_name, report_date, upload_type)") {
+                conn.execute("BEGIN TRANSACTION", [])?;
+                
+                // Create new table without the UNIQUE constraint
+                conn.execute(
+                    "CREATE TABLE IF NOT EXISTS funder_pivot_tables_new (
+                        id TEXT PRIMARY KEY,
+                        upload_id TEXT NOT NULL,
+                        portfolio_name TEXT NOT NULL,
+                        funder_name TEXT NOT NULL,
+                        report_date TEXT NOT NULL,
+                        upload_type TEXT NOT NULL,
+                        pivot_file_path TEXT NOT NULL,
+                        total_gross REAL NOT NULL,
+                        total_fee REAL NOT NULL,
+                        total_net REAL NOT NULL,
+                        row_count INTEGER NOT NULL,
+                        created_timestamp TEXT NOT NULL,
+                        FOREIGN KEY (upload_id) REFERENCES funder_uploads(id)
+                    )",
+                    [],
+                )?;
+                
+                // Copy data
+                conn.execute(
+                    "INSERT OR IGNORE INTO funder_pivot_tables_new 
+                     SELECT * FROM funder_pivot_tables",
+                    [],
+                )?;
+                
+                // Drop old table
+                conn.execute("DROP TABLE funder_pivot_tables", [])?;
+                
+                // Rename new table
+                conn.execute("ALTER TABLE funder_pivot_tables_new RENAME TO funder_pivot_tables", [])?;
+                
+                // Recreate index
+                conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_pivot_upload_id 
+                     ON funder_pivot_tables(upload_id)",
+                    [],
+                )?;
+                
+                conn.execute("COMMIT", [])?;
+            }
+        }
+        
+        Ok(())
+    }
+}

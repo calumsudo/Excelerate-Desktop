@@ -5,6 +5,24 @@
   "windows": ["main"],
   "permissions": [
     "core:default",
-    "opener:default"
+    "opener:default",
+    "fs:allow-read-file",
+    "fs:allow-write-file",
+    "fs:allow-read",
+    "fs:allow-write",
+    "fs:allow-exists",
+    "fs:read-all",
+    "fs:write-all",
+    {
+      "identifier": "fs:scope",
+      "allow": [
+        "$HOME/Excelerate/**",
+        "$HOME/Downloads/**"
+      ]
+    },
+    "dialog:allow-save",
+    "dialog:allow-message",
+    "dialog:default",
+    "core:path:default"
   ]
 }
