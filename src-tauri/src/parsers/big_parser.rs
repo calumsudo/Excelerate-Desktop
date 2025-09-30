@@ -146,8 +146,8 @@ impl BigParser {
                 }
             }
             
-            // Skip rows with zero amounts (likely empty or summary rows)
-            if net_amount == 0.0 && merchant_name.trim().is_empty() {
+            // Skip rows with zero amounts (no payment made)
+            if net_amount == 0.0 {
                 continue;
             }
             
@@ -217,15 +217,17 @@ impl BaseParser for BigParser {
         let mut sorted_entries: Vec<_> = grouped_data.into_iter().collect();
         sorted_entries.sort_by(|a, b| a.0.0.cmp(&b.0.0));
         
-        // Add data rows
+        // Add data rows (skip any entries with zero net amount)
         for ((advance_id, merchant_name), (gross, fee, net)) in sorted_entries {
-            pivot.add_row(
-                advance_id,
-                merchant_name,
-                gross,
-                fee,
-                net,
-            );
+            if net > 0.0 {
+                pivot.add_row(
+                    advance_id,
+                    merchant_name,
+                    gross,
+                    fee,
+                    net,
+                );
+            }
         }
         
         // Add totals row
