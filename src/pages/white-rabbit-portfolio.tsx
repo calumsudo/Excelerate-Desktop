@@ -161,8 +161,17 @@ function WhiteRabbitPortfolio() {
     setSelectedDate(date);
   };
 
+  const [isUploading, setIsUploading] = useState(false);
+  const [isUpdatingNetRtr, setIsUpdatingNetRtr] = useState(false);
+  
   const handleFileUpload = async (file: File) => {
     console.log('WhiteRabbit Portfolio - File uploaded:', file.name);
+    
+    // Prevent multiple simultaneous uploads
+    if (isUploading) {
+      console.log('Upload already in progress, skipping...');
+      return;
+    }
     
     if (!selectedDate) {
       console.error('No report date selected. Please select a Friday date first.');
@@ -172,6 +181,7 @@ function WhiteRabbitPortfolio() {
     const reportDate = selectedDate.toString();
     
     try {
+      setIsUploading(true);
       const versionExists = await FileService.checkVersionExists('White Rabbit', reportDate);
       if (versionExists) {
         const confirmOverwrite = window.confirm(
@@ -200,6 +210,8 @@ function WhiteRabbitPortfolio() {
       }
     } catch (error) {
       console.error('Error saving workbook:', error);
+    } finally {
+      setIsUploading(false);
     }
   };
   
@@ -520,6 +532,56 @@ function WhiteRabbitPortfolio() {
     setClearViewDailyFiles(clearViewFiles);
   };
 
+  const handleUpdateNetRtr = async () => {
+    if (!selectedDate) {
+      console.error('No date selected');
+      return;
+    }
+
+    if (isUpdatingNetRtr) {
+      console.log('Update already in progress');
+      return;
+    }
+
+    try {
+      setIsUpdatingNetRtr(true);
+      console.log('Starting Net RTR update for White Rabbit portfolio');
+      
+      const response = await FileService.updatePortfolioWithNetRtr(
+        'White Rabbit',
+        selectedDate.toString()
+      );
+      
+      if (response.success) {
+        console.log('Portfolio updated successfully:', response.message);
+        alert('Portfolio updated successfully with Net RTR values!');
+        
+        // Refresh the workbook to show the updated version
+        const updatedVersions = await FileService.getPortfolioVersions('White Rabbit');
+        setVersions(updatedVersions);
+      } else {
+        console.error('Failed to update portfolio:', response.message);
+        alert(`Failed to update portfolio: ${response.message}`);
+      }
+    } catch (error) {
+      console.error('Error updating portfolio:', error);
+      alert('Error updating portfolio with Net RTR values');
+    } finally {
+      setIsUpdatingNetRtr(false);
+    }
+  };
+
+  // Check if we can update Net RTR (need workbook and at least some funder files)
+  const canUpdateNetRtr = () => {
+    if (!selectedDate || !existingWorkbook) return false;
+    
+    // Check if we have at least one weekly funder file
+    const hasWeeklyFiles = Object.keys(weeklyFiles).length > 0;
+    const hasMonthlyFiles = Object.keys(monthlyFiles).length > 0;
+    
+    return hasWeeklyFiles || hasMonthlyFiles;
+  };
+
   const handleClearViewDailyRemove = async (index: number) => {
     const fileToRemove = clearViewDailyFiles[index];
     console.log(`White Rabbit Portfolio - Removing Clear View daily file: ${fileToRemove.name}`);
@@ -587,6 +649,8 @@ function WhiteRabbitPortfolio() {
         onClearViewDailyUpload={handleClearViewDailyUpload}
         onClearViewDailyRemove={handleClearViewDailyRemove}
         clearViewDailyFiles={clearViewDailyFiles}
+        onUpdateNetRtr={handleUpdateNetRtr}
+        canUpdateNetRtr={canUpdateNetRtr()}
       />
       {selectedDate && (funderUploads.length > 0 || clearViewDailyFilesList.length > 0) && (
         <div className="max-w-6xl mx-auto mt-6 p-6 bg-default-50 rounded-lg border border-default-200">

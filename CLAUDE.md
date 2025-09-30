@@ -50,3 +50,4 @@ The React app uses a feature-based structure:
 - Tauri expects fixed port 1420 for development
 - The app currently displays a sidebar UI with placeholder content
 - Uses TypeScript strict mode with all linting rules enabled
+- The edit-xlsx library examples can be found at /edit-xlsx-main/examples

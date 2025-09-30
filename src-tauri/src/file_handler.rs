@@ -1558,3 +1558,150 @@ impl From<Merchant> for MerchantInfo {
         }
     }
 }
+
+#[derive(Serialize, Deserialize)]
+pub struct PivotTableData {
+    pub advance_id: String,
+    pub merchant_name: String,
+    pub gross_amount: f64,
+    pub management_fee: f64,
+    pub net_amount: f64,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct FunderPivotData {
+    pub funder_name: String,
+    pub sheet_name: String,
+    pub pivot_data: Vec<PivotTableData>,
+    pub file_path: String,
+}
+
+#[tauri::command]
+pub fn get_pivot_tables_for_update(
+    portfolio_name: &str,
+    report_date: &str,
+) -> Result<Vec<FunderPivotData>, String> {
+    let base_dir = get_excelerate_dir()?;
+    
+    // Convert date format for file naming (MM/DD/YYYY -> MM-DD-YYYY)
+    let file_date = report_date.replace('/', "-");
+    
+    // List of funders to check with their sheet names
+    let funders = vec![
+        ("BHB", "BHB", "Weekly"),
+        ("BIG", "BIG", "Weekly"),
+        ("Clear View", "CV", "Weekly"),  // Special case - will use Combined subdirectory
+        ("eFin", "EFin", "Weekly"),
+        ("InAdvance", "InAd", "Weekly"),
+        ("Boom", "Boom", "Monthly"),
+        ("Kings", "Kings", "Monthly"),
+    ];
+    
+    let mut all_pivot_data = Vec::new();
+    
+    for (folder_name, sheet_name, funder_type) in funders {
+        let pivot_path = if folder_name == "Clear View" {
+            // For Clear View, use the Combined subdirectory
+            base_dir
+                .join(portfolio_name)
+                .join("Funder Pivot Tables")
+                .join(funder_type)
+                .join(folder_name)
+                .join("Combined")
+                .join(format!("{}.csv", file_date))
+        } else {
+            // For other funders, pivot table is directly in the funder folder
+            base_dir
+                .join(portfolio_name)
+                .join("Funder Pivot Tables")
+                .join(funder_type)
+                .join(folder_name)
+                .join(format!("{}.csv", file_date))
+        };
+        
+        // Check if the pivot table file exists
+        if pivot_path.exists() {
+            println!("Loading pivot table from: {}", pivot_path.display());
+            
+            // Read the CSV file
+            let csv_content = fs::read_to_string(&pivot_path)
+                .map_err(|e| format!("Failed to read CSV file: {}", e))?;
+            
+            let mut reader = csv::Reader::from_reader(csv_content.as_bytes());
+            let mut pivot_data = Vec::new();
+            
+            for result in reader.records() {
+                let record = result.map_err(|e| format!("Failed to parse CSV: {}", e))?;
+                
+                if record.len() >= 5 {
+                    let advance_id = record.get(0).unwrap_or("").to_string();
+                    
+                    // Skip the totals row
+                    if advance_id == "Totals" {
+                        continue;
+                    }
+                    
+                    let merchant_name = record.get(1).unwrap_or("").to_string();
+                    let gross_amount = record.get(2).unwrap_or("0")
+                        .parse::<f64>()
+                        .unwrap_or(0.0);
+                    let management_fee = record.get(3).unwrap_or("0")
+                        .parse::<f64>()
+                        .unwrap_or(0.0);
+                    let net_amount = record.get(4).unwrap_or("0")
+                        .parse::<f64>()
+                        .unwrap_or(0.0);
+                    
+                    pivot_data.push(PivotTableData {
+                        advance_id,
+                        merchant_name,
+                        gross_amount,
+                        management_fee,
+                        net_amount,
+                    });
+                }
+            }
+            
+            if !pivot_data.is_empty() {
+                all_pivot_data.push(FunderPivotData {
+                    funder_name: folder_name.to_string(),
+                    sheet_name: sheet_name.to_string(),
+                    pivot_data,
+                    file_path: pivot_path.to_string_lossy().to_string(),
+                });
+            }
+        }
+    }
+    
+    Ok(all_pivot_data)
+}
+
+#[tauri::command]
+pub fn get_active_workbook_path(
+    portfolio_name: &str,
+) -> Result<String, String> {
+    let base_dir = get_excelerate_dir()?;
+    let workbook_dir = base_dir.join(portfolio_name).join("Workbook");
+    
+    // Initialize DB if needed
+    if DB.lock().unwrap().is_none() {
+        init_database()?;
+    }
+    
+    let db_lock = DB.lock().unwrap();
+    let db = db_lock.as_ref().ok_or("Database not initialized")?;
+    
+    let active_version = db.get_active_version(portfolio_name)
+        .map_err(|e| format!("Failed to get active version: {}", e))?;
+    
+    if let Some(version) = active_version {
+        Ok(version.file_path)
+    } else {
+        // If no active version, look for the original workbook
+        let original_path = workbook_dir.join(format!("{} Portfolio.xlsx", portfolio_name));
+        if !original_path.exists() {
+            return Err(format!("No portfolio workbook found for {}", portfolio_name));
+        }
+        Ok(original_path.to_string_lossy().to_string())
+    }
+}
