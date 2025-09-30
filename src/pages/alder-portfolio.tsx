@@ -597,6 +597,10 @@ function AlderPortfolio() {
       setIsUpdatingNetRtr(true);
       console.log('Starting Net RTR update for Alder portfolio');
       
+      // Show loading message for Pyodide initialization
+      const loadingMessage = 'Initializing Python environment for Excel processing...';
+      console.log(loadingMessage);
+      
       const response = await FileService.updatePortfolioWithNetRtr(
         'Alder',
         selectedDate.toString()
@@ -604,7 +608,7 @@ function AlderPortfolio() {
       
       if (response.success) {
         console.log('Portfolio updated successfully:', response.message);
-        alert('Portfolio updated successfully with Net RTR values!');
+        alert('Portfolio updated successfully with Net RTR values! All formatting preserved.');
         
         // Refresh the workbook to show the updated version
         const updatedVersions = await FileService.getPortfolioVersions('Alder');
@@ -615,7 +619,7 @@ function AlderPortfolio() {
       }
     } catch (error) {
       console.error('Error updating portfolio:', error);
-      alert('Error updating portfolio with Net RTR values');
+      alert('Error updating portfolio with Net RTR values. Please check console for details.');
     } finally {
       setIsUpdatingNetRtr(false);
     }
@@ -654,6 +658,7 @@ function AlderPortfolio() {
         clearViewDailyFiles={clearViewDailyFiles}
         onUpdateNetRtr={handleUpdateNetRtr}
         canUpdateNetRtr={canUpdateNetRtr()}
+        isUpdatingNetRtr={isUpdatingNetRtr}
       />
       {selectedDate && (funderUploads.length > 0 || clearViewDailyFilesList.length > 0) && (
         <div className="max-w-6xl mx-auto mt-6 p-6 bg-default-50 rounded-lg border border-default-200">

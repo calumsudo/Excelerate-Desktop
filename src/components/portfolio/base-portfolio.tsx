@@ -33,6 +33,7 @@ interface BasePortfolioProps {
   clearViewDailyFiles?: File[];
   onUpdateNetRtr?: () => void;
   canUpdateNetRtr?: boolean;
+  isUpdatingNetRtr?: boolean;
 }
 
 const BasePortfolio: React.FC<BasePortfolioProps> = ({
@@ -59,7 +60,8 @@ const BasePortfolio: React.FC<BasePortfolioProps> = ({
   onClearViewDailyRemove,
   clearViewDailyFiles,
   onUpdateNetRtr,
-  canUpdateNetRtr = false
+  canUpdateNetRtr = false,
+  isUpdatingNetRtr = false
 }) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(existingWorkbookFile || null);
 
@@ -200,9 +202,11 @@ const BasePortfolio: React.FC<BasePortfolioProps> = ({
                   color="primary"
                   size="lg"
                   onPress={onUpdateNetRtr}
-                  startContent={<Icon icon="material-symbols:update" className="w-5 h-5" />}
+                  isLoading={isUpdatingNetRtr}
+                  startContent={!isUpdatingNetRtr && <Icon icon="material-symbols:update" className="w-5 h-5" />}
+                  isDisabled={isUpdatingNetRtr}
                 >
-                  Update Net RTR
+                  {isUpdatingNetRtr ? 'Processing with Python...' : 'Update Net RTR'}
                 </Button>
               </div>
             </div>

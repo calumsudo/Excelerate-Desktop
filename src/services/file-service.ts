@@ -289,11 +289,11 @@ export class FileService {
     try {
       console.log(`Updating ${portfolioName} portfolio with Net RTR for ${reportDate}`);
       
-      // Import and use the enhanced SheetJS service
-      const { ExcelService } = await import('./excel-service');
+      // Import and use the Pyodide service with openpyxl
+      const { PyodideService } = await import('./pyodide-service');
       
-      // Process the workbook in the frontend
-      await ExcelService.updatePortfolioWorkbookWithNetRtr(portfolioName, reportDate);
+      // Process the workbook using Pyodide/openpyxl
+      await PyodideService.updatePortfolioWorkbookWithNetRtr(portfolioName, reportDate);
       
       // Return success response
       return {

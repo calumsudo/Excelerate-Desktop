@@ -19,15 +19,14 @@
     "@types/node": "^22.13.11",
     "@types/react-router-dom": "^5.3.3",
     "buffer": "^6.0.3",
-    "exceljs": "^4.4.0",
     "framer-motion": "^12.5.0",
+    "pyodide": "^0.28.3",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^7.9.1",
     "react-spreadsheet": "^0.10.1",
     "recharts": "^2.15.1",
-    "usehooks-ts": "^3.1.1",
-    "xlsx": "^0.18.5"
+    "usehooks-ts": "^3.1.1"
   },
   "devDependencies": {
     "@iconify/react": "^5.2.0",
