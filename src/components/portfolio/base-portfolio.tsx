@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { DateValue } from '@internationalized/date';
+import { Button } from '@heroui/react';
+import { Icon } from '@iconify/react';
 import FridayDatePicker from '@components/date/friday-date-picker';
 import FileUpload from './file-upload';
 import FunderUploadSection, { FunderData } from './funder-upload-section';
@@ -29,6 +31,9 @@ interface BasePortfolioProps {
   onClearViewDailyUpload?: (files: File[]) => void;
   onClearViewDailyRemove?: (index: number) => void;
   clearViewDailyFiles?: File[];
+  onUpdateNetRtr?: () => void;
+  canUpdateNetRtr?: boolean;
+  isUpdatingNetRtr?: boolean;
 }
 
 const BasePortfolio: React.FC<BasePortfolioProps> = ({
@@ -53,7 +58,10 @@ const BasePortfolio: React.FC<BasePortfolioProps> = ({
   showClearViewDaily,
   onClearViewDailyUpload,
   onClearViewDailyRemove,
-  clearViewDailyFiles
+  clearViewDailyFiles,
+  onUpdateNetRtr,
+  canUpdateNetRtr = false,
+  isUpdatingNetRtr = false
 }) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(existingWorkbookFile || null);
 
@@ -66,6 +74,10 @@ const BasePortfolio: React.FC<BasePortfolioProps> = ({
 
   // Handle main file upload
   const handleFileUpload = (file: File) => {
+    // Prevent duplicate uploads if the same file is already selected
+    if (selectedFile?.name === file.name && selectedFile?.size === file.size) {
+      return;
+    }
     setSelectedFile(file);
     onFileUpload?.(file);
   };
@@ -170,6 +182,32 @@ const BasePortfolio: React.FC<BasePortfolioProps> = ({
                     onClearFile={onMonthlyClearFile}
                   />
                 )}
+              </div>
+            </div>
+          )}
+
+          {/* Update Net RTR Button */}
+          {canUpdateNetRtr && onUpdateNetRtr && (
+            <div className="bg-default-50 rounded-lg p-6 border border-default-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-semibold text-foreground">
+                    Update Portfolio with Net RTR
+                  </h2>
+                  <p className="text-sm text-default-500 mt-1">
+                    Update the portfolio workbook with Net RTR values from funder reports
+                  </p>
+                </div>
+                <Button
+                  color="primary"
+                  size="lg"
+                  onPress={onUpdateNetRtr}
+                  isLoading={isUpdatingNetRtr}
+                  startContent={!isUpdatingNetRtr && <Icon icon="material-symbols:update" className="w-5 h-5" />}
+                  isDisabled={isUpdatingNetRtr}
+                >
+                  {isUpdatingNetRtr ? 'Processing with Python...' : 'Update Net RTR'}
+                </Button>
               </div>
             </div>
           )}

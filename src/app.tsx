@@ -1,4 +1,5 @@
 import { Routes, Route } from "react-router-dom";
+import { useEffect } from "react";
 import Layout from "./layout";
 import Dashboard from "@pages/dashboard";
 import AlderPortfolio from "@pages/alder-portfolio";
@@ -7,6 +8,26 @@ import FileExplorer from "@pages/file-explorer";
 import Settings from "@pages/settings";
 
 function App() {
+  // Preload Pyodide on app startup for better performance
+  useEffect(() => {
+    const preloadPyodide = async () => {
+      try {
+        console.log('Preloading Pyodide in background...');
+        // Dynamically import to avoid blocking initial render
+        const { PyodideService } = await import('./services/pyodide-service');
+        await PyodideService.preload();
+        console.log('Pyodide preloaded and ready');
+      } catch (error) {
+        console.error('Failed to preload Pyodide (non-critical):', error);
+      }
+    };
+    
+    // Delay preload slightly to prioritize initial UI render
+    const timer = setTimeout(preloadPyodide, 2000);
+    
+    return () => clearTimeout(timer);
+  }, []);
+
   return (
     <Routes>
       <Route path="/" element={<Layout />}>

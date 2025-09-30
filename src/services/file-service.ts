@@ -281,6 +281,31 @@ export class FileService {
       return [];
     }
   }
+
+  static async updatePortfolioWithNetRtr(
+    portfolioName: string,
+    reportDate: string
+  ): Promise<UploadResponse> {
+    try {
+      console.log(`Updating ${portfolioName} portfolio with Net RTR for ${reportDate}`);
+      
+      // Import and use the Pyodide service with openpyxl
+      const { PyodideService } = await import('./pyodide-service');
+      
+      // Process the workbook using Pyodide/openpyxl
+      await PyodideService.updatePortfolioWorkbookWithNetRtr(portfolioName, reportDate);
+      
+      // Return success response
+      return {
+        success: true,
+        message: `Successfully updated portfolio with Net RTR values for ${reportDate}. File saved successfully.`,
+        file_path: `${portfolioName}_Portfolio_Updated_${reportDate.replace(/\//g, '-')}.xlsx`,
+      };
+    } catch (error) {
+      console.error('Error updating portfolio with Net RTR:', error);
+      throw error;
+    }
+  }
 }
 
 export default FileService;

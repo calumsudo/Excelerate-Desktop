@@ -23,6 +23,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             greet,
             file_handler::save_portfolio_workbook_with_version,
@@ -49,7 +50,9 @@ pub fn run() {
             file_handler::extract_merchants_from_portfolio,
             file_handler::get_merchants_by_portfolio,
             file_handler::get_merchants_by_funder,
-            file_handler::clear_merchants_for_portfolio
+            file_handler::clear_merchants_for_portfolio,
+            file_handler::get_pivot_tables_for_update,
+            file_handler::get_active_workbook_path
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

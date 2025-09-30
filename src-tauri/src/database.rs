@@ -392,6 +392,14 @@ impl Database {
         Ok(())
     }
     
+    pub fn deactivate_all_versions(&self, portfolio_name: &str) -> Result<()> {
+        self.conn.execute(
+            "UPDATE file_versions SET is_active = 0 WHERE portfolio_name = ?1",
+            params![portfolio_name],
+        )?;
+        Ok(())
+    }
+    
     pub fn get_all_versions(&self) -> Result<Vec<FileVersion>> {
         let mut stmt = self.conn.prepare(
             "SELECT id, portfolio_name, report_date, original_filename, version_filename, 
@@ -717,7 +725,7 @@ impl Database {
         merchant_name: &str,
         advance_id: Option<&str>,
     ) -> Result<Option<Merchant>> {
-        let query = if let Some(advance_id) = advance_id {
+        let query = if let Some(_advance_id) = advance_id {
             "SELECT id, portfolio_name, funder_name, date_funded, merchant_name, website,
                     advance_id, funder_advance_id, industry_naics_or_sic, state, fico,
                     buy_rate, commission, total_amount_funded, created_timestamp, updated_timestamp 

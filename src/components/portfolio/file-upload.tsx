@@ -38,12 +38,20 @@ const FileUpload: React.FC<FileUploadProps> = ({
   // const dragCounter = useRef(0);
   const dropZoneRef = useRef<HTMLDivElement>(null);
   const isHoveredRef = useRef(false);
+  const onFileUploadRef = useRef(onFileUpload);
+  const listenerRegisteredRef = useRef(false);
 
   // Use prop file if provided, otherwise use local state
   const currentFile = selectedFile ?? localSelectedFile;
+  
+  // Keep the ref up to date with the latest callback
+  useEffect(() => {
+    onFileUploadRef.current = onFileUpload;
+  }, [onFileUpload]);
 
   // Handle file drop from Tauri
   const handleTauriFileDrop = async (filePath: string) => {
+    console.log(`[FileUpload-${uploadId}] handleTauriFileDrop called with:`, filePath);
     try {
       // Extract file name from path
       const fileName = filePath.split(/[\\/]/).pop() || 'file';
@@ -74,13 +82,14 @@ const FileUpload: React.FC<FileUploadProps> = ({
         return;
       }
       
-      console.log('File created from Tauri drop:', file.name, 'Size:', file.size);
+      console.log(`[FileUpload-${uploadId}] File created from Tauri drop:`, file.name, 'Size:', file.size);
       
       // Update state and call handler
       if (selectedFile === undefined) {
         setLocalSelectedFile(file);
       }
-      onFileUpload?.(file);
+      console.log(`[FileUpload-${uploadId}] Calling onFileUploadRef.current`);
+      onFileUploadRef.current?.(file);
     } catch (error) {
       console.error('Failed to process Tauri file drop:', error);
     }
@@ -91,7 +100,15 @@ const FileUpload: React.FC<FileUploadProps> = ({
     let unlisten: (() => void) | undefined;
 
     const setupTauriDragDrop = async () => {
+      // Prevent multiple registrations
+      if (listenerRegisteredRef.current) {
+        console.log(`[FileUpload-${uploadId}] Listener already registered, skipping`);
+        return;
+      }
+      
       try {
+        console.log(`[FileUpload-${uploadId}] Setting up Tauri drag drop listener`);
+        listenerRegisteredRef.current = true;
         // Listen for Tauri drag and drop events
         unlisten = await getCurrentWebview().onDragDropEvent((event) => {
           // Only process if this specific drop zone is being hovered
@@ -150,11 +167,13 @@ const FileUpload: React.FC<FileUploadProps> = ({
 
     // Cleanup
     return () => {
+      console.log(`[FileUpload-${uploadId}] Cleaning up Tauri drag drop listener`);
       if (unlisten) {
         unlisten();
+        listenerRegisteredRef.current = false;
       }
     };
-  }, [acceptedExtensions, maxSizeKB, onFileUpload, selectedFile, uploadId]);
+  }, [acceptedExtensions, maxSizeKB, uploadId]); // Removed onFileUpload and selectedFile from deps
 
   // Check if file is valid based on props
   const isValidFile = (file: File): boolean => {
@@ -190,7 +209,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
       if (selectedFile === undefined) {
         setLocalSelectedFile(file);
       }
-      onFileUpload?.(file);
+      onFileUploadRef.current?.(file);
     }
   };
 

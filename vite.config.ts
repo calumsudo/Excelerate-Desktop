@@ -45,4 +45,11 @@ export default defineConfig(async () => ({
       "@webdesk":    path.resolve(__dirname, "./src/web")
     },
   },
+  define: {
+    global: 'window',
+    'process.env': {}
+  },
+  optimizeDeps: {
+    include: ['buffer']
+  },
 }));
