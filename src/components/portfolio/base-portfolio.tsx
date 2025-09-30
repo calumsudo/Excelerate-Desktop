@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
-import { DateValue } from '@internationalized/date';
-import { Button } from '@heroui/react';
-import { Icon } from '@iconify/react';
-import FridayDatePicker from '@components/date/friday-date-picker';
-import FileUpload from './file-upload';
-import FunderUploadSection, { FunderData } from './funder-upload-section';
-import ClearViewDailyUpload from './clearview-daily-upload';
+import React, { useState } from "react";
+import { DateValue } from "@internationalized/date";
+import { Button } from "@heroui/react";
+import { Icon } from "@iconify/react";
+import FridayDatePicker from "@components/date/friday-date-picker";
+import FileUpload from "./file-upload";
+import FunderUploadSection, { FunderData } from "./funder-upload-section";
+import ClearViewDailyUpload from "./clearview-daily-upload";
 
 interface BasePortfolioProps {
   portfolioName: string;
@@ -61,7 +61,7 @@ const BasePortfolio: React.FC<BasePortfolioProps> = ({
   clearViewDailyFiles,
   onUpdateNetRtr,
   canUpdateNetRtr = false,
-  isUpdatingNetRtr = false
+  isUpdatingNetRtr = false,
 }) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(existingWorkbookFile || null);
 
@@ -125,10 +125,10 @@ const BasePortfolio: React.FC<BasePortfolioProps> = ({
                 label="Click to upload portfolio workbook or drag and drop"
                 description="Excel files only (.xlsx, .xls)"
                 acceptedTypes={[
-                  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                  'application/vnd.ms-excel'
+                  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                  "application/vnd.ms-excel",
                 ]}
-                acceptedExtensions={['.xlsx', '.xls']}
+                acceptedExtensions={[".xlsx", ".xls"]}
                 maxSizeKB={10240}
                 uploadId={`${portfolioName}-main-workbook`}
               />
@@ -151,7 +151,7 @@ const BasePortfolio: React.FC<BasePortfolioProps> = ({
               <h2 className="text-2xl font-semibold mb-6 text-foreground text-center">
                 Funder Upload
               </h2>
-              
+
               <div className="space-y-6">
                 {dailyFunders?.length && (
                   <FunderUploadSection
@@ -162,7 +162,7 @@ const BasePortfolio: React.FC<BasePortfolioProps> = ({
                     onClearFile={onDailyClearFile}
                   />
                 )}
-                
+
                 {weeklyFunders?.length && (
                   <FunderUploadSection
                     type="weekly"
@@ -172,7 +172,7 @@ const BasePortfolio: React.FC<BasePortfolioProps> = ({
                     onClearFile={onWeeklyClearFile}
                   />
                 )}
-                
+
                 {monthlyFunders?.length && (
                   <FunderUploadSection
                     type="monthly"
@@ -203,10 +203,12 @@ const BasePortfolio: React.FC<BasePortfolioProps> = ({
                   size="lg"
                   onPress={onUpdateNetRtr}
                   isLoading={isUpdatingNetRtr}
-                  startContent={!isUpdatingNetRtr && <Icon icon="material-symbols:update" className="w-5 h-5" />}
+                  startContent={
+                    !isUpdatingNetRtr && <Icon icon="material-symbols:update" className="w-5 h-5" />
+                  }
                   isDisabled={isUpdatingNetRtr}
                 >
-                  {isUpdatingNetRtr ? 'Processing with Python...' : 'Update Net RTR'}
+                  {isUpdatingNetRtr ? "Processing with Python..." : "Update Net RTR"}
                 </Button>
               </div>
             </div>
@@ -215,12 +217,8 @@ const BasePortfolio: React.FC<BasePortfolioProps> = ({
           {/* Grid Section for Components */}
           {children && (
             <div className="bg-default-50 rounded-lg p-6 border border-default-200">
-              <h2 className="text-2xl font-semibold mb-6 text-foreground">
-                Portfolio Components
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {children}
-              </div>
+              <h2 className="text-2xl font-semibold mb-6 text-foreground">Portfolio Components</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{children}</div>
             </div>
           )}
         </div>

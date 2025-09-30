@@ -1,11 +1,6 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { DatePicker } from '@heroui/react';
-import { 
-  CalendarDate, 
-  getLocalTimeZone, 
-  today, 
-  DateValue
-} from '@internationalized/date';
+import React, { useState, useMemo, useEffect } from "react";
+import { DatePicker } from "@heroui/react";
+import { CalendarDate, getLocalTimeZone, today, DateValue } from "@internationalized/date";
 
 interface FridayDatePickerProps {
   onDateChange?: (date: DateValue | null) => void;
@@ -18,13 +13,13 @@ const FridayDatePicker: React.FC<FridayDatePickerProps> = ({
   onDateChange,
   label = "Select Friday",
   description = "Choose a Friday date",
-  className
+  className,
 }) => {
   // Function to get the most recent Friday
   const getMostRecentFriday = (): CalendarDate => {
     const todayDate = today(getLocalTimeZone());
     const currentDay = todayDate.toDate(getLocalTimeZone()).getDay();
-    
+
     let daysToSubtract = 0;
     if (currentDay === 5) {
       daysToSubtract = 0; // Today is Friday
@@ -33,14 +28,14 @@ const FridayDatePicker: React.FC<FridayDatePickerProps> = ({
     } else {
       daysToSubtract = currentDay + 2; // Thursday (4) -> subtract 6, etc.
     }
-    
+
     return todayDate.subtract({ days: daysToSubtract });
   };
 
   // Initialize with most recent Friday
   const initialFriday = getMostRecentFriday();
   const [selectedDate, setSelectedDate] = useState<DateValue | null>(initialFriday);
-  
+
   // Notify parent of initial date on mount
   useEffect(() => {
     if (initialFriday && onDateChange) {
@@ -79,7 +74,7 @@ const FridayDatePicker: React.FC<FridayDatePickerProps> = ({
   }, []);
 
   return (
-    <div className={`w-full ${className || ''}`}>
+    <div className={`w-full ${className || ""}`}>
       <DatePicker
         label={label}
         description={description}
@@ -105,7 +100,9 @@ const FridayDatePicker: React.FC<FridayDatePickerProps> = ({
             ],
           },
         }}
-        errorMessage={selectedDate && !isFriday(selectedDate) ? "Please select a Friday" : undefined}
+        errorMessage={
+          selectedDate && !isFriday(selectedDate) ? "Please select a Friday" : undefined
+        }
       />
     </div>
   );

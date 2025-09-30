@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
-import { DateValue } from '@internationalized/date';
-import BasePortfolio from '@components/portfolio/base-portfolio';
-import { FunderData } from '@components/portfolio/funder-upload-section';
-import FileService, { VersionInfo, FunderUploadInfo } from '@services/file-service';
+import { useState, useEffect } from "react";
+import { DateValue } from "@internationalized/date";
+import BasePortfolio from "@components/portfolio/base-portfolio";
+import { FunderData } from "@components/portfolio/funder-upload-section";
+import FileService, { VersionInfo, FunderUploadInfo } from "@services/file-service";
 
 function AlderPortfolio() {
   const [weeklyFiles, setWeeklyFiles] = useState<Record<string, File>>({});
@@ -16,84 +16,84 @@ function AlderPortfolio() {
 
   useEffect(() => {
     const loadActiveVersion = async () => {
-      const activeVersion = await FileService.getActiveVersion('Alder');
+      const activeVersion = await FileService.getActiveVersion("Alder");
       if (activeVersion) {
         const file = new File([], activeVersion.original_filename, {
-          type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+          type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         });
-        Object.defineProperty(file, 'size', {
+        Object.defineProperty(file, "size", {
           value: activeVersion.file_size,
-          writable: false
+          writable: false,
         });
         setExistingWorkbook(file);
       }
     };
 
     const loadVersions = async () => {
-      const portfolioVersions = await FileService.getPortfolioVersions('Alder');
+      const portfolioVersions = await FileService.getPortfolioVersions("Alder");
       setVersions(portfolioVersions);
     };
 
     loadActiveVersion();
     loadVersions();
   }, []);
-  
+
   // Load funder uploads when date changes
   useEffect(() => {
     const loadFunderUploads = async () => {
       if (selectedDate) {
         const reportDate = selectedDate.toString();
-        const uploads = await FileService.getFunderUploadsForDate('Alder', reportDate);
+        const uploads = await FileService.getFunderUploadsForDate("Alder", reportDate);
         setFunderUploads(uploads);
-        
+
         // Load Clear View daily files for the week
-        const dailyFiles = await FileService.getClearViewDailyFilesForWeek('Alder', reportDate);
+        const dailyFiles = await FileService.getClearViewDailyFilesForWeek("Alder", reportDate);
         setClearViewDailyFilesList(dailyFiles);
-        
+
         // Get the Clear View daily uploads to get file sizes
-        const clearViewDailyUploads = uploads.filter(u => 
-          u.funder_name === "Clear View" && 
-          u.upload_type === 'daily'
+        const clearViewDailyUploads = uploads.filter(
+          (u) => u.funder_name === "Clear View" && u.upload_type === "daily"
         );
-        
+
         // Create File objects for Clear View daily files to show in upload component
         const clearViewFiles: File[] = clearViewDailyUploads.map((upload) => {
-          const file = new File([], upload.original_filename, { type: 'text/csv' });
+          const file = new File([], upload.original_filename, { type: "text/csv" });
           // Add the actual file size
-          Object.defineProperty(file, 'size', {
+          Object.defineProperty(file, "size", {
             value: upload.file_size,
-            writable: false
+            writable: false,
           });
           // Add a custom property to indicate this is from backend
-          Object.defineProperty(file, 'isFromBackend', {
+          Object.defineProperty(file, "isFromBackend", {
             value: true,
-            writable: false
+            writable: false,
           });
           return file;
         });
         setClearViewDailyFiles(clearViewFiles);
-        
+
         // Create File objects for existing uploads to show in UI
         const weeklyFilesMap: Record<string, File> = {};
         const monthlyFilesMap: Record<string, File> = {};
-        
-        uploads.forEach(upload => {
+
+        uploads.forEach((upload) => {
           const file = new File([], upload.original_filename, {
-            type: upload.original_filename.endsWith('.csv') ? 'text/csv' : 
-                  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            type: upload.original_filename.endsWith(".csv")
+              ? "text/csv"
+              : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
           });
-          Object.defineProperty(file, 'size', {
+          Object.defineProperty(file, "size", {
             value: upload.file_size,
-            writable: false
+            writable: false,
           });
-          
-          if (upload.upload_type === 'monthly') {
+
+          if (upload.upload_type === "monthly") {
             monthlyFilesMap[upload.funder_name] = file;
-          } else if (upload.upload_type === 'weekly') {
+          } else if (upload.upload_type === "weekly") {
             weeklyFilesMap[upload.funder_name] = file;
           }
         });
-        
+
         setWeeklyFiles(weeklyFilesMap);
         setMonthlyFiles(monthlyFilesMap);
       } else {
@@ -104,89 +104,94 @@ function AlderPortfolio() {
         setMonthlyFiles({});
       }
     };
-    
+
     loadFunderUploads();
   }, [selectedDate]);
 
   const weeklyFunders: FunderData[] = [
     {
       name: "BHB",
-      acceptedTypes: ['text/csv'],
-      acceptedExtensions: ['.csv'],
-      maxSizeKB: 5120
+      acceptedTypes: ["text/csv"],
+      acceptedExtensions: [".csv"],
+      maxSizeKB: 5120,
     },
     {
       name: "BIG",
-      acceptedTypes: ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
-      acceptedExtensions: ['.xlsx'],
-      maxSizeKB: 5120
+      acceptedTypes: ["application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"],
+      acceptedExtensions: [".xlsx"],
+      maxSizeKB: 5120,
     },
     {
       name: "Clear View",
-      acceptedTypes: ['text/csv'],
-      acceptedExtensions: ['.csv'],
-      maxSizeKB: 5120
+      acceptedTypes: ["text/csv"],
+      acceptedExtensions: [".csv"],
+      maxSizeKB: 5120,
     },
     {
       name: "eFin",
-      acceptedTypes: ['text/csv'],
-      acceptedExtensions: ['.csv'],
-      maxSizeKB: 5120
+      acceptedTypes: ["text/csv"],
+      acceptedExtensions: [".csv"],
+      maxSizeKB: 5120,
     },
     {
       name: "InAdvance",
-      acceptedTypes: ['text/csv'],
-      acceptedExtensions: ['.csv'],
-      maxSizeKB: 5120
-    }
+      acceptedTypes: ["text/csv"],
+      acceptedExtensions: [".csv"],
+      maxSizeKB: 5120,
+    },
   ];
 
   const monthlyFunders: FunderData[] = [
     {
       name: "Kings",
-      acceptedTypes: ['text/csv'],
-      acceptedExtensions: ['.csv'],
-      maxSizeKB: 15360
+      acceptedTypes: ["text/csv"],
+      acceptedExtensions: [".csv"],
+      maxSizeKB: 15360,
     },
     {
       name: "Boom",
       acceptedTypes: [
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'application/vnd.ms-excel'
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "application/vnd.ms-excel",
       ],
-      acceptedExtensions: ['.xlsx', '.xls'],
-      maxSizeKB: 10240
-    }
+      acceptedExtensions: [".xlsx", ".xls"],
+      maxSizeKB: 10240,
+    },
   ];
 
   const handleDateChange = (date: DateValue | null) => {
-    console.log('Alder Portfolio - Date selected:', date?.toString());
+    console.log("Alder Portfolio - Date selected:", date?.toString());
     setSelectedDate(date);
   };
 
   const [isUploading, setIsUploading] = useState(false);
   const [isUpdatingNetRtr, setIsUpdatingNetRtr] = useState(false);
-  
+
   const handleFileUpload = async (file: File) => {
-    console.log('[Alder Portfolio] handleFileUpload called with:', file.name, 'at', new Date().toISOString());
-    console.trace('[Alder Portfolio] Call stack for handleFileUpload');
-    
+    console.log(
+      "[Alder Portfolio] handleFileUpload called with:",
+      file.name,
+      "at",
+      new Date().toISOString()
+    );
+    console.trace("[Alder Portfolio] Call stack for handleFileUpload");
+
     // Prevent multiple simultaneous uploads
     if (isUploading) {
-      console.log('[Alder Portfolio] Upload already in progress, skipping...');
+      console.log("[Alder Portfolio] Upload already in progress, skipping...");
       return;
     }
-    
+
     if (!selectedDate) {
-      console.error('No report date selected. Please select a Friday date first.');
+      console.error("No report date selected. Please select a Friday date first.");
       return;
     }
 
     const reportDate = selectedDate.toString();
-    
+
     try {
       setIsUploading(true);
-      const versionExists = await FileService.checkVersionExists('Alder', reportDate);
+      const versionExists = await FileService.checkVersionExists("Alder", reportDate);
       if (versionExists) {
         const confirmOverwrite = window.confirm(
           `A version already exists for ${reportDate}. Do you want to overwrite it?`
@@ -195,55 +200,55 @@ function AlderPortfolio() {
           return;
         }
       }
-      
-      console.log('[Alder Portfolio] Calling savePortfolioWorkbookWithVersion');
+
+      console.log("[Alder Portfolio] Calling savePortfolioWorkbookWithVersion");
       const response = await FileService.savePortfolioWorkbookWithVersion(
-        'Alder', 
-        file, 
+        "Alder",
+        file,
         reportDate
       );
-      
+
       if (response.success) {
-        console.log('Workbook saved successfully:', response.file_path);
-        console.log('Version backup created:', response.backup_path);
+        console.log("Workbook saved successfully:", response.file_path);
+        console.log("Version backup created:", response.backup_path);
         setExistingWorkbook(file);
-        
-        const updatedVersions = await FileService.getPortfolioVersions('Alder');
+
+        const updatedVersions = await FileService.getPortfolioVersions("Alder");
         setVersions(updatedVersions);
       } else {
-        console.error('Failed to save workbook:', response.message);
+        console.error("Failed to save workbook:", response.message);
       }
     } catch (error) {
-      console.error('Error saving workbook:', error);
+      console.error("Error saving workbook:", error);
     } finally {
-      console.log('[Alder Portfolio] Setting isUploading to false');
+      console.log("[Alder Portfolio] Setting isUploading to false");
       setIsUploading(false);
     }
   };
-  
+
   const handleClearMainFile = async () => {
-    console.log('Alder Portfolio - Clearing main workbook');
+    console.log("Alder Portfolio - Clearing main workbook");
     setExistingWorkbook(null);
   };
 
   const handleWeeklyFunderUpload = async (funderName: string, file: File) => {
     console.log(`Alder Portfolio - Weekly upload for ${funderName}:`, file.name);
-    
+
     if (!selectedDate) {
-      console.error('No report date selected. Please select a Friday date first.');
+      console.error("No report date selected. Please select a Friday date first.");
       return;
     }
 
     const reportDate = selectedDate.toString();
-    
+
     try {
       const exists = await FileService.checkFunderUploadExists(
-        'Alder',
+        "Alder",
         funderName,
         reportDate,
-        'weekly'
+        "weekly"
       );
-      
+
       if (exists) {
         const confirmOverwrite = window.confirm(
           `A file already exists for ${funderName} on ${reportDate}. Do you want to overwrite it?`
@@ -252,21 +257,21 @@ function AlderPortfolio() {
           return;
         }
       }
-      
+
       const response = await FileService.saveFunderUpload(
-        'Alder',
+        "Alder",
         funderName,
         file,
         reportDate,
-        'weekly'
+        "weekly"
       );
-      
+
       if (response.success) {
         console.log(`Funder file saved: ${response.file_path}`);
-        setWeeklyFiles(prev => ({ ...prev, [funderName]: file }));
-        
+        setWeeklyFiles((prev) => ({ ...prev, [funderName]: file }));
+
         // Refresh funder uploads list
-        const uploads = await FileService.getFunderUploadsForDate('Alder', reportDate);
+        const uploads = await FileService.getFunderUploadsForDate("Alder", reportDate);
         setFunderUploads(uploads);
       }
     } catch (error) {
@@ -276,22 +281,22 @@ function AlderPortfolio() {
 
   const handleMonthlyFunderUpload = async (funderName: string, file: File) => {
     console.log(`Alder Portfolio - Monthly upload for ${funderName}:`, file.name);
-    
+
     if (!selectedDate) {
-      console.error('No report date selected. Please select a Friday date first.');
+      console.error("No report date selected. Please select a Friday date first.");
       return;
     }
 
     const reportDate = selectedDate.toString();
-    
+
     try {
       const exists = await FileService.checkFunderUploadExists(
-        'Alder',
+        "Alder",
         funderName,
         reportDate,
-        'monthly'
+        "monthly"
       );
-      
+
       if (exists) {
         const confirmOverwrite = window.confirm(
           `A file already exists for ${funderName} on ${reportDate}. Do you want to overwrite it?`
@@ -300,21 +305,21 @@ function AlderPortfolio() {
           return;
         }
       }
-      
+
       const response = await FileService.saveFunderUpload(
-        'Alder',
+        "Alder",
         funderName,
         file,
         reportDate,
-        'monthly'
+        "monthly"
       );
-      
+
       if (response.success) {
         console.log(`Funder file saved: ${response.file_path}`);
-        setMonthlyFiles(prev => ({ ...prev, [funderName]: file }));
-        
+        setMonthlyFiles((prev) => ({ ...prev, [funderName]: file }));
+
         // Refresh funder uploads list
-        const uploads = await FileService.getFunderUploadsForDate('Alder', reportDate);
+        const uploads = await FileService.getFunderUploadsForDate("Alder", reportDate);
         setFunderUploads(uploads);
       }
     } catch (error) {
@@ -324,22 +329,21 @@ function AlderPortfolio() {
 
   const handleWeeklyClearFile = async (funderName: string) => {
     console.log(`Alder Portfolio - Clearing weekly file for ${funderName}`);
-    
+
     // If there's an uploaded file in the database, delete it
     if (selectedDate) {
       const reportDate = selectedDate.toString();
-      const uploads = funderUploads.filter(u => 
-        u.funder_name === funderName && 
-        u.upload_type === 'weekly'
+      const uploads = funderUploads.filter(
+        (u) => u.funder_name === funderName && u.upload_type === "weekly"
       );
-      
+
       if (uploads.length > 0) {
         try {
           // Use specialized handler for Clear View files
           if (funderName === "Clear View") {
             const response = await FileService.deleteClearViewFile(
               uploads[0].id,
-              'Alder',
+              "Alder",
               reportDate,
               false // is_daily = false (this is a weekly file)
             );
@@ -353,16 +357,16 @@ function AlderPortfolio() {
             }
           }
           // Refresh the uploads list
-          const updatedUploads = await FileService.getFunderUploadsForDate('Alder', reportDate);
+          const updatedUploads = await FileService.getFunderUploadsForDate("Alder", reportDate);
           setFunderUploads(updatedUploads);
         } catch (error) {
           console.error(`Error deleting ${funderName} weekly upload:`, error);
         }
       }
     }
-    
+
     // Clear from local state
-    setWeeklyFiles(prev => {
+    setWeeklyFiles((prev) => {
       const updated = { ...prev };
       delete updated[funderName];
       return updated;
@@ -371,22 +375,21 @@ function AlderPortfolio() {
 
   const handleMonthlyClearFile = async (funderName: string) => {
     console.log(`Alder Portfolio - Clearing monthly file for ${funderName}`);
-    
+
     // If there's an uploaded file in the database, delete it
     if (selectedDate) {
       const reportDate = selectedDate.toString();
-      const uploads = funderUploads.filter(u => 
-        u.funder_name === funderName && 
-        u.upload_type === 'monthly'
+      const uploads = funderUploads.filter(
+        (u) => u.funder_name === funderName && u.upload_type === "monthly"
       );
-      
+
       if (uploads.length > 0) {
         try {
           const success = await FileService.deleteFunderUpload(uploads[0].id);
           if (success) {
             console.log(`Successfully deleted ${funderName} monthly upload from database`);
             // Refresh the uploads list
-            const updatedUploads = await FileService.getFunderUploadsForDate('Alder', reportDate);
+            const updatedUploads = await FileService.getFunderUploadsForDate("Alder", reportDate);
             setFunderUploads(updatedUploads);
           }
         } catch (error) {
@@ -394,9 +397,9 @@ function AlderPortfolio() {
         }
       }
     }
-    
+
     // Clear from local state
-    setMonthlyFiles(prev => {
+    setMonthlyFiles((prev) => {
       const updated = { ...prev };
       delete updated[funderName];
       return updated;
@@ -405,15 +408,15 @@ function AlderPortfolio() {
 
   const handleClearViewDailyUpload = async (files: File[]) => {
     console.log(`Alder Portfolio - Clear View Daily upload, ${files.length} files`);
-    
+
     if (!selectedDate) {
-      console.error('No report date selected. Please select a Friday date first.');
+      console.error("No report date selected. Please select a Friday date first.");
       return;
     }
 
     const reportDate = selectedDate.toString();
     setClearViewDailyFiles(files);
-    
+
     // Save each file with Clear View as the funder name
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
@@ -421,14 +424,15 @@ function AlderPortfolio() {
         // Use "Clear View" as the funder name for all daily files
         // The backend will handle the file naming and organization
         const funderName = "Clear View";
-        
+
         // Check if this specific file already exists (by filename)
-        const existingUploads = funderUploads.filter(u => 
-          u.funder_name === funderName && 
-          u.upload_type === 'daily' &&
-          u.original_filename === file.name
+        const existingUploads = funderUploads.filter(
+          (u) =>
+            u.funder_name === funderName &&
+            u.upload_type === "daily" &&
+            u.original_filename === file.name
         );
-        
+
         if (existingUploads.length > 0) {
           const confirmOverwrite = window.confirm(
             `The file "${file.name}" already exists for ${reportDate}. Do you want to overwrite it?`
@@ -439,69 +443,68 @@ function AlderPortfolio() {
           // Delete the existing upload before re-uploading
           await FileService.deleteFunderUpload(existingUploads[0].id);
         }
-        
+
         const response = await FileService.saveFunderUpload(
-          'Alder',
+          "Alder",
           funderName,
           file,
           reportDate,
-          'daily'
+          "daily"
         );
-        
+
         if (response.success) {
           console.log(`Clear View daily file "${file.name}" saved: ${response.file_path}`);
         }
-        
+
         // Add a small delay between uploads to ensure file system synchronization
         if (i < files.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 100));
+          await new Promise((resolve) => setTimeout(resolve, 100));
         }
       } catch (error) {
         console.error(`Error uploading Clear View daily file "${file.name}":`, error);
       }
     }
-    
+
     // After all files are uploaded, process the pivot table
     if (files.length > 0) {
       try {
         // Add a delay to ensure all files are fully written to disk
-        await new Promise(resolve => setTimeout(resolve, 200));
-        
-        console.log('Processing Clear View daily pivot table...');
-        const pivotResponse = await FileService.processClearViewDailyPivot('Alder', reportDate);
+        await new Promise((resolve) => setTimeout(resolve, 200));
+
+        console.log("Processing Clear View daily pivot table...");
+        const pivotResponse = await FileService.processClearViewDailyPivot("Alder", reportDate);
         if (pivotResponse.success) {
-          console.log('Clear View daily pivot table created successfully:', pivotResponse.message);
+          console.log("Clear View daily pivot table created successfully:", pivotResponse.message);
         } else {
-          console.error('Failed to create Clear View daily pivot table:', pivotResponse.message);
+          console.error("Failed to create Clear View daily pivot table:", pivotResponse.message);
         }
       } catch (error) {
-        console.error('Error processing Clear View daily pivot:', error);
+        console.error("Error processing Clear View daily pivot:", error);
       }
     }
-    
+
     // Refresh funder uploads list and Clear View daily files
-    const uploads = await FileService.getFunderUploadsForDate('Alder', reportDate);
+    const uploads = await FileService.getFunderUploadsForDate("Alder", reportDate);
     setFunderUploads(uploads);
-    
-    const dailyFiles = await FileService.getClearViewDailyFilesForWeek('Alder', reportDate);
+
+    const dailyFiles = await FileService.getClearViewDailyFilesForWeek("Alder", reportDate);
     setClearViewDailyFilesList(dailyFiles);
-    
+
     // Get the Clear View daily uploads with file sizes
-    const clearViewDailyUploads = uploads.filter(u => 
-      u.funder_name === "Clear View" && 
-      u.upload_type === 'daily'
+    const clearViewDailyUploads = uploads.filter(
+      (u) => u.funder_name === "Clear View" && u.upload_type === "daily"
     );
-    
+
     // Update the Clear View daily files for the upload component
     const clearViewFiles: File[] = clearViewDailyUploads.map((upload) => {
-      const file = new File([], upload.original_filename, { type: 'text/csv' });
-      Object.defineProperty(file, 'size', {
+      const file = new File([], upload.original_filename, { type: "text/csv" });
+      Object.defineProperty(file, "size", {
         value: upload.file_size,
-        writable: false
+        writable: false,
       });
-      Object.defineProperty(file, 'isFromBackend', {
+      Object.defineProperty(file, "isFromBackend", {
         value: true,
-        writable: false
+        writable: false,
       });
       return file;
     });
@@ -510,59 +513,62 @@ function AlderPortfolio() {
 
   const handleClearViewDailyRemove = async (index: number) => {
     const fileToRemove = clearViewDailyFiles[index];
-    console.log(`Alder Portfolio - Removing Clear View daily file at index ${index}:`, fileToRemove);
-    console.log('File name:', fileToRemove?.name);
-    console.log('Current funderUploads:', funderUploads);
-    
+    console.log(
+      `Alder Portfolio - Removing Clear View daily file at index ${index}:`,
+      fileToRemove
+    );
+    console.log("File name:", fileToRemove?.name);
+    console.log("Current funderUploads:", funderUploads);
+
     // If there's a report date and this file was uploaded to the backend
     if (selectedDate && fileToRemove) {
       const reportDate = selectedDate.toString();
-      
+
       // Find the upload record for this file
-      const uploadRecord = funderUploads.find(u => 
-        u.funder_name === "Clear View" && 
-        u.upload_type === 'daily' &&
-        u.original_filename === fileToRemove.name
+      const uploadRecord = funderUploads.find(
+        (u) =>
+          u.funder_name === "Clear View" &&
+          u.upload_type === "daily" &&
+          u.original_filename === fileToRemove.name
       );
-      
-      console.log('Found upload record:', uploadRecord);
-      
+
+      console.log("Found upload record:", uploadRecord);
+
       if (uploadRecord) {
         try {
           // Use the specialized Clear View deletion handler
           const response = await FileService.deleteClearViewFile(
             uploadRecord.id,
-            'Alder',
+            "Alder",
             reportDate,
             true // is_daily = true
           );
-          
+
           if (response.success) {
             console.log(`Successfully deleted Clear View daily file: ${fileToRemove.name}`);
-            
+
             // Refresh the uploads list
-            const updatedUploads = await FileService.getFunderUploadsForDate('Alder', reportDate);
+            const updatedUploads = await FileService.getFunderUploadsForDate("Alder", reportDate);
             setFunderUploads(updatedUploads);
-            
+
             // Refresh the daily files list
-            const dailyFiles = await FileService.getClearViewDailyFilesForWeek('Alder', reportDate);
+            const dailyFiles = await FileService.getClearViewDailyFilesForWeek("Alder", reportDate);
             setClearViewDailyFilesList(dailyFiles);
-            
+
             // Update Clear View daily files with proper file sizes
-            const clearViewDailyUploads = updatedUploads.filter(u => 
-              u.funder_name === "Clear View" && 
-              u.upload_type === 'daily'
+            const clearViewDailyUploads = updatedUploads.filter(
+              (u) => u.funder_name === "Clear View" && u.upload_type === "daily"
             );
-            
+
             const clearViewFiles: File[] = clearViewDailyUploads.map((upload) => {
-              const file = new File([], upload.original_filename, { type: 'text/csv' });
-              Object.defineProperty(file, 'size', {
+              const file = new File([], upload.original_filename, { type: "text/csv" });
+              Object.defineProperty(file, "size", {
                 value: upload.file_size,
-                writable: false
+                writable: false,
               });
-              Object.defineProperty(file, 'isFromBackend', {
+              Object.defineProperty(file, "isFromBackend", {
                 value: true,
-                writable: false
+                writable: false,
               });
               return file;
             });
@@ -573,10 +579,10 @@ function AlderPortfolio() {
           console.error(`Error deleting Clear View daily file:`, error);
         }
       } else {
-        console.log('No upload record found for file:', fileToRemove.name);
+        console.log("No upload record found for file:", fileToRemove.name);
       }
     }
-    
+
     // Update local state only if backend deletion didn't happen
     const newFiles = clearViewDailyFiles.filter((_, i) => i !== index);
     setClearViewDailyFiles(newFiles);
@@ -584,42 +590,42 @@ function AlderPortfolio() {
 
   const handleUpdateNetRtr = async () => {
     if (!selectedDate) {
-      console.error('No date selected');
+      console.error("No date selected");
       return;
     }
 
     if (isUpdatingNetRtr) {
-      console.log('Update already in progress');
+      console.log("Update already in progress");
       return;
     }
 
     try {
       setIsUpdatingNetRtr(true);
-      console.log('Starting Net RTR update for Alder portfolio');
-      
+      console.log("Starting Net RTR update for Alder portfolio");
+
       // Show loading message for Pyodide initialization
-      const loadingMessage = 'Initializing Python environment for Excel processing...';
+      const loadingMessage = "Initializing Python environment for Excel processing...";
       console.log(loadingMessage);
-      
+
       const response = await FileService.updatePortfolioWithNetRtr(
-        'Alder',
+        "Alder",
         selectedDate.toString()
       );
-      
+
       if (response.success) {
-        console.log('Portfolio updated successfully:', response.message);
-        alert('Portfolio updated successfully with Net RTR values! All formatting preserved.');
-        
+        console.log("Portfolio updated successfully:", response.message);
+        alert("Portfolio updated successfully with Net RTR values! All formatting preserved.");
+
         // Refresh the workbook to show the updated version
-        const updatedVersions = await FileService.getPortfolioVersions('Alder');
+        const updatedVersions = await FileService.getPortfolioVersions("Alder");
         setVersions(updatedVersions);
       } else {
-        console.error('Failed to update portfolio:', response.message);
+        console.error("Failed to update portfolio:", response.message);
         alert(`Failed to update portfolio: ${response.message}`);
       }
     } catch (error) {
-      console.error('Error updating portfolio:', error);
-      alert('Error updating portfolio with Net RTR values. Please check console for details.');
+      console.error("Error updating portfolio:", error);
+      alert("Error updating portfolio with Net RTR values. Please check console for details.");
     } finally {
       setIsUpdatingNetRtr(false);
     }
@@ -628,11 +634,11 @@ function AlderPortfolio() {
   // Check if we can update Net RTR (need workbook and at least some funder files)
   const canUpdateNetRtr = () => {
     if (!selectedDate || !existingWorkbook) return false;
-    
+
     // Check if we have at least one weekly funder file
     const hasWeeklyFiles = Object.keys(weeklyFiles).length > 0;
     const hasMonthlyFiles = Object.keys(monthlyFiles).length > 0;
-    
+
     return hasWeeklyFiles || hasMonthlyFiles;
   };
 
@@ -669,12 +675,15 @@ function AlderPortfolio() {
             <div>
               <h4 className="font-medium text-sm text-default-600 mb-2">Weekly Funders</h4>
               <div className="space-y-2">
-                {weeklyFunders.map(funder => {
+                {weeklyFunders.map((funder) => {
                   const uploaded = funderUploads.find(
-                    u => u.funder_name === funder.name && !u.funder_name.includes('Monthly')
+                    (u) => u.funder_name === funder.name && !u.funder_name.includes("Monthly")
                   );
                   return (
-                    <div key={funder.name} className="flex items-center justify-between p-2 bg-default-100 rounded">
+                    <div
+                      key={funder.name}
+                      className="flex items-center justify-between p-2 bg-default-100 rounded"
+                    >
                       <span className="text-sm">{funder.name}</span>
                       {uploaded ? (
                         <span className="text-xs text-success-600 flex items-center gap-1">
@@ -692,10 +701,13 @@ function AlderPortfolio() {
               <div>
                 <h4 className="font-medium text-sm text-default-600 mb-2">Monthly Funders</h4>
                 <div className="space-y-2">
-                  {monthlyFunders.map(funder => {
-                    const uploaded = funderUploads.find(u => u.funder_name === funder.name);
+                  {monthlyFunders.map((funder) => {
+                    const uploaded = funderUploads.find((u) => u.funder_name === funder.name);
                     return (
-                      <div key={funder.name} className="flex items-center justify-between p-2 bg-default-100 rounded">
+                      <div
+                        key={funder.name}
+                        className="flex items-center justify-between p-2 bg-default-100 rounded"
+                      >
                         <span className="text-sm">{funder.name}</span>
                         {uploaded ? (
                           <span className="text-xs text-success-600 flex items-center gap-1">
@@ -712,12 +724,17 @@ function AlderPortfolio() {
             )}
             {clearViewDailyFilesList.length > 0 && (
               <div className="md:col-span-2">
-                <h4 className="font-medium text-sm text-default-600 mb-2">Clear View Daily Files</h4>
+                <h4 className="font-medium text-sm text-default-600 mb-2">
+                  Clear View Daily Files
+                </h4>
                 <div className="space-y-2">
                   {clearViewDailyFilesList.map((filePath, index) => {
-                    const filename = filePath.split('/').pop() || filePath;
+                    const filename = filePath.split("/").pop() || filePath;
                     return (
-                      <div key={index} className="flex items-center justify-between p-2 bg-default-100 rounded">
+                      <div
+                        key={index}
+                        className="flex items-center justify-between p-2 bg-default-100 rounded"
+                      >
                         <span className="text-sm">Daily File {index + 1}</span>
                         <span className="text-xs text-success-600 flex items-center gap-1">
                           ✓ {filename}
@@ -735,11 +752,17 @@ function AlderPortfolio() {
         <div className="max-w-6xl mx-auto mt-6 p-6 bg-default-50 rounded-lg border border-default-200">
           <h3 className="text-xl font-semibold mb-4">Version History</h3>
           <div className="space-y-2">
-            {versions.slice(0, 5).map(version => (
-              <div key={version.id} className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 p-3 bg-default-100 rounded">
+            {versions.slice(0, 5).map((version) => (
+              <div
+                key={version.id}
+                className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 p-3 bg-default-100 rounded"
+              >
                 <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 min-w-0">
                   <span className="font-medium whitespace-nowrap">{version.report_date}</span>
-                  <span className="text-sm text-default-500 truncate" title={version.original_filename}>
+                  <span
+                    className="text-sm text-default-500 truncate"
+                    title={version.original_filename}
+                  >
                     {version.original_filename}
                   </span>
                   {version.is_active && (

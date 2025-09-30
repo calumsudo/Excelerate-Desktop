@@ -22,7 +22,7 @@ function Settings() {
             </div>
           </div>
         </div>
-        
+
         <div className="bg-content2 rounded-lg p-6">
           <h2 className="text-xl font-semibold mb-4">Data Management</h2>
           <div className="space-y-4">
@@ -42,7 +42,7 @@ function Settings() {
             </div>
           </div>
         </div>
-        
+
         <div className="bg-content2 rounded-lg p-6">
           <h2 className="text-xl font-semibold mb-4">About</h2>
           <div className="space-y-2 text-sm">

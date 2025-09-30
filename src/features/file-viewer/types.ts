@@ -4,7 +4,7 @@ export interface FileMetadata {
   reportDate?: string;
   portfolioName?: string;
   funderName?: string;
-  uploadType?: 'weekly' | 'monthly';
+  uploadType?: "weekly" | "monthly";
   fileSize?: number;
   uploadTimestamp?: string;
   totalGross?: number;
@@ -38,7 +38,7 @@ export interface ExcelViewerProps {
   className?: string;
 }
 
-export type ViewerType = 'csv' | 'excel' | 'pdf' | 'json';
+export type ViewerType = "csv" | "excel" | "pdf" | "json";
 
 export interface FileViewerProps {
   type: ViewerType;

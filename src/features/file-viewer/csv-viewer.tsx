@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo } from "react";
 import {
   Table,
   TableHeader,
@@ -11,25 +11,25 @@ import {
   CardBody,
   Chip,
   Divider,
-} from '@heroui/react';
-import { CSVViewerProps } from './types';
+} from "@heroui/react";
+import { CSVViewerProps } from "./types";
 
-export const CSVViewer: React.FC<CSVViewerProps> = ({ data, metadata, className = '' }) => {
+export const CSVViewer: React.FC<CSVViewerProps> = ({ data, metadata, className = "" }) => {
   const formatFileSize = (bytes?: number) => {
-    if (!bytes) return '';
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    if (!bytes) return "";
+    const sizes = ["Bytes", "KB", "MB", "GB"];
     const i = Math.floor(Math.log(bytes) / Math.log(1024));
     return `${(bytes / Math.pow(1024, i)).toFixed(2)} ${sizes[i]}`;
   };
 
   const formatDate = (dateString?: string) => {
-    if (!dateString) return '';
+    if (!dateString) return "";
     try {
       const date = new Date(dateString);
-      return date.toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
+      return date.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
       });
     } catch {
       return dateString;
@@ -37,15 +37,15 @@ export const CSVViewer: React.FC<CSVViewerProps> = ({ data, metadata, className 
   };
 
   const formatCurrency = (value?: number) => {
-    if (value === undefined || value === null) return '';
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
+    if (value === undefined || value === null) return "";
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
     }).format(value);
   };
 
   const hasMetadata = useMemo(() => {
-    return metadata && Object.values(metadata).some(value => value !== undefined);
+    return metadata && Object.values(metadata).some((value) => value !== undefined);
   }, [metadata]);
 
   const tableRows = useMemo(() => {
@@ -67,7 +67,7 @@ export const CSVViewer: React.FC<CSVViewerProps> = ({ data, metadata, className 
                   <span className="text-medium font-semibold">{metadata.fileName}</span>
                 </div>
               )}
-              
+
               {metadata.originalFileName && metadata.originalFileName !== metadata.fileName && (
                 <div className="flex flex-col">
                   <span className="text-small text-default-500">Original File</span>
@@ -99,8 +99,8 @@ export const CSVViewer: React.FC<CSVViewerProps> = ({ data, metadata, className 
               {metadata.uploadType && (
                 <div className="flex flex-col">
                   <span className="text-small text-default-500">Type</span>
-                  <Chip 
-                    color={metadata.uploadType === 'monthly' ? 'primary' : 'secondary'}
+                  <Chip
+                    color={metadata.uploadType === "monthly" ? "primary" : "secondary"}
                     size="sm"
                     variant="flat"
                   >
@@ -124,8 +124,8 @@ export const CSVViewer: React.FC<CSVViewerProps> = ({ data, metadata, className 
               )}
             </div>
 
-            {((metadata.totalGross !== undefined && metadata.totalGross !== null) || 
-              (metadata.totalFee !== undefined && metadata.totalFee !== null) || 
+            {((metadata.totalGross !== undefined && metadata.totalGross !== null) ||
+              (metadata.totalFee !== undefined && metadata.totalFee !== null) ||
               (metadata.totalNet !== undefined && metadata.totalNet !== null)) && (
               <div className="flex flex-wrap gap-6 mt-2 pt-3 border-t border-divider">
                 {metadata.totalGross !== undefined && metadata.totalGross !== null && (
@@ -136,7 +136,7 @@ export const CSVViewer: React.FC<CSVViewerProps> = ({ data, metadata, className 
                     </span>
                   </div>
                 )}
-                
+
                 {metadata.totalFee !== undefined && metadata.totalFee !== null && (
                   <div className="flex flex-col">
                     <span className="text-small text-default-500">Total Fee</span>
@@ -145,7 +145,7 @@ export const CSVViewer: React.FC<CSVViewerProps> = ({ data, metadata, className 
                     </span>
                   </div>
                 )}
-                
+
                 {metadata.totalNet !== undefined && metadata.totalNet !== null && (
                   <div className="flex flex-col">
                     <span className="text-small text-default-500">Total Net</span>
@@ -169,7 +169,7 @@ export const CSVViewer: React.FC<CSVViewerProps> = ({ data, metadata, className 
       )}
 
       <CardBody className="p-0">
-        <Table 
+        <Table
           aria-label="CSV data table"
           classNames={{
             wrapper: "max-h-[600px]",
@@ -187,9 +187,7 @@ export const CSVViewer: React.FC<CSVViewerProps> = ({ data, metadata, className 
             {(item) => (
               <TableRow key={item.key}>
                 {item.cells.map((cell, cellIndex) => (
-                  <TableCell key={cellIndex}>
-                    {cell}
-                  </TableCell>
+                  <TableCell key={cellIndex}>{cell}</TableCell>
                 ))}
               </TableRow>
             )}

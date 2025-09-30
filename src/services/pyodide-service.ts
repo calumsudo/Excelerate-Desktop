@@ -1,8 +1,8 @@
-import { loadPyodide, PyodideInterface } from 'pyodide';
-import { invoke } from '@tauri-apps/api/core';
-import { save } from '@tauri-apps/plugin-dialog';
-import { downloadDir } from '@tauri-apps/api/path';
-import { readFile, writeFile } from '@tauri-apps/plugin-fs';
+import { loadPyodide, PyodideInterface } from "pyodide";
+import { invoke } from "@tauri-apps/api/core";
+import { save } from "@tauri-apps/plugin-dialog";
+import { downloadDir } from "@tauri-apps/api/path";
+import { readFile, writeFile } from "@tauri-apps/plugin-fs";
 
 interface PivotTableData {
   advance_id: string;
@@ -34,47 +34,47 @@ export class PyodideService {
     if (pyodideInstance) {
       return pyodideInstance;
     }
-    
+
     // If currently initializing, wait for it
     if (isInitializing && initPromise) {
       return initPromise;
     }
-    
+
     // Start initialization
     isInitializing = true;
-    console.log('Initializing Pyodide...');
-    
+    console.log("Initializing Pyodide...");
+
     initPromise = (async () => {
       try {
         // Load Pyodide with the official CDN
         const pyodide = await loadPyodide({
-          indexURL: "https://cdn.jsdelivr.net/pyodide/v0.28.3/full/"
+          indexURL: "https://cdn.jsdelivr.net/pyodide/v0.28.3/full/",
         });
-        
-        console.log('Pyodide loaded, installing packages...');
-        
+
+        console.log("Pyodide loaded, installing packages...");
+
         // Load micropip to install pure Python packages
-        await pyodide.loadPackage(['micropip']);
-        const micropip = pyodide.pyimport('micropip');
-        
+        await pyodide.loadPackage(["micropip"]);
+        const micropip = pyodide.pyimport("micropip");
+
         // Install openpyxl and its dependencies
-        console.log('Installing openpyxl via micropip...');
-        await micropip.install(['openpyxl', 'et-xmlfile']);
-        console.log('openpyxl package installed successfully');
-        
+        console.log("Installing openpyxl via micropip...");
+        await micropip.install(["openpyxl", "et-xmlfile"]);
+        console.log("openpyxl package installed successfully");
+
         // Store the instance
         pyodideInstance = pyodide;
         isInitializing = false;
-        
+
         return pyodide;
       } catch (error) {
         isInitializing = false;
         initPromise = null;
-        console.error('Failed to initialize Pyodide:', error);
+        console.error("Failed to initialize Pyodide:", error);
         throw error;
       }
     })();
-    
+
     return initPromise;
   }
 
@@ -87,50 +87,54 @@ export class PyodideService {
   ): Promise<void> {
     try {
       console.log(`Starting Pyodide-based Excel update for ${portfolioName} on ${reportDate}`);
-      
+
       // Initialize Pyodide if not already done
       const pyodide = await this.initialize();
-      
+
       // Get the active workbook path from backend
-      const workbookPath = await invoke<string>('get_active_workbook_path', {
-        portfolioName
-      });
-      
-      console.log(`Loading workbook from: ${workbookPath}`);
-      
-      // Get pivot table data from backend
-      const pivotTables = await invoke<FunderPivotData[]>('get_pivot_tables_for_update', {
+      const workbookPath = await invoke<string>("get_active_workbook_path", {
         portfolioName,
-        reportDate
       });
-      
+
+      console.log(`Loading workbook from: ${workbookPath}`);
+
+      // Get pivot table data from backend
+      const pivotTables = await invoke<FunderPivotData[]>("get_pivot_tables_for_update", {
+        portfolioName,
+        reportDate,
+      });
+
       if (pivotTables.length === 0) {
-        throw new Error('No pivot tables found for the specified date');
+        throw new Error("No pivot tables found for the specified date");
       }
-      
+
       console.log(`Found ${pivotTables.length} pivot tables to process`);
-      
+
       // Read the workbook file
       console.log(`Reading workbook file from: ${workbookPath}`);
       const fileData = await readFile(workbookPath);
-      
+
       // Convert to Uint8Array if needed
       const uint8Array = new Uint8Array(fileData);
-      
+
       // Verify the input file is a valid Excel file
-      if (uint8Array[0] === 0x50 && uint8Array[1] === 0x4B) {
-        console.log('Input file header verified: Valid Excel/ZIP format');
+      if (uint8Array[0] === 0x50 && uint8Array[1] === 0x4b) {
+        console.log("Input file header verified: Valid Excel/ZIP format");
       } else {
-        console.error('Warning: Input file may not be a valid Excel file. Header bytes:', uint8Array[0], uint8Array[1]);
+        console.error(
+          "Warning: Input file may not be a valid Excel file. Header bytes:",
+          uint8Array[0],
+          uint8Array[1]
+        );
       }
-      
+
       console.log(`Input file size: ${uint8Array.byteLength} bytes`);
-      
+
       // Pass the Uint8Array directly to Python globals
-      pyodide.globals.set('workbook_array', uint8Array);
-      pyodide.globals.set('pivot_tables_json', JSON.stringify(pivotTables));
-      pyodide.globals.set('report_date', reportDate);
-      
+      pyodide.globals.set("workbook_array", uint8Array);
+      pyodide.globals.set("pivot_tables_json", JSON.stringify(pivotTables));
+      pyodide.globals.set("report_date", reportDate);
+
       // Python code to update the workbook
       const pythonCode = `
 import json
@@ -422,90 +426,114 @@ import json
 json.dumps(debug_info)
 `;
 
-      console.log('Running Python code to update workbook...');
+      console.log("Running Python code to update workbook...");
       const resultJson = await pyodide.runPythonAsync(pythonCode);
-      
+
       // Parse the JSON response
       const result = JSON.parse(resultJson);
-      console.log('Updated workbook size:', result.updated_size);
-      console.log('Test workbook size:', result.test_size);
-      
+      console.log("Updated workbook size:", result.updated_size);
+      console.log("Test workbook size:", result.test_size);
+
       // Convert base64 string to Uint8Array for the updated workbook
       const binaryString = atob(result.updated);
-      console.log('Binary string length:', binaryString.length);
-      
+      console.log("Binary string length:", binaryString.length);
+
       const updatedArray = new Uint8Array(binaryString.length);
       for (let i = 0; i < binaryString.length; i++) {
         updatedArray[i] = binaryString.charCodeAt(i);
       }
-      console.log('Workbook updated, size:', updatedArray.byteLength);
-      
+      console.log("Workbook updated, size:", updatedArray.byteLength);
+
       // Also decode the test workbook for comparison
       const testBinaryString = atob(result.test);
       const testArray = new Uint8Array(testBinaryString.length);
       for (let i = 0; i < testBinaryString.length; i++) {
         testArray[i] = testBinaryString.charCodeAt(i);
       }
-      console.log('Test workbook (resaved original), size:', testArray.byteLength);
-      
+      console.log("Test workbook (resaved original), size:", testArray.byteLength);
+
       // Verify the file starts with the correct Excel ZIP header (PK)
-      if (updatedArray[0] === 0x50 && updatedArray[1] === 0x4B) {
-        console.log('File header verified: Valid Excel/ZIP format');
-        console.log('First 10 bytes:', Array.from(updatedArray.slice(0, 10)).map(b => b.toString(16).padStart(2, '0')).join(' '));
+      if (updatedArray[0] === 0x50 && updatedArray[1] === 0x4b) {
+        console.log("File header verified: Valid Excel/ZIP format");
+        console.log(
+          "First 10 bytes:",
+          Array.from(updatedArray.slice(0, 10))
+            .map((b) => b.toString(16).padStart(2, "0"))
+            .join(" ")
+        );
       } else {
-        console.error('Warning: File may be corrupted. Header bytes:', updatedArray[0], updatedArray[1]);
-        console.error('First 10 bytes:', Array.from(updatedArray.slice(0, 10)).map(b => b.toString(16).padStart(2, '0')).join(' '));
+        console.error(
+          "Warning: File may be corrupted. Header bytes:",
+          updatedArray[0],
+          updatedArray[1]
+        );
+        console.error(
+          "First 10 bytes:",
+          Array.from(updatedArray.slice(0, 10))
+            .map((b) => b.toString(16).padStart(2, "0"))
+            .join(" ")
+        );
       }
-      
+
       // Create filename with date
-      const dateStr = reportDate.replace(/\//g, '-');
+      const dateStr = reportDate.replace(/\//g, "-");
       const defaultFilename = `${portfolioName}_Portfolio_Updated_${dateStr}.xlsx`;
-      console.log('Default filename:', defaultFilename);
-      
+      console.log("Default filename:", defaultFilename);
+
       // Get the downloads directory path
       const downloadsPath = await downloadDir();
-      
+
       // Open save dialog for user to choose location
       const filePath = await save({
         defaultPath: `${downloadsPath}/${defaultFilename}`,
-        filters: [{
-          name: 'Excel',
-          extensions: ['xlsx']
-        }]
+        filters: [
+          {
+            name: "Excel",
+            extensions: ["xlsx"],
+          },
+        ],
       });
-      
+
       if (filePath) {
         // Write the file to the chosen location
-        console.log('Saving file to:', filePath);
-        console.log('Array type:', updatedArray.constructor.name);
-        console.log('Array length:', updatedArray.length);
-        
+        console.log("Saving file to:", filePath);
+        console.log("Array type:", updatedArray.constructor.name);
+        console.log("Array length:", updatedArray.length);
+
         // Write the Uint8Array directly - this is what Tauri expects for binary files
         await writeFile(filePath, updatedArray);
         console.log(`Successfully saved workbook to: ${filePath}`);
-        
+
         // Verify the file was written correctly by reading it back
         try {
           const verifyData = await readFile(filePath);
           const verifyArray = new Uint8Array(verifyData);
-          console.log('Verification - File size after writing:', verifyArray.byteLength);
-          console.log('Verification - First 10 bytes:', Array.from(verifyArray.slice(0, 10)).map(b => b.toString(16).padStart(2, '0')).join(' '));
-          if (verifyArray[0] === 0x50 && verifyArray[1] === 0x4B) {
-            console.log('Verification - File written correctly with valid Excel header');
+          console.log("Verification - File size after writing:", verifyArray.byteLength);
+          console.log(
+            "Verification - First 10 bytes:",
+            Array.from(verifyArray.slice(0, 10))
+              .map((b) => b.toString(16).padStart(2, "0"))
+              .join(" ")
+          );
+          if (verifyArray[0] === 0x50 && verifyArray[1] === 0x4b) {
+            console.log("Verification - File written correctly with valid Excel header");
           } else {
-            console.error('Verification - File may be corrupted after writing');
-            console.error('Expected: 50 4b..., Got:', verifyArray[0]?.toString(16), verifyArray[1]?.toString(16));
+            console.error("Verification - File may be corrupted after writing");
+            console.error(
+              "Expected: 50 4b..., Got:",
+              verifyArray[0]?.toString(16),
+              verifyArray[1]?.toString(16)
+            );
           }
         } catch (err) {
-          console.error('Could not verify written file:', err);
+          console.error("Could not verify written file:", err);
         }
       } else {
-        console.log('User cancelled save dialog');
-        throw new Error('Save cancelled by user');
+        console.log("User cancelled save dialog");
+        throw new Error("Save cancelled by user");
       }
-      
     } catch (error) {
-      console.error('Error updating portfolio workbook with Pyodide:', error);
+      console.error("Error updating portfolio workbook with Pyodide:", error);
       throw error;
     }
   }
@@ -517,9 +545,9 @@ json.dumps(debug_info)
   static async preload(): Promise<void> {
     try {
       await this.initialize();
-      console.log('Pyodide preloaded successfully');
+      console.log("Pyodide preloaded successfully");
     } catch (error) {
-      console.error('Failed to preload Pyodide:', error);
+      console.error("Failed to preload Pyodide:", error);
     }
   }
 

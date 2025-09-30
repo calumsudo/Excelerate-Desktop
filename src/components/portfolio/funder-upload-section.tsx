@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import FileUpload from './file-upload';
+import React, { useState } from "react";
+import FileUpload from "./file-upload";
 
 export interface FunderData {
   name: string;
@@ -9,7 +9,7 @@ export interface FunderData {
 }
 
 interface FunderUploadSectionProps {
-  type: 'daily' | 'weekly' | 'monthly';
+  type: "daily" | "weekly" | "monthly";
   funders: FunderData[];
   onFileUpload?: (funderName: string, file: File) => void;
   uploadedFiles?: Record<string, File>;
@@ -21,17 +21,17 @@ const FunderUploadSection: React.FC<FunderUploadSectionProps> = ({
   funders,
   onFileUpload,
   uploadedFiles = {},
-  onClearFile
+  onClearFile,
 }) => {
   const [localFiles, setLocalFiles] = useState<Record<string, File>>({});
 
   const handleFileUpload = (funderName: string, file: File) => {
-    setLocalFiles(prev => ({ ...prev, [funderName]: file }));
+    setLocalFiles((prev) => ({ ...prev, [funderName]: file }));
     onFileUpload?.(funderName, file);
   };
 
   const handleClearFile = (funderName: string) => {
-    setLocalFiles(prev => {
+    setLocalFiles((prev) => {
       const updated = { ...prev };
       delete updated[funderName];
       return updated;
@@ -50,20 +50,18 @@ const FunderUploadSection: React.FC<FunderUploadSectionProps> = ({
       <h3 className="text-lg font-semibold mb-4 text-foreground text-center">
         {capitalizedType} Upload
       </h3>
-      
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {funders.map((funder) => (
           <div key={funder.name} className="bg-default-50 rounded-lg p-4 border border-default-200">
-            <h4 className="text-sm font-medium text-foreground mb-3 text-center">
-              {funder.name}
-            </h4>
-            
+            <h4 className="text-sm font-medium text-foreground mb-3 text-center">{funder.name}</h4>
+
             <FileUpload
               onFileUpload={(file) => handleFileUpload(funder.name, file)}
               selectedFile={getFileForFunder(funder.name)}
               onClearFile={() => handleClearFile(funder.name)}
               label={`Upload ${type} report`}
-              description={`${funder.acceptedExtensions.join(', ')} files only`}
+              description={`${funder.acceptedExtensions.join(", ")} files only`}
               acceptedTypes={funder.acceptedTypes}
               acceptedExtensions={funder.acceptedExtensions}
               maxSizeKB={funder.maxSizeKB || 10240}

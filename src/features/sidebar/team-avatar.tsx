@@ -1,11 +1,11 @@
-import type {AvatarProps} from "@heroui/react";
+import type { AvatarProps } from "@heroui/react";
 
 import React from "react";
-import {Avatar} from "@heroui/react";
-import {cn} from "@heroui/react";
+import { Avatar } from "@heroui/react";
+import { cn } from "@heroui/react";
 
 const TeamAvatar = React.forwardRef<HTMLSpanElement, AvatarProps>(
-  ({name, className, classNames = {}, ...props}, ref) => (
+  ({ name, className, classNames = {}, ...props }, ref) => (
     <Avatar
       {...props}
       ref={ref}
@@ -21,7 +21,7 @@ const TeamAvatar = React.forwardRef<HTMLSpanElement, AvatarProps>(
       radius="md"
       size="sm"
     />
-  ),
+  )
 );
 
 TeamAvatar.displayName = "TeamAvatar";

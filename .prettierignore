@@ -1,0 +1,13 @@
+dist
+build
+node_modules
+src-tauri
+*.min.js
+*.min.css
+coverage
+.next
+.cache
+public
+*.lock
+*.log
+examples

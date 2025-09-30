@@ -1,8 +1,8 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Button } from '@heroui/react';
-import { Icon } from '@iconify/react';
-import { getCurrentWebview } from '@tauri-apps/api/webview';
-import { readFile } from '@tauri-apps/plugin-fs';
+import React, { useState, useRef, useEffect } from "react";
+import { Button } from "@heroui/react";
+import { Icon } from "@iconify/react";
+import { getCurrentWebview } from "@tauri-apps/api/webview";
+import { readFile } from "@tauri-apps/plugin-fs";
 
 interface FileUploadProps {
   onFileUpload?: (file: File) => void;
@@ -20,17 +20,17 @@ interface FileUploadProps {
 const FileUpload: React.FC<FileUploadProps> = ({
   onFileUpload,
   acceptedTypes = [
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    'application/vnd.ms-excel'
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.ms-excel",
   ],
-  acceptedExtensions = ['.xlsx', '.xls'],
+  acceptedExtensions = [".xlsx", ".xls"],
   maxSizeKB = 10240, // 10MB default
   label = "Click to upload file or drag and drop",
   description = "Excel files only (.xlsx, .xls)",
   className = "",
   selectedFile = null,
   onClearFile,
-  uploadId = 'default'
+  uploadId = "default",
 }) => {
   const [localSelectedFile, setLocalSelectedFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -43,7 +43,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
 
   // Use prop file if provided, otherwise use local state
   const currentFile = selectedFile ?? localSelectedFile;
-  
+
   // Keep the ref up to date with the latest callback
   useEffect(() => {
     onFileUploadRef.current = onFileUpload;
@@ -54,36 +54,45 @@ const FileUpload: React.FC<FileUploadProps> = ({
     console.log(`[FileUpload-${uploadId}] handleTauriFileDrop called with:`, filePath);
     try {
       // Extract file name from path
-      const fileName = filePath.split(/[\\/]/).pop() || 'file';
-      
+      const fileName = filePath.split(/[\\/]/).pop() || "file";
+
       // Check if file has valid extension
-      const hasValidExtension = acceptedExtensions.some(ext => 
+      const hasValidExtension = acceptedExtensions.some((ext) =>
         fileName.toLowerCase().endsWith(ext.toLowerCase())
       );
-      
+
       if (!hasValidExtension) {
-        console.error(`Invalid file extension: ${fileName}. Expected: ${acceptedExtensions.join(', ')}`);
+        console.error(
+          `Invalid file extension: ${fileName}. Expected: ${acceptedExtensions.join(", ")}`
+        );
         return;
       }
-      
+
       // Read the file content
       const fileContent = await readFile(filePath);
-      
+
       // Create a File object from the content
       const file = new File([fileContent], fileName, {
-        type: fileName.endsWith('.xlsx') 
-          ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-          : 'application/vnd.ms-excel'
+        type: fileName.endsWith(".xlsx")
+          ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+          : "application/vnd.ms-excel",
       });
-      
+
       // Check file size
       if (file.size > maxSizeKB * 1024) {
-        console.error(`File too large: ${(file.size / 1024).toFixed(1)}KB. Maximum: ${maxSizeKB}KB`);
+        console.error(
+          `File too large: ${(file.size / 1024).toFixed(1)}KB. Maximum: ${maxSizeKB}KB`
+        );
         return;
       }
-      
-      console.log(`[FileUpload-${uploadId}] File created from Tauri drop:`, file.name, 'Size:', file.size);
-      
+
+      console.log(
+        `[FileUpload-${uploadId}] File created from Tauri drop:`,
+        file.name,
+        "Size:",
+        file.size
+      );
+
       // Update state and call handler
       if (selectedFile === undefined) {
         setLocalSelectedFile(file);
@@ -91,7 +100,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
       console.log(`[FileUpload-${uploadId}] Calling onFileUploadRef.current`);
       onFileUploadRef.current?.(file);
     } catch (error) {
-      console.error('Failed to process Tauri file drop:', error);
+      console.error("Failed to process Tauri file drop:", error);
     }
   };
 
@@ -105,7 +114,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
         console.log(`[FileUpload-${uploadId}] Listener already registered, skipping`);
         return;
       }
-      
+
       try {
         console.log(`[FileUpload-${uploadId}] Setting up Tauri drag drop listener`);
         listenerRegisteredRef.current = true;
@@ -115,21 +124,24 @@ const FileUpload: React.FC<FileUploadProps> = ({
           if (!dropZoneRef.current) return;
 
           const hasPosition = (payload: any): payload is { position: { x: number; y: number } } => {
-          return payload && typeof payload.position === 'object' && 
-                typeof payload.position.x === 'number' && 
-                typeof payload.position.y === 'number';
+            return (
+              payload &&
+              typeof payload.position === "object" &&
+              typeof payload.position.x === "number" &&
+              typeof payload.position.y === "number"
+            );
           };
 
-          
           // Check if the drop zone is being hovered
           const rect = dropZoneRef.current.getBoundingClientRect();
-          const isOverDropZone = hasPosition(event.payload) && 
+          const isOverDropZone =
+            hasPosition(event.payload) &&
             event.payload.position.x >= rect.left &&
             event.payload.position.x <= rect.right &&
             event.payload.position.y >= rect.top &&
             event.payload.position.y <= rect.bottom;
-          
-          if (event.payload.type === 'over') {
+
+          if (event.payload.type === "over") {
             // Only show dragging state if over this specific drop zone
             if (isOverDropZone) {
               setIsDragging(true);
@@ -138,11 +150,11 @@ const FileUpload: React.FC<FileUploadProps> = ({
               setIsDragging(false);
               isHoveredRef.current = false;
             }
-          } else if (event.payload.type === 'drop') {
+          } else if (event.payload.type === "drop") {
             // Only process drop if it's over this specific drop zone
             if (isHoveredRef.current || isOverDropZone) {
               console.log(`Files dropped on ${uploadId}:`, event.payload.paths);
-              
+
               // Process the first file
               if (event.payload.paths && event.payload.paths.length > 0) {
                 const filePath = event.payload.paths[0];
@@ -159,7 +171,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
           }
         });
       } catch (error) {
-        console.error('Failed to setup Tauri drag drop:', error);
+        console.error("Failed to setup Tauri drag drop:", error);
       }
     };
 
@@ -178,25 +190,25 @@ const FileUpload: React.FC<FileUploadProps> = ({
   // Check if file is valid based on props
   const isValidFile = (file: File): boolean => {
     // Check extension first as it's more reliable
-    const isValidExtension = acceptedExtensions.some(ext => 
+    const isValidExtension = acceptedExtensions.some((ext) =>
       file.name.toLowerCase().endsWith(ext.toLowerCase())
     );
-    
+
     // Check MIME type (can be empty for some files)
-    const isValidType = !file.type || acceptedTypes.some(type => file.type === type);
-    
+    const isValidType = !file.type || acceptedTypes.some((type) => file.type === type);
+
     // Check file size
     const isValidSize = file.size <= maxSizeKB * 1024;
-    
-    console.log('Validation:', {
+
+    console.log("Validation:", {
       extension: isValidExtension,
       type: isValidType,
       size: isValidSize,
       fileName: file.name,
-      fileType: file.type || 'no type',
-      fileSize: file.size
+      fileType: file.type || "no type",
+      fileSize: file.size,
     });
-    
+
     // Accept if extension is valid AND size is valid
     // Type check is optional since some systems don't set it correctly
     return isValidExtension && isValidSize;
@@ -241,7 +253,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
       setLocalSelectedFile(null);
     }
     if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+      fileInputRef.current.value = "";
     }
     onClearFile?.();
   };
@@ -252,10 +264,10 @@ const FileUpload: React.FC<FileUploadProps> = ({
   };
 
   // Generate accept string for input
-  const acceptString = [...acceptedTypes, ...acceptedExtensions].join(',');
+  const acceptString = [...acceptedTypes, ...acceptedExtensions].join(",");
 
   // Generate file type display string
-  const fileTypeDisplay = acceptedExtensions.join(', ');
+  const fileTypeDisplay = acceptedExtensions.join(", ");
 
   if (!currentFile) {
     return (
@@ -274,9 +286,10 @@ const FileUpload: React.FC<FileUploadProps> = ({
           className={`
             border-2 border-dashed rounded-lg p-6
             transition-all duration-200 cursor-pointer
-            ${isDragging 
-              ? 'border-primary bg-primary/5' 
-              : 'border-default-300 hover:border-primary hover:bg-default-100'
+            ${
+              isDragging
+                ? "border-primary bg-primary/5"
+                : "border-default-300 hover:border-primary hover:bg-default-100"
             }
           `}
           onDragEnter={handleDragEnter}
@@ -291,12 +304,8 @@ const FileUpload: React.FC<FileUploadProps> = ({
           <div className="flex flex-col items-center justify-center space-y-2">
             <Icon icon="material-symbols:upload-rounded" className="w-8 h-8 text-default-400" />
             <div className="text-center">
-              <p className="text-sm font-medium text-foreground">
-                {label}
-              </p>
-              <p className="text-xs text-default-500 mt-1">
-                {description}
-              </p>
+              <p className="text-sm font-medium text-foreground">{label}</p>
+              <p className="text-xs text-default-500 mt-1">{description}</p>
             </div>
           </div>
         </div>
@@ -318,18 +327,10 @@ const FileUpload: React.FC<FileUploadProps> = ({
               <p className="text-sm font-medium text-foreground truncate" title={currentFile.name}>
                 {currentFile.name}
               </p>
-              <p className="text-xs text-default-500">
-                {(currentFile.size / 1024).toFixed(1)} KB
-              </p>
+              <p className="text-xs text-default-500">{(currentFile.size / 1024).toFixed(1)} KB</p>
             </div>
           </div>
-          <Button
-            isIconOnly
-            color="danger"
-            variant="light"
-            size="sm"
-            onPress={clearFile}
-          >
+          <Button isIconOnly color="danger" variant="light" size="sm" onPress={clearFile}>
             <Icon icon="material-symbols:close-rounded" className="w-3 h-3" />
           </Button>
         </div>

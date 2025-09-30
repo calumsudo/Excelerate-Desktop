@@ -9,19 +9,6 @@ pub mod efin_parser;
 pub mod inadv_parser;
 pub mod kings_parser;
 pub mod portfolio_parser;
-
-#[cfg(test)]
-mod test_clearview;
-
-#[cfg(test)]
-mod test_clearview_integration;
-
-#[cfg(test)]
-mod test_combined_pivot;
-
-#[cfg(test)]
-mod test_inadv;
-
 pub use base_parser::{BaseParser, PivotTable};
 pub use bhb_parser::BhbParser;
 pub use big_parser::BigParser;

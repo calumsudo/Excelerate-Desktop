@@ -1,38 +1,26 @@
-import React, { useState, useMemo } from 'react';
-import Spreadsheet from 'react-spreadsheet';
-import {
-  Card,
-  CardHeader,
-  CardBody,
-  Chip,
-  Divider,
-  Tabs,
-  Tab,
-} from '@heroui/react';
-import { ExcelViewerProps } from './types';
+import React, { useState, useMemo } from "react";
+import Spreadsheet from "react-spreadsheet";
+import { Card, CardHeader, CardBody, Chip, Divider, Tabs, Tab } from "@heroui/react";
+import { ExcelViewerProps } from "./types";
 
-export const ExcelViewer: React.FC<ExcelViewerProps> = ({ 
-  data, 
-  metadata, 
-  className = '' 
-}) => {
+export const ExcelViewer: React.FC<ExcelViewerProps> = ({ data, metadata, className = "" }) => {
   const [activeSheet, setActiveSheet] = useState(data.activeSheet || 0);
 
   const formatFileSize = (bytes?: number) => {
-    if (!bytes) return '';
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    if (!bytes) return "";
+    const sizes = ["Bytes", "KB", "MB", "GB"];
     const i = Math.floor(Math.log(bytes) / Math.log(1024));
     return `${(bytes / Math.pow(1024, i)).toFixed(2)} ${sizes[i]}`;
   };
 
   const formatDate = (dateString?: string) => {
-    if (!dateString) return '';
+    if (!dateString) return "";
     try {
       const date = new Date(dateString);
-      return date.toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
+      return date.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
       });
     } catch {
       return dateString;
@@ -40,15 +28,15 @@ export const ExcelViewer: React.FC<ExcelViewerProps> = ({
   };
 
   const formatCurrency = (value?: number) => {
-    if (value === undefined || value === null) return '';
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
+    if (value === undefined || value === null) return "";
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
     }).format(value);
   };
 
   const hasMetadata = useMemo(() => {
-    return metadata && Object.values(metadata).some(value => value !== undefined);
+    return metadata && Object.values(metadata).some((value) => value !== undefined);
   }, [metadata]);
 
   const currentSheetData = useMemo(() => {
@@ -70,7 +58,7 @@ export const ExcelViewer: React.FC<ExcelViewerProps> = ({
                   <span className="text-medium font-semibold">{metadata.fileName}</span>
                 </div>
               )}
-              
+
               {metadata.originalFileName && metadata.originalFileName !== metadata.fileName && (
                 <div className="flex flex-col">
                   <span className="text-small text-default-500">Original File</span>
@@ -102,8 +90,8 @@ export const ExcelViewer: React.FC<ExcelViewerProps> = ({
               {metadata.uploadType && (
                 <div className="flex flex-col">
                   <span className="text-small text-default-500">Type</span>
-                  <Chip 
-                    color={metadata.uploadType === 'monthly' ? 'primary' : 'secondary'}
+                  <Chip
+                    color={metadata.uploadType === "monthly" ? "primary" : "secondary"}
                     size="sm"
                     variant="flat"
                   >
@@ -127,8 +115,8 @@ export const ExcelViewer: React.FC<ExcelViewerProps> = ({
               )}
             </div>
 
-            {((metadata.totalGross !== undefined && metadata.totalGross !== null) || 
-              (metadata.totalFee !== undefined && metadata.totalFee !== null) || 
+            {((metadata.totalGross !== undefined && metadata.totalGross !== null) ||
+              (metadata.totalFee !== undefined && metadata.totalFee !== null) ||
               (metadata.totalNet !== undefined && metadata.totalNet !== null)) && (
               <div className="flex flex-wrap gap-6 mt-2 pt-3 border-t border-divider">
                 {metadata.totalGross !== undefined && metadata.totalGross !== null && (
@@ -139,7 +127,7 @@ export const ExcelViewer: React.FC<ExcelViewerProps> = ({
                     </span>
                   </div>
                 )}
-                
+
                 {metadata.totalFee !== undefined && metadata.totalFee !== null && (
                   <div className="flex flex-col">
                     <span className="text-small text-default-500">Total Fee</span>
@@ -148,7 +136,7 @@ export const ExcelViewer: React.FC<ExcelViewerProps> = ({
                     </span>
                   </div>
                 )}
-                
+
                 {metadata.totalNet !== undefined && metadata.totalNet !== null && (
                   <div className="flex flex-col">
                     <span className="text-small text-default-500">Total Net</span>
@@ -173,27 +161,26 @@ export const ExcelViewer: React.FC<ExcelViewerProps> = ({
 
       <CardBody className="p-4">
         {hasMultipleSheets && (
-          <Tabs 
+          <Tabs
             selectedKey={String(activeSheet)}
             onSelectionChange={(key) => setActiveSheet(Number(key))}
             className="mb-4"
             aria-label="Sheet tabs"
           >
             {data.sheets.map((sheet, index) => (
-              <Tab 
-                key={String(index)} 
-                title={sheet.name || `Sheet ${index + 1}`}
-              />
+              <Tab key={String(index)} title={sheet.name || `Sheet ${index + 1}`} />
             ))}
           </Tabs>
         )}
 
         <div className="overflow-auto max-h-[600px]">
-          <Spreadsheet 
+          <Spreadsheet
             data={currentSheetData}
             columnLabels={Array.from(
               { length: currentSheetData[0]?.length || 0 },
-              (_, i) => String.fromCharCode(65 + (i % 26)) + (Math.floor(i / 26) > 0 ? Math.floor(i / 26) : '')
+              (_, i) =>
+                String.fromCharCode(65 + (i % 26)) +
+                (Math.floor(i / 26) > 0 ? Math.floor(i / 26) : "")
             )}
             className="min-w-full"
           />

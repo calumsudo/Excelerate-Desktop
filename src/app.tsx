@@ -12,19 +12,19 @@ function App() {
   useEffect(() => {
     const preloadPyodide = async () => {
       try {
-        console.log('Preloading Pyodide in background...');
+        console.log("Preloading Pyodide in background...");
         // Dynamically import to avoid blocking initial render
-        const { PyodideService } = await import('./services/pyodide-service');
+        const { PyodideService } = await import("./services/pyodide-service");
         await PyodideService.preload();
-        console.log('Pyodide preloaded and ready');
+        console.log("Pyodide preloaded and ready");
       } catch (error) {
-        console.error('Failed to preload Pyodide (non-critical):', error);
+        console.error("Failed to preload Pyodide (non-critical):", error);
       }
     };
-    
+
     // Delay preload slightly to prioritize initial UI render
     const timer = setTimeout(preloadPyodide, 2000);
-    
+
     return () => clearTimeout(timer);
   }, []);
 

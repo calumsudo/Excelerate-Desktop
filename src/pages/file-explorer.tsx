@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo } from 'react';
-import { invoke } from '@tauri-apps/api/core';
+import { useState, useEffect, useMemo } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import {
   Table,
   TableHeader,
@@ -14,9 +14,9 @@ import {
   Input,
   Select,
   SelectItem,
-} from '@heroui/react';
-import { FileViewer } from '@features/file-viewer';
-import type { CSVData, ExcelData, FileMetadata } from '@features/file-viewer';
+} from "@heroui/react";
+import { FileViewer } from "@features/file-viewer";
+import type { CSVData, ExcelData, FileMetadata } from "@features/file-viewer";
 
 interface DatabaseFile {
   id: string;
@@ -43,9 +43,9 @@ function FileExplorer() {
   const [fileData, setFileData] = useState<CSVData | ExcelData | null>(null);
   const [loadingFile, setLoadingFile] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [portfolioFilter, setPortfolioFilter] = useState('all');
-  const [typeFilter, setTypeFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState("");
+  const [portfolioFilter, setPortfolioFilter] = useState("all");
+  const [typeFilter, setTypeFilter] = useState("all");
 
   useEffect(() => {
     loadFiles();
@@ -55,11 +55,11 @@ function FileExplorer() {
     try {
       setLoading(true);
       setError(null);
-      const allFiles = await invoke<DatabaseFile[]>('get_all_database_files');
+      const allFiles = await invoke<DatabaseFile[]>("get_all_database_files");
       setFiles(allFiles);
     } catch (err) {
-      console.error('Failed to load files:', err);
-      setError('Failed to load files from database');
+      console.error("Failed to load files:", err);
+      setError("Failed to load files from database");
     } finally {
       setLoading(false);
     }
@@ -70,23 +70,24 @@ function FileExplorer() {
       setLoadingFile(true);
       setError(null);
       setSelectedFile(file);
-      
-      const isExcel = file.file_name.toLowerCase().endsWith('.xlsx') || 
-                      file.file_name.toLowerCase().endsWith('.xls');
-      
+
+      const isExcel =
+        file.file_name.toLowerCase().endsWith(".xlsx") ||
+        file.file_name.toLowerCase().endsWith(".xls");
+
       if (isExcel) {
-        const excelData = await invoke<ExcelData>('read_excel_file', { 
-          filePath: file.file_path 
+        const excelData = await invoke<ExcelData>("read_excel_file", {
+          filePath: file.file_path,
         });
         setFileData(excelData);
       } else {
-        const [headers, rows] = await invoke<[string[], string[][]]>('read_csv_file', { 
-          filePath: file.file_path 
+        const [headers, rows] = await invoke<[string[], string[][]]>("read_csv_file", {
+          filePath: file.file_path,
         });
         setFileData({ headers, rows });
       }
     } catch (err) {
-      console.error('Failed to read file:', err);
+      console.error("Failed to read file:", err);
       setError(`Failed to read file: ${err}`);
       setFileData(null);
     } finally {
@@ -95,8 +96,8 @@ function FileExplorer() {
   };
 
   const formatFileSize = (bytes: number) => {
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    if (bytes === 0) return '0 Bytes';
+    const sizes = ["Bytes", "KB", "MB", "GB"];
+    if (bytes === 0) return "0 Bytes";
     const i = Math.floor(Math.log(bytes) / Math.log(1024));
     return `${(bytes / Math.pow(1024, i)).toFixed(2)} ${sizes[i]}`;
   };
@@ -104,10 +105,10 @@ function FileExplorer() {
   const formatDate = (dateString: string) => {
     try {
       const date = new Date(dateString);
-      return date.toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
+      return date.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
       });
     } catch {
       return dateString;
@@ -115,28 +116,27 @@ function FileExplorer() {
   };
 
   const filteredFiles = useMemo(() => {
-    return files.filter(file => {
-      const matchesSearch = searchQuery === '' || 
+    return files.filter((file) => {
+      const matchesSearch =
+        searchQuery === "" ||
         file.file_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         file.portfolio_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (file.funder_name && file.funder_name.toLowerCase().includes(searchQuery.toLowerCase()));
-      
-      const matchesPortfolio = portfolioFilter === 'all' || 
-        file.portfolio_name === portfolioFilter;
-      
-      const matchesType = typeFilter === 'all' || 
-        file.file_type === typeFilter;
-      
+
+      const matchesPortfolio = portfolioFilter === "all" || file.portfolio_name === portfolioFilter;
+
+      const matchesType = typeFilter === "all" || file.file_type === typeFilter;
+
       return matchesSearch && matchesPortfolio && matchesType;
     });
   }, [files, searchQuery, portfolioFilter, typeFilter]);
 
   const portfolios = useMemo(() => {
-    return Array.from(new Set(files.map(f => f.portfolio_name)));
+    return Array.from(new Set(files.map((f) => f.portfolio_name)));
   }, [files]);
 
   const fileTypes = useMemo(() => {
-    return Array.from(new Set(files.map(f => f.file_type)));
+    return Array.from(new Set(files.map((f) => f.file_type)));
   }, [files]);
 
   const getFileMetadata = (file: DatabaseFile): FileMetadata => {
@@ -145,7 +145,7 @@ function FileExplorer() {
       portfolioName: file.portfolio_name,
       funderName: file.funder_name,
       reportDate: file.report_date,
-      uploadType: file.upload_type as 'weekly' | 'monthly' | undefined,
+      uploadType: file.upload_type as "weekly" | "monthly" | undefined,
       fileSize: file.file_size,
       uploadTimestamp: file.upload_timestamp,
       totalGross: file.total_gross,
@@ -157,11 +157,11 @@ function FileExplorer() {
 
   const getFileType = (fileName: string) => {
     const ext = fileName.toLowerCase();
-    if (ext.endsWith('.xlsx') || ext.endsWith('.xls')) return 'excel';
-    if (ext.endsWith('.csv')) return 'csv';
-    if (ext.endsWith('.pdf')) return 'pdf';
-    if (ext.endsWith('.json')) return 'json';
-    return 'csv'; // default
+    if (ext.endsWith(".xlsx") || ext.endsWith(".xls")) return "excel";
+    if (ext.endsWith(".csv")) return "csv";
+    if (ext.endsWith(".pdf")) return "pdf";
+    if (ext.endsWith(".json")) return "json";
+    return "csv"; // default
   };
 
   return (
@@ -190,8 +190,10 @@ function FileExplorer() {
             >
               <>
                 <SelectItem key="all">All Portfolios</SelectItem>
-                {portfolios.map(p => (
-                  <SelectItem key={p} textValue={p}>{p}</SelectItem>
+                {portfolios.map((p) => (
+                  <SelectItem key={p} textValue={p}>
+                    {p}
+                  </SelectItem>
                 ))}
               </>
             </Select>
@@ -204,9 +206,9 @@ function FileExplorer() {
             >
               <>
                 <SelectItem key="all">All Types</SelectItem>
-                {fileTypes.map(t => (
+                {fileTypes.map((t) => (
                   <SelectItem key={t} textValue={t}>
-                    {t.replace('_', ' ').charAt(0).toUpperCase() + t.slice(1).replace('_', ' ')}
+                    {t.replace("_", " ").charAt(0).toUpperCase() + t.slice(1).replace("_", " ")}
                   </SelectItem>
                 ))}
               </>
@@ -224,7 +226,7 @@ function FileExplorer() {
               aria-label="Database files"
               selectionMode="single"
               onRowAction={(key) => {
-                const file = files.find(f => f.id === key);
+                const file = files.find((f) => f.id === key);
                 if (file) handleFileSelect(file);
               }}
               classNames={{
@@ -242,10 +244,7 @@ function FileExplorer() {
               </TableHeader>
               <TableBody items={filteredFiles} emptyContent="No files found">
                 {(item) => (
-                  <TableRow 
-                    key={item.id}
-                    className="cursor-pointer hover:bg-default-100"
-                  >
+                  <TableRow key={item.id} className="cursor-pointer hover:bg-default-100">
                     <TableCell>
                       <div>
                         <div className="font-medium">{item.file_name}</div>
@@ -259,15 +258,15 @@ function FileExplorer() {
                     <TableCell>{item.portfolio_name}</TableCell>
                     <TableCell>
                       <Chip size="sm" variant="flat">
-                        {item.file_type.replace('_', ' ')}
+                        {item.file_type.replace("_", " ")}
                       </Chip>
                     </TableCell>
                     <TableCell>{formatDate(item.report_date)}</TableCell>
                     <TableCell>{formatFileSize(item.file_size)}</TableCell>
                     <TableCell>
                       {item.is_active !== undefined && (
-                        <Chip 
-                          size="sm" 
+                        <Chip
+                          size="sm"
                           variant="dot"
                           color={item.is_active ? "success" : "default"}
                         >
@@ -275,10 +274,10 @@ function FileExplorer() {
                         </Chip>
                       )}
                       {item.upload_type && (
-                        <Chip 
-                          size="sm" 
+                        <Chip
+                          size="sm"
                           variant="flat"
-                          color={item.upload_type === 'monthly' ? 'primary' : 'secondary'}
+                          color={item.upload_type === "monthly" ? "primary" : "secondary"}
                           className="ml-2"
                         >
                           {item.upload_type}
@@ -286,9 +285,7 @@ function FileExplorer() {
                       )}
                     </TableCell>
                     <TableCell>
-                      <span className="text-small">
-                        {formatDate(item.upload_timestamp)}
-                      </span>
+                      <span className="text-small">{formatDate(item.upload_timestamp)}</span>
                     </TableCell>
                   </TableRow>
                 )}

@@ -40,17 +40,17 @@ function Layout() {
     if (!key || key === "undefined") {
       return;
     }
-    
+
     if (isNavigatingRef.current) {
       return;
     }
-    
+
     if (navigationTimeoutRef.current) {
       clearTimeout(navigationTimeoutRef.current);
     }
-    
+
     isNavigatingRef.current = true;
-    
+
     navigationTimeoutRef.current = setTimeout(() => {
       if (location.pathname !== `/${key}`) {
         navigate(`/${key}`);
@@ -61,20 +61,14 @@ function Layout() {
 
   return (
     <div className="h-screen flex">
-      <div 
-        className={`border-r-small border-divider h-full ${isCompact ? 'w-20' : 'w-72'} p-2 pt-6 flex flex-col transition-all duration-300 ease-in-out relative`}
+      <div
+        className={`border-r-small border-divider h-full ${isCompact ? "w-20" : "w-72"} p-2 pt-6 flex flex-col transition-all duration-300 ease-in-out relative`}
       >
-        <div className={`flex items-center gap-2 px-2 mb-4 ${isCompact ? 'justify-center' : ''}`}>
-          <img 
-            src="/excelerate.png" 
-            alt="Excelerate" 
-            className="h-8 w-8 object-contain"
-          />
-          {!isCompact && (
-            <span className="text-small font-bold uppercase">Excelerate</span>
-          )}
+        <div className={`flex items-center gap-2 px-2 mb-4 ${isCompact ? "justify-center" : ""}`}>
+          <img src="/excelerate.png" alt="Excelerate" className="h-8 w-8 object-contain" />
+          {!isCompact && <span className="text-small font-bold uppercase">Excelerate</span>}
         </div>
-        
+
         <Button
           isIconOnly
           size="sm"
@@ -82,22 +76,22 @@ function Layout() {
           className="absolute -right-3 top-6 z-10 bg-content1 shadow-md"
           onPress={() => setIsCompact(!isCompact)}
         >
-          <Icon 
-            icon={isCompact ? "heroicons:chevron-right" : "heroicons:chevron-left"} 
-            width={16} 
+          <Icon
+            icon={isCompact ? "heroicons:chevron-right" : "heroicons:chevron-left"}
+            width={16}
           />
         </Button>
 
         <ScrollShadow className="flex-1 max-h-full py-2">
-          <Sidebar 
-            defaultSelectedKey={selectedKey} 
-            items={items} 
+          <Sidebar
+            defaultSelectedKey={selectedKey}
+            items={items}
             isCompact={isCompact}
             onSelect={(key: string) => handleSelect(key)}
             className="select-none"
           />
         </ScrollShadow>
-        
+
         {/* Settings button fixed at the bottom */}
         <div className="mt-auto pb-2">
           <Listbox

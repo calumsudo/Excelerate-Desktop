@@ -395,20 +395,6 @@ pub fn check_workbook_exists(portfolio_name: &str) -> bool {
     }
 }
 
-fn extract_date_from_filename(filename: &str) -> Option<String> {
-    // Try to find date pattern like "2025-09-02" in filename
-    let re = regex::Regex::new(r"(\d{4})-(\d{2})-(\d{2})").ok()?;
-    if let Some(captures) = re.captures(filename) {
-        Some(format!("{}-{}-{}", 
-            captures.get(1)?.as_str(),
-            captures.get(2)?.as_str(),
-            captures.get(3)?.as_str()
-        ))
-    } else {
-        None
-    }
-}
-
 fn process_clearview_file(
     file_path: &Path,
     portfolio_name: &str,
