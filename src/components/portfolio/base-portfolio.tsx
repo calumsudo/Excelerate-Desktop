@@ -26,6 +26,11 @@ interface BasePortfolioProps {
   dailyUploadedFiles?: Record<string, File>;
   existingWorkbookFile?: File | null;
   children?: React.ReactNode;
+  // Error states for file uploads
+  workbookError?: { hasError: boolean; message?: string };
+  weeklyErrorStates?: Record<string, { hasError: boolean; message?: string }>;
+  monthlyErrorStates?: Record<string, { hasError: boolean; message?: string }>;
+  dailyErrorStates?: Record<string, { hasError: boolean; message?: string }>;
   // Clear View Daily specific props
   showClearViewDaily?: boolean;
   onClearViewDailyUpload?: (files: File[]) => void;
@@ -55,6 +60,10 @@ const BasePortfolio: React.FC<BasePortfolioProps> = ({
   dailyUploadedFiles,
   existingWorkbookFile,
   children,
+  workbookError,
+  weeklyErrorStates,
+  monthlyErrorStates,
+  dailyErrorStates,
   showClearViewDaily,
   onClearViewDailyUpload,
   onClearViewDailyRemove,
@@ -131,6 +140,8 @@ const BasePortfolio: React.FC<BasePortfolioProps> = ({
                 acceptedExtensions={[".xlsx", ".xls"]}
                 maxSizeKB={10240}
                 uploadId={`${portfolioName}-main-workbook`}
+                hasError={workbookError?.hasError || false}
+                errorMessage={workbookError?.message}
               />
             </div>
           </div>
@@ -160,6 +171,7 @@ const BasePortfolio: React.FC<BasePortfolioProps> = ({
                     onFileUpload={onDailyFunderUpload}
                     uploadedFiles={dailyUploadedFiles}
                     onClearFile={onDailyClearFile}
+                    errorStates={dailyErrorStates}
                   />
                 )}
 
@@ -170,6 +182,7 @@ const BasePortfolio: React.FC<BasePortfolioProps> = ({
                     onFileUpload={onWeeklyFunderUpload}
                     uploadedFiles={weeklyUploadedFiles}
                     onClearFile={onWeeklyClearFile}
+                    errorStates={weeklyErrorStates}
                   />
                 )}
 
@@ -180,6 +193,7 @@ const BasePortfolio: React.FC<BasePortfolioProps> = ({
                     onFileUpload={onMonthlyFunderUpload}
                     uploadedFiles={monthlyUploadedFiles}
                     onClearFile={onMonthlyClearFile}
+                    errorStates={monthlyErrorStates}
                   />
                 )}
               </div>

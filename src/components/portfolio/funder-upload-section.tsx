@@ -14,6 +14,7 @@ interface FunderUploadSectionProps {
   onFileUpload?: (funderName: string, file: File) => void;
   uploadedFiles?: Record<string, File>;
   onClearFile?: (funderName: string) => void;
+  errorStates?: Record<string, { hasError: boolean; message?: string }>;
 }
 
 const FunderUploadSection: React.FC<FunderUploadSectionProps> = ({
@@ -22,6 +23,7 @@ const FunderUploadSection: React.FC<FunderUploadSectionProps> = ({
   onFileUpload,
   uploadedFiles = {},
   onClearFile,
+  errorStates = {},
 }) => {
   const [localFiles, setLocalFiles] = useState<Record<string, File>>({});
 
@@ -66,6 +68,8 @@ const FunderUploadSection: React.FC<FunderUploadSectionProps> = ({
               acceptedExtensions={funder.acceptedExtensions}
               maxSizeKB={funder.maxSizeKB || 10240}
               uploadId={`funder-${type}-${funder.name}`}
+              hasError={errorStates[funder.name]?.hasError || false}
+              errorMessage={errorStates[funder.name]?.message}
             />
           </div>
         ))}

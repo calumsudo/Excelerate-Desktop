@@ -1,5 +1,7 @@
 mod database;
 mod file_handler;
+mod notification;
+mod validated_file_handler;
 pub mod parsers;
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
@@ -52,7 +54,9 @@ pub fn run() {
             file_handler::get_merchants_by_funder,
             file_handler::clear_merchants_for_portfolio,
             file_handler::get_pivot_tables_for_update,
-            file_handler::get_active_workbook_path
+            file_handler::get_active_workbook_path,
+            validated_file_handler::save_funder_upload_validated,
+            validated_file_handler::save_portfolio_workbook_validated
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
