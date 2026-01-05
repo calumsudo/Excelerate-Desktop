@@ -1,12 +1,6 @@
 import { motion } from "framer-motion";
 import { Card, CardBody, Button } from "@heroui/react";
-import { 
-  CheckCircleIcon, 
-  XCircleIcon, 
-  ExclamationTriangleIcon, 
-  InformationCircleIcon,
-  XMarkIcon 
-} from "@heroicons/react/24/solid";
+import { Icon } from "@iconify/react";
 import { Toast } from "@/contexts/toast-context";
 
 interface ToastNotificationProps extends Toast {
@@ -14,10 +8,10 @@ interface ToastNotificationProps extends Toast {
 }
 
 const icons = {
-  success: CheckCircleIcon,
-  error: XCircleIcon,
-  warning: ExclamationTriangleIcon,
-  info: InformationCircleIcon,
+  success: "heroicons:check-circle-20-solid",
+  error: "heroicons:x-circle-20-solid",
+  warning: "heroicons:exclamation-triangle-20-solid",
+  info: "heroicons:information-circle-20-solid",
 };
 
 const colors = {
@@ -40,7 +34,7 @@ export default function ToastNotification({
   type,
   onClose,
 }: ToastNotificationProps) {
-  const Icon = icons[type];
+  const iconName = icons[type];
 
   return (
     <motion.div
@@ -50,13 +44,13 @@ export default function ToastNotification({
       transition={{ duration: 0.2, ease: "easeOut" }}
       className="pointer-events-auto"
     >
-      <Card 
+      <Card
         className={`min-w-[320px] max-w-[400px] border-1 ${colors[type]} shadow-lg`}
         isBlurred
       >
         <CardBody className="p-4">
           <div className="flex items-start gap-3">
-            <Icon className={`w-5 h-5 mt-0.5 flex-shrink-0 ${iconColors[type]}`} />
+            <Icon icon={iconName} className={`w-5 h-5 mt-0.5 flex-shrink-0 ${iconColors[type]}`} />
             <div className="flex-1 min-w-0">
               <p className="font-semibold text-sm">{title}</p>
               {description && (
@@ -70,7 +64,7 @@ export default function ToastNotification({
               onPress={onClose}
               className="min-w-unit-6 w-unit-6 h-unit-6 -mr-1 -mt-1"
             >
-              <XMarkIcon className="w-4 h-4" />
+              <Icon icon="heroicons:x-mark-20-solid" className="w-4 h-4" />
             </Button>
           </div>
         </CardBody>
