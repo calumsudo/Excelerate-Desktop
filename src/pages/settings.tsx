@@ -1,9 +1,12 @@
+import { InviteUser } from '@components/auth/invite-user';
+import { useAuth } from '@/contexts/auth-context';
 import { Card, CardBody, CardHeader, Select, SelectItem, Checkbox, Button } from "@heroui/react";
 import { useTheme } from "@/contexts/theme-context";
 import { Icon } from "@iconify/react";
 import { useState } from "react";
 
 function Settings() {
+  const { profile } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [exportFormat, setExportFormat] = useState("csv");
   const [autoSave, setAutoSave] = useState(false);
@@ -18,6 +21,18 @@ function Settings() {
     <div className="p-6">
       <h1 className="text-3xl font-bold mb-6">Settings</h1>
       <div className="space-y-6 max-w-2xl">
+        {/* User Management - Only visible to admins */}
+        {profile?.role === 'admin' && (
+          <Card>
+            <CardHeader className="pb-3">
+              <h2 className="text-xl font-semibold">User Management</h2>
+            </CardHeader>
+            <CardBody>
+              <InviteUser />
+            </CardBody>
+          </Card>
+        )}
+
         <Card>
           <CardHeader className="pb-3">
             <h2 className="text-xl font-semibold">General Settings</h2>

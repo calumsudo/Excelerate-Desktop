@@ -1,6 +1,7 @@
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { HeroUIProvider } from "@heroui/react";
+import { AuthProvider } from "@/contexts/auth-context";
 import { ToastProvider } from "@/contexts/toast-context";
 import { ThemeProvider } from "@/contexts/theme-context";
 import App from "./app";
@@ -31,9 +32,11 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
     <ThemeProvider>
       <HeroUIProvider>
         <ToastProvider>
-          <main className="text-foreground bg-background">
-            <App />
-          </main>
+          <AuthProvider>
+            <main className="text-foreground bg-background">
+              <App />
+            </main>
+          </AuthProvider>
         </ToastProvider>
       </HeroUIProvider>
     </ThemeProvider>

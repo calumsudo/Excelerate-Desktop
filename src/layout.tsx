@@ -2,6 +2,7 @@ import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { ScrollShadow, Button, Listbox, ListboxItem, Tooltip } from "@heroui/react";
 import Sidebar from "@features/sidebar/sidebar";
 import { items, settingsItem } from "@features/sidebar/sidebar-items";
+import { UserMenu } from "@components/auth/user-menu";
 import { useEffect, useState, useRef } from "react";
 import { Icon } from "@iconify/react";
 import { useTheme } from "@/contexts/theme-context";
@@ -94,7 +95,7 @@ function Layout() {
           />
         </ScrollShadow>
 
-        {/* Theme toggle and Settings button fixed at the bottom */}
+        {/* Theme toggle, Settings button, and User Menu fixed at the bottom */}
         <div className="mt-auto pb-2 space-y-1">
           {/* Theme Toggle Button */}
           <div className={isCompact ? "flex justify-center" : ""}>
@@ -133,7 +134,7 @@ function Layout() {
               </Button>
             )}
           </div>
-          
+
           {/* Settings Button */}
           <Listbox
             as="nav"
@@ -177,6 +178,13 @@ function Layout() {
               ) : null}
             </ListboxItem>
           </Listbox>
+
+          {/* User Profile Menu */}
+          {!isCompact && (
+            <div className="px-2 py-2 border-t border-divider">
+              <UserMenu />
+            </div>
+          )}
         </div>
       </div>
       <div className="flex-1 overflow-auto p-4">
