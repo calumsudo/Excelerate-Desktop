@@ -3,6 +3,7 @@ import { DateValue } from "@internationalized/date";
 import BasePortfolio from "@components/portfolio/base-portfolio";
 import { FunderData } from "@components/portfolio/funder-upload-section";
 import FileService, { VersionInfo, FunderUploadInfo } from "@services/file-service";
+import { useFileErrorState } from "@/hooks/use-file-error-state";
 
 function AlderPortfolio() {
   const [weeklyFiles, setWeeklyFiles] = useState<Record<string, File>>({});
@@ -13,6 +14,14 @@ function AlderPortfolio() {
   const [versions, setVersions] = useState<VersionInfo[]>([]);
   const [funderUploads, setFunderUploads] = useState<FunderUploadInfo[]>([]);
   const [clearViewDailyFilesList, setClearViewDailyFilesList] = useState<string[]>([]);
+  
+  const {
+    workbookError,
+    weeklyErrorStates,
+    monthlyErrorStates,
+    setWorkbookErrorState,
+    setFunderErrorState,
+  } = useFileErrorState();
 
   useEffect(() => {
     const loadActiveVersion = async () => {
@@ -201,8 +210,8 @@ function AlderPortfolio() {
         }
       }
 
-      console.log("[Alder Portfolio] Calling savePortfolioWorkbookWithVersion");
-      const response = await FileService.savePortfolioWorkbookWithVersion(
+      console.log("[Alder Portfolio] Calling savePortfolioWorkbookValidated");
+      const response = await FileService.savePortfolioWorkbookValidated(
         "Alder",
         file,
         reportDate
@@ -212,11 +221,15 @@ function AlderPortfolio() {
         console.log("Workbook saved successfully:", response.file_path);
         console.log("Version backup created:", response.backup_path);
         setExistingWorkbook(file);
+        setWorkbookErrorState(false); // Clear any error state
 
         const updatedVersions = await FileService.getPortfolioVersions("Alder");
         setVersions(updatedVersions);
       } else {
         console.error("Failed to save workbook:", response.message);
+        // Set error state to show red border
+        const errorMsg = response.validation_errors?.join(", ") || response.message;
+        setWorkbookErrorState(true, errorMsg);
       }
     } catch (error) {
       console.error("Error saving workbook:", error);
@@ -258,7 +271,7 @@ function AlderPortfolio() {
         }
       }
 
-      const response = await FileService.saveFunderUpload(
+      const response = await FileService.saveFunderUploadValidated(
         "Alder",
         funderName,
         file,
@@ -269,13 +282,19 @@ function AlderPortfolio() {
       if (response.success) {
         console.log(`Funder file saved: ${response.file_path}`);
         setWeeklyFiles((prev) => ({ ...prev, [funderName]: file }));
+        setFunderErrorState("weekly", funderName, false); // Clear any error state
 
         // Refresh funder uploads list
         const uploads = await FileService.getFunderUploadsForDate("Alder", reportDate);
         setFunderUploads(uploads);
+      } else {
+        // Set error state to show red border
+        const errorMsg = response.validation_errors?.join(", ") || response.message;
+        setFunderErrorState("weekly", funderName, true, errorMsg);
       }
     } catch (error) {
       console.error(`Error uploading funder file for ${funderName}:`, error);
+      setFunderErrorState("weekly", funderName, true, "Upload failed");
     }
   };
 
@@ -306,7 +325,7 @@ function AlderPortfolio() {
         }
       }
 
-      const response = await FileService.saveFunderUpload(
+      const response = await FileService.saveFunderUploadValidated(
         "Alder",
         funderName,
         file,
@@ -317,13 +336,19 @@ function AlderPortfolio() {
       if (response.success) {
         console.log(`Funder file saved: ${response.file_path}`);
         setMonthlyFiles((prev) => ({ ...prev, [funderName]: file }));
+        setFunderErrorState("monthly", funderName, false); // Clear any error state
 
         // Refresh funder uploads list
         const uploads = await FileService.getFunderUploadsForDate("Alder", reportDate);
         setFunderUploads(uploads);
+      } else {
+        // Set error state to show red border
+        const errorMsg = response.validation_errors?.join(", ") || response.message;
+        setFunderErrorState("monthly", funderName, true, errorMsg);
       }
     } catch (error) {
       console.error(`Error uploading funder file for ${funderName}:`, error);
+      setFunderErrorState("monthly", funderName, true, "Upload failed");
     }
   };
 
@@ -444,7 +469,7 @@ function AlderPortfolio() {
           await FileService.deleteFunderUpload(existingUploads[0].id);
         }
 
-        const response = await FileService.saveFunderUpload(
+        const response = await FileService.saveFunderUploadValidated(
           "Alder",
           funderName,
           file,
@@ -658,6 +683,9 @@ function AlderPortfolio() {
         weeklyUploadedFiles={weeklyFiles}
         monthlyUploadedFiles={monthlyFiles}
         existingWorkbookFile={existingWorkbook}
+        workbookError={workbookError}
+        weeklyErrorStates={weeklyErrorStates}
+        monthlyErrorStates={monthlyErrorStates}
         showClearViewDaily={true}
         onClearViewDailyUpload={handleClearViewDailyUpload}
         onClearViewDailyRemove={handleClearViewDailyRemove}

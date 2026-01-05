@@ -15,6 +15,8 @@ interface FileUploadProps {
   selectedFile?: File | null;
   onClearFile?: () => void;
   uploadId?: string; // Unique identifier for this upload area
+  hasError?: boolean; // Indicates if the upload has a validation error
+  errorMessage?: string; // Optional error message to display
 }
 
 const FileUpload: React.FC<FileUploadProps> = ({
@@ -31,6 +33,8 @@ const FileUpload: React.FC<FileUploadProps> = ({
   selectedFile = null,
   onClearFile,
   uploadId = "default",
+  hasError = false,
+  errorMessage,
 }) => {
   const [localSelectedFile, setLocalSelectedFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -287,7 +291,9 @@ const FileUpload: React.FC<FileUploadProps> = ({
             border-2 border-dashed rounded-lg p-6
             transition-all duration-200 cursor-pointer
             ${
-              isDragging
+              hasError
+                ? "border-danger bg-danger/5"
+                : isDragging
                 ? "border-primary bg-primary/5"
                 : "border-default-300 hover:border-primary hover:bg-default-100"
             }
@@ -302,10 +308,12 @@ const FileUpload: React.FC<FileUploadProps> = ({
           data-upload-id={uploadId}
         >
           <div className="flex flex-col items-center justify-center space-y-2">
-            <Icon icon="material-symbols:upload-rounded" className="w-8 h-8 text-default-400" />
+            <Icon icon="material-symbols:upload-rounded" className={`w-8 h-8 ${hasError ? 'text-danger' : 'text-default-400'}`} />
             <div className="text-center">
-              <p className="text-sm font-medium text-foreground">{label}</p>
-              <p className="text-xs text-default-500 mt-1">{description}</p>
+              <p className={`text-sm font-medium ${hasError ? 'text-danger' : 'text-foreground'}`}>{label}</p>
+              <p className={`text-xs mt-1 ${hasError ? 'text-danger' : 'text-default-500'}`}>
+                {hasError && errorMessage ? errorMessage : description}
+              </p>
             </div>
           </div>
         </div>
@@ -319,15 +327,17 @@ const FileUpload: React.FC<FileUploadProps> = ({
 
   return (
     <div className={className}>
-      <div className="border border-default-300 rounded-lg p-3 bg-default-100">
+      <div className={`border rounded-lg p-3 ${hasError ? 'border-danger bg-danger/5' : 'border-default-300 bg-default-100'}`}>
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0 flex-1">
             <Icon icon="vscode-icons:file-type-excel" className="w-6 h-6 flex-shrink-0" />
             <div className="min-w-0 flex-1 overflow-hidden">
-              <p className="text-sm font-medium text-foreground truncate" title={currentFile.name}>
+              <p className={`text-sm font-medium truncate ${hasError ? 'text-danger' : 'text-foreground'}`} title={currentFile.name}>
                 {currentFile.name}
               </p>
-              <p className="text-xs text-default-500">{(currentFile.size / 1024).toFixed(1)} KB</p>
+              <p className={`text-xs ${hasError ? 'text-danger' : 'text-default-500'}`}>
+                {hasError && errorMessage ? errorMessage : `${(currentFile.size / 1024).toFixed(1)} KB`}
+              </p>
             </div>
           </div>
           <Button isIconOnly color="danger" variant="light" size="sm" onPress={clearFile}>

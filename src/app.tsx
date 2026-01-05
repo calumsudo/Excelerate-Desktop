@@ -6,8 +6,18 @@ import AlderPortfolio from "@pages/alder-portfolio";
 import WhiteRabbitPortfolio from "@pages/white-rabbit-portfolio";
 import FileExplorer from "@pages/file-explorer";
 import Settings from "@pages/settings";
+import { backendNotifications } from "@services/notification-service";
 
 function App() {
+  // Initialize backend notification listener
+  useEffect(() => {
+    backendNotifications.initialize();
+    
+    return () => {
+      backendNotifications.destroy();
+    };
+  }, []);
+
   // Preload Pyodide on app startup for better performance
   useEffect(() => {
     const preloadPyodide = async () => {

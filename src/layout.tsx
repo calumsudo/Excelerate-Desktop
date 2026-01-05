@@ -4,10 +4,12 @@ import Sidebar from "@features/sidebar/sidebar";
 import { items, settingsItem } from "@features/sidebar/sidebar-items";
 import { useEffect, useState, useRef } from "react";
 import { Icon } from "@iconify/react";
+import { useTheme } from "@/contexts/theme-context";
 
 function Layout() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { theme, toggleTheme } = useTheme();
   const [selectedKey, setSelectedKey] = useState("dashboard");
   const [isCompact, setIsCompact] = useState(() => {
     const saved = localStorage.getItem("sidebarCompact");
@@ -92,8 +94,47 @@ function Layout() {
           />
         </ScrollShadow>
 
-        {/* Settings button fixed at the bottom */}
-        <div className="mt-auto pb-2">
+        {/* Theme toggle and Settings button fixed at the bottom */}
+        <div className="mt-auto pb-2 space-y-1">
+          {/* Theme Toggle Button */}
+          <div className={isCompact ? "flex justify-center" : ""}>
+            {isCompact ? (
+              <Tooltip content={`Switch to ${theme === "dark" ? "light" : "dark"} mode`} placement="right">
+                <Button
+                  isIconOnly
+                  variant="light"
+                  size="md"
+                  className="w-11 h-11 rounded-large"
+                  onPress={toggleTheme}
+                >
+                  <Icon
+                    icon={theme === "dark" ? "heroicons:sun" : "heroicons:moon"}
+                    width={24}
+                    className="text-default-500"
+                  />
+                </Button>
+              </Tooltip>
+            ) : (
+              <Button
+                variant="light"
+                className="w-full justify-start px-3 min-h-11 h-[44px] rounded-large"
+                startContent={
+                  <Icon
+                    icon={theme === "dark" ? "heroicons:sun" : "heroicons:moon"}
+                    width={24}
+                    className="text-default-500"
+                  />
+                }
+                onPress={toggleTheme}
+              >
+                <span className="text-small font-medium text-default-500">
+                  {theme === "dark" ? "Light Mode" : "Dark Mode"}
+                </span>
+              </Button>
+            )}
+          </div>
+          
+          {/* Settings Button */}
           <Listbox
             as="nav"
             className="list-none select-none"
@@ -104,12 +145,13 @@ function Layout() {
               const key = Array.from(keys)[0];
               if (key) handleSelect(key as string);
             }}
+            itemClasses={{
+              base: "data-[selected=true]:bg-default-100"
+            }}
           >
             <ListboxItem
               key={settingsItem.key}
-              className={`px-3 min-h-11 rounded-large h-[44px] ${
-                selectedKey === "settings" ? "bg-default-100" : ""
-              } select-none ${isCompact ? "w-11 h-11 gap-0 p-0" : ""}`}
+              className={`px-3 min-h-11 rounded-large h-[44px] select-none ${isCompact ? "w-11 h-11 gap-0 p-0 mx-auto" : ""}`}
               startContent={
                 isCompact ? null : (
                   <Icon

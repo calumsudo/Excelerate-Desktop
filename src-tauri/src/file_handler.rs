@@ -2,7 +2,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use serde::{Serialize, Deserialize};
-use chrono::Utc;
+use chrono::{Utc, Datelike};
 use uuid::Uuid;
 use crate::database::{Database, FileVersion, FunderUpload, FunderPivotTable, Merchant};
 use crate::parsers::{BaseParser, BhbParser, BigParser, BoomParser, EfinParser, InAdvParser, KingsParser, ClearViewPivotProcessor, PortfolioParser};
@@ -1690,4 +1690,230 @@ pub fn get_active_workbook_path(
         }
         Ok(original_path.to_string_lossy().to_string())
     }
+}
+
+// Dashboard-related commands
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DashboardStats {
+    pub total_merchants: i32,
+    pub total_funded: f64,
+    pub avg_buy_rate: f64,
+    pub avg_commission: f64,
+    pub active_funders: i32,
+    pub recent_fundings: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct FunderDistribution {
+    pub name: String,
+    pub value: f64,
+    pub percentage: f64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct MonthlyFunding {
+    pub month: String,
+    pub amount: f64,
+    pub count: i32,
+}
+
+#[tauri::command]
+pub fn get_dashboard_stats(portfolio_name: Option<String>) -> Result<DashboardStats, String> {
+    if DB.lock().unwrap().is_none() {
+        init_database()?;
+    }
+    
+    let db_lock = DB.lock().unwrap();
+    let db = db_lock.as_ref().ok_or("Database not initialized")?;
+    
+    let merchants = if let Some(portfolio) = portfolio_name {
+        db.get_merchants_by_portfolio(&portfolio)
+            .map_err(|e| format!("Failed to get merchants: {}", e))?
+    } else {
+        // Get merchants from both portfolios
+        let alder = db.get_merchants_by_portfolio("Alder")
+            .map_err(|e| format!("Failed to get Alder merchants: {}", e))?;
+        let white_rabbit = db.get_merchants_by_portfolio("White Rabbit")
+            .map_err(|e| format!("Failed to get White Rabbit merchants: {}", e))?;
+        
+        let mut all_merchants = alder;
+        all_merchants.extend(white_rabbit);
+        all_merchants
+    };
+    
+    let total_merchants = merchants.len() as i32;
+    let total_funded: f64 = merchants.iter()
+        .filter_map(|m| m.total_amount_funded)
+        .sum();
+    
+    let buy_rates: Vec<f64> = merchants.iter()
+        .filter_map(|m| m.buy_rate)
+        .collect();
+    let avg_buy_rate = if !buy_rates.is_empty() {
+        buy_rates.iter().sum::<f64>() / buy_rates.len() as f64
+    } else {
+        0.0
+    };
+    
+    let commissions: Vec<f64> = merchants.iter()
+        .filter_map(|m| m.commission)
+        .collect();
+    let avg_commission = if !commissions.is_empty() {
+        commissions.iter().sum::<f64>() / commissions.len() as f64
+    } else {
+        0.0
+    };
+    
+    let mut unique_funders = std::collections::HashSet::new();
+    for merchant in &merchants {
+        unique_funders.insert(&merchant.funder_name);
+    }
+    let active_funders = unique_funders.len() as i32;
+    
+    // Count recent fundings (last 30 days)
+    let thirty_days_ago = chrono::Utc::now() - chrono::Duration::days(30);
+    let recent_fundings = merchants.iter()
+        .filter(|m| {
+            if let Some(date_str) = &m.date_funded {
+                if let Ok(date) = chrono::NaiveDate::parse_from_str(date_str, "%m/%d/%y")
+                    .or_else(|_| chrono::NaiveDate::parse_from_str(date_str, "%m/%d/%Y"))
+                    .or_else(|_| chrono::NaiveDate::parse_from_str(date_str, "%Y-%m-%d")) {
+                    let datetime = date.and_hms_opt(0, 0, 0)
+                        .map(|dt| chrono::DateTime::<chrono::Utc>::from_naive_utc_and_offset(dt, chrono::Utc));
+                    if let Some(dt) = datetime {
+                        return dt > thirty_days_ago;
+                    }
+                }
+            }
+            false
+        })
+        .count() as i32;
+    
+    Ok(DashboardStats {
+        total_merchants,
+        total_funded,
+        avg_buy_rate,
+        avg_commission,
+        active_funders,
+        recent_fundings,
+    })
+}
+
+#[tauri::command]
+pub fn get_funder_distribution(portfolio_name: Option<String>) -> Result<Vec<FunderDistribution>, String> {
+    if DB.lock().unwrap().is_none() {
+        init_database()?;
+    }
+    
+    let db_lock = DB.lock().unwrap();
+    let db = db_lock.as_ref().ok_or("Database not initialized")?;
+    
+    let merchants = if let Some(portfolio) = portfolio_name {
+        db.get_merchants_by_portfolio(&portfolio)
+            .map_err(|e| format!("Failed to get merchants: {}", e))?
+    } else {
+        let alder = db.get_merchants_by_portfolio("Alder")
+            .map_err(|e| format!("Failed to get Alder merchants: {}", e))?;
+        let white_rabbit = db.get_merchants_by_portfolio("White Rabbit")
+            .map_err(|e| format!("Failed to get White Rabbit merchants: {}", e))?;
+        
+        let mut all_merchants = alder;
+        all_merchants.extend(white_rabbit);
+        all_merchants
+    };
+    
+    // Group by funder and sum amounts
+    let mut funder_totals: std::collections::HashMap<String, f64> = std::collections::HashMap::new();
+    for merchant in merchants {
+        let amount = merchant.total_amount_funded.unwrap_or(0.0);
+        *funder_totals.entry(merchant.funder_name.clone()).or_insert(0.0) += amount;
+    }
+    
+    let total_amount: f64 = funder_totals.values().sum();
+    
+    let mut distribution: Vec<FunderDistribution> = funder_totals.into_iter()
+        .map(|(name, value)| {
+            let percentage = if total_amount > 0.0 {
+                (value / total_amount) * 100.0
+            } else {
+                0.0
+            };
+            FunderDistribution { name, value, percentage }
+        })
+        .collect();
+    
+    // Sort by value descending
+    distribution.sort_by(|a, b| b.value.partial_cmp(&a.value).unwrap());
+    
+    // Return top 10 funders
+    distribution.truncate(10);
+    
+    Ok(distribution)
+}
+
+#[tauri::command]
+pub fn get_monthly_funding_trends(portfolio_name: Option<String>) -> Result<Vec<MonthlyFunding>, String> {
+    if DB.lock().unwrap().is_none() {
+        init_database()?;
+    }
+    
+    let db_lock = DB.lock().unwrap();
+    let db = db_lock.as_ref().ok_or("Database not initialized")?;
+    
+    let merchants = if let Some(portfolio) = portfolio_name {
+        db.get_merchants_by_portfolio(&portfolio)
+            .map_err(|e| format!("Failed to get merchants: {}", e))?
+    } else {
+        let alder = db.get_merchants_by_portfolio("Alder")
+            .map_err(|e| format!("Failed to get Alder merchants: {}", e))?;
+        let white_rabbit = db.get_merchants_by_portfolio("White Rabbit")
+            .map_err(|e| format!("Failed to get White Rabbit merchants: {}", e))?;
+        
+        let mut all_merchants = alder;
+        all_merchants.extend(white_rabbit);
+        all_merchants
+    };
+    
+    // Group by month
+    let mut monthly_data: std::collections::HashMap<String, (f64, i32)> = std::collections::HashMap::new();
+    
+    for merchant in merchants {
+        if let Some(date_str) = merchant.date_funded {
+            // Try different date formats
+            if let Ok(date) = chrono::NaiveDate::parse_from_str(&date_str, "%m/%d/%y")
+                .or_else(|_| chrono::NaiveDate::parse_from_str(&date_str, "%m/%d/%Y"))
+                .or_else(|_| chrono::NaiveDate::parse_from_str(&date_str, "%Y-%m-%d")) {
+                
+                let month_key = format!("{}-{:02}", date.year(), date.month());
+                let amount = merchant.total_amount_funded.unwrap_or(0.0);
+                
+                let entry = monthly_data.entry(month_key).or_insert((0.0, 0));
+                entry.0 += amount;
+                entry.1 += 1;
+            }
+        }
+    }
+    
+    // Get last 6 months
+    let mut months = Vec::new();
+    let now = chrono::Utc::now();
+    
+    for i in 0..6 {
+        let date = now - chrono::Duration::days(i * 30);
+        let month_key = format!("{}-{:02}", date.year(), date.month());
+        let month_name = date.format("%b").to_string();
+        
+        let (amount, count) = monthly_data.get(&month_key).copied().unwrap_or((0.0, 0));
+        
+        months.push(MonthlyFunding {
+            month: month_name,
+            amount,
+            count,
+        });
+    }
+    
+    // Reverse to get chronological order
+    months.reverse();
+    
+    Ok(months)
 }
