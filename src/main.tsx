@@ -2,6 +2,8 @@ import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { HeroUIProvider } from "@heroui/react";
 import { AuthProvider } from "@/contexts/auth-context";
+import { ToastProvider } from "@/contexts/toast-context";
+import { ThemeProvider } from "@/contexts/theme-context";
 import App from "./app";
 import "./index.css";
 
@@ -27,12 +29,16 @@ document.addEventListener(
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <BrowserRouter>
-    <HeroUIProvider>
-      <AuthProvider>
-        <main className="dark text-foreground bg-background">
-          <App />
-        </main>
-      </AuthProvider>
-    </HeroUIProvider>
+    <ThemeProvider>
+      <HeroUIProvider>
+        <ToastProvider>
+          <AuthProvider>
+            <main className="text-foreground bg-background">
+              <App />
+            </main>
+          </AuthProvider>
+        </ToastProvider>
+      </HeroUIProvider>
+    </ThemeProvider>
   </BrowserRouter>
 );

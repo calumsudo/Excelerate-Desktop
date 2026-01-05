@@ -3,6 +3,7 @@ import { DateValue } from "@internationalized/date";
 import BasePortfolio from "@components/portfolio/base-portfolio";
 import { FunderData } from "@components/portfolio/funder-upload-section";
 import FileService, { VersionInfo, FunderUploadInfo } from "@services/file-service";
+import { useFileErrorState } from "@/hooks/use-file-error-state";
 
 function WhiteRabbitPortfolio() {
   const [weeklyFiles, setWeeklyFiles] = useState<Record<string, File>>({});
@@ -13,6 +14,14 @@ function WhiteRabbitPortfolio() {
   const [versions, setVersions] = useState<VersionInfo[]>([]);
   const [funderUploads, setFunderUploads] = useState<FunderUploadInfo[]>([]);
   const [clearViewDailyFilesList, setClearViewDailyFilesList] = useState<string[]>([]);
+  
+  const {
+    workbookError,
+    weeklyErrorStates,
+    monthlyErrorStates,
+    setWorkbookErrorState,
+    setFunderErrorState,
+  } = useFileErrorState();
 
   useEffect(() => {
     const loadActiveVersion = async () => {
@@ -195,7 +204,7 @@ function WhiteRabbitPortfolio() {
         }
       }
 
-      const response = await FileService.savePortfolioWorkbookWithVersion(
+      const response = await FileService.savePortfolioWorkbookValidated(
         "White Rabbit",
         file,
         reportDate
@@ -205,11 +214,15 @@ function WhiteRabbitPortfolio() {
         console.log("Workbook saved successfully:", response.file_path);
         console.log("Version backup created:", response.backup_path);
         setExistingWorkbook(file);
+        setWorkbookErrorState(false); // Clear any error state
 
         const updatedVersions = await FileService.getPortfolioVersions("White Rabbit");
         setVersions(updatedVersions);
       } else {
         console.error("Failed to save workbook:", response.message);
+        // Set error state to show red border
+        const errorMsg = response.validation_errors?.join(", ") || response.message;
+        setWorkbookErrorState(true, errorMsg);
       }
     } catch (error) {
       console.error("Error saving workbook:", error);
@@ -250,7 +263,7 @@ function WhiteRabbitPortfolio() {
         }
       }
 
-      const response = await FileService.saveFunderUpload(
+      const response = await FileService.saveFunderUploadValidated(
         "White Rabbit",
         funderName,
         file,
@@ -261,6 +274,7 @@ function WhiteRabbitPortfolio() {
       if (response.success) {
         console.log(`Funder file saved: ${response.file_path}`);
         setWeeklyFiles((prev) => ({ ...prev, [funderName]: file }));
+        setFunderErrorState("weekly", funderName, false); // Clear any error state
 
         // Refresh funder uploads list and Clear View daily files
         const uploads = await FileService.getFunderUploadsForDate("White Rabbit", reportDate);
@@ -283,9 +297,14 @@ function WhiteRabbitPortfolio() {
           return file;
         });
         setClearViewDailyFiles(clearViewFiles);
+      } else {
+        // Set error state to show red border
+        const errorMsg = response.validation_errors?.join(", ") || response.message;
+        setFunderErrorState("weekly", funderName, true, errorMsg);
       }
     } catch (error) {
       console.error(`Error uploading funder file for ${funderName}:`, error);
+      setFunderErrorState("weekly", funderName, true, "Upload failed");
     }
   };
 
@@ -316,7 +335,7 @@ function WhiteRabbitPortfolio() {
         }
       }
 
-      const response = await FileService.saveFunderUpload(
+      const response = await FileService.saveFunderUploadValidated(
         "White Rabbit",
         funderName,
         file,
@@ -327,6 +346,7 @@ function WhiteRabbitPortfolio() {
       if (response.success) {
         console.log(`Funder file saved: ${response.file_path}`);
         setMonthlyFiles((prev) => ({ ...prev, [funderName]: file }));
+        setFunderErrorState("monthly", funderName, false); // Clear any error state
 
         // Refresh funder uploads list and Clear View daily files
         const uploads = await FileService.getFunderUploadsForDate("White Rabbit", reportDate);
@@ -349,9 +369,14 @@ function WhiteRabbitPortfolio() {
           return file;
         });
         setClearViewDailyFiles(clearViewFiles);
+      } else {
+        // Set error state to show red border
+        const errorMsg = response.validation_errors?.join(", ") || response.message;
+        setFunderErrorState("monthly", funderName, true, errorMsg);
       }
     } catch (error) {
       console.error(`Error uploading funder file for ${funderName}:`, error);
+      setFunderErrorState("monthly", funderName, true, "Upload failed");
     }
   };
 
@@ -478,7 +503,7 @@ function WhiteRabbitPortfolio() {
           await FileService.deleteFunderUpload(existingUploads[0].id);
         }
 
-        const response = await FileService.saveFunderUpload(
+        const response = await FileService.saveFunderUploadValidated(
           "White Rabbit",
           funderName,
           file,
@@ -672,6 +697,9 @@ function WhiteRabbitPortfolio() {
         weeklyUploadedFiles={weeklyFiles}
         monthlyUploadedFiles={monthlyFiles}
         existingWorkbookFile={existingWorkbook}
+        workbookError={workbookError}
+        weeklyErrorStates={weeklyErrorStates}
+        monthlyErrorStates={monthlyErrorStates}
         showClearViewDaily={true}
         onClearViewDailyUpload={handleClearViewDailyUpload}
         onClearViewDailyRemove={handleClearViewDailyRemove}

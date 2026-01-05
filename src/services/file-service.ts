@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { toast } from "./toast-service";
 
 export interface UploadResponse {
   success: boolean;
@@ -6,6 +7,11 @@ export interface UploadResponse {
   file_path?: string;
   version_id?: string;
   backup_path?: string;
+}
+
+export interface ValidatedUploadResponse extends UploadResponse {
+  validation_errors?: string[];
+  validation_warnings?: string[];
 }
 
 export interface VersionInfo {
@@ -303,6 +309,76 @@ export class FileService {
       };
     } catch (error) {
       console.error("Error updating portfolio with Net RTR:", error);
+      throw error;
+    }
+  }
+  // Validated versions of upload methods
+  static async saveFunderUploadValidated(
+    portfolioName: string,
+    funderName: string,
+    file: File,
+    reportDate: string,
+    uploadType: "daily" | "weekly" | "monthly"
+  ): Promise<ValidatedUploadResponse> {
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const fileData = Array.from(new Uint8Array(arrayBuffer));
+
+      const response = await invoke<ValidatedUploadResponse>("save_funder_upload_validated", {
+        portfolioName,
+        funderName,
+        fileData,
+        fileName: file.name,
+        reportDate,
+        uploadType,
+      });
+
+      // Don't show duplicate error toast - backend already sends notification
+      // Only show error if there's no validation_errors (meaning backend didn't send notification)
+      if (!response.success && (!response.validation_errors || response.validation_errors.length === 0)) {
+        toast.error(
+          `Upload failed: ${file.name}`,
+          response.message
+        );
+      }
+
+      return response;
+    } catch (error) {
+      console.error("Error saving validated funder upload:", error);
+      toast.error("Upload failed", String(error));
+      throw error;
+    }
+  }
+
+  static async savePortfolioWorkbookValidated(
+    portfolioName: string,
+    file: File,
+    reportDate: string
+  ): Promise<ValidatedUploadResponse> {
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const fileData = Array.from(new Uint8Array(arrayBuffer));
+
+      const response = await invoke<ValidatedUploadResponse>("save_portfolio_workbook_validated", {
+        portfolioName,
+        fileData,
+        fileName: file.name,
+        reportDate,
+      });
+
+      // Don't show duplicate error toast - backend already sends notification
+      // Only show error if there's no validation_errors (meaning backend didn't send notification)
+      if (!response.success && (!response.validation_errors || response.validation_errors.length === 0)) {
+        toast.error(
+          `Upload failed: ${file.name}`,
+          response.message
+        );
+      }
+
+      return response;
+    } catch (error) {
+      console.error("Error saving validated portfolio workbook:", error);
+      toast.error("Upload failed", String(error));
       throw error;
     }
   }

@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::path::Path;
 use thiserror::Error;
 use serde::{Serialize, Deserialize};
+use crate::notification::{ValidationResult, ValidationError};
 
 #[derive(Error, Debug)]
 pub enum ParserError {
@@ -129,6 +130,84 @@ pub trait BaseParser {
     fn validate_columns(&self, headers: &[String]) -> ParserResult<()>;
     fn process_row(&self, row: &HashMap<String, String>) -> ParserResult<Option<ProcessedData>>;
     fn create_pivot_table(&self, data: Vec<ProcessedData>) -> ParserResult<PivotTable>;
+    
+    /// Validate file structure before processing
+    fn validate_file_structure(&self, file_path: &Path) -> ValidationResult {
+        let mut result = ValidationResult::valid();
+        
+        // Try to parse the file headers
+        match self.parse_file_headers(file_path) {
+            Ok(headers) => {
+                // Check for required columns
+                let required = self.get_required_columns();
+                for col in required {
+                    if !headers.iter().any(|h| h.eq_ignore_ascii_case(&col)) {
+                        result.add_error(ValidationError {
+                            field: "Column".to_string(),
+                            expected: col.clone(),
+                            found: "Missing".to_string(),
+                            line: Some(1),
+                            column: None,
+                        });
+                    }
+                }
+            }
+            Err(e) => {
+                result.add_error(ValidationError {
+                    field: "File Format".to_string(),
+                    expected: format!("{} file format", self.get_funder_name()),
+                    found: format!("Invalid format: {}", e),
+                    line: None,
+                    column: None,
+                });
+            }
+        }
+        
+        result
+    }
+    
+    /// Parse only file headers for validation
+    fn parse_file_headers(&self, file_path: &Path) -> ParserResult<Vec<String>> {
+        let extension = file_path.extension()
+            .and_then(|ext| ext.to_str())
+            .ok_or(ParserError::UnsupportedFormat)?;
+        
+        match extension.to_lowercase().as_str() {
+            "csv" => {
+                let mut reader = csv::ReaderBuilder::new()
+                    .flexible(true)
+                    .from_path(file_path)?;
+                let headers = reader.headers()?
+                    .iter()
+                    .map(|h| h.to_string())
+                    .collect();
+                Ok(headers)
+            }
+            "xlsx" | "xls" => {
+                use calamine::{open_workbook, Reader, Xlsx};
+                let mut workbook: Xlsx<_> = open_workbook(file_path)
+                    .map_err(|_| ParserError::ProcessingError("Failed to open Excel file".to_string()))?;
+                
+                // Try to find the appropriate sheet
+                let sheet_names = workbook.sheet_names();
+                if sheet_names.is_empty() {
+                    return Err(ParserError::ProcessingError("No sheets found in Excel file".to_string()));
+                }
+                
+                let sheet_name = sheet_names[0].clone();
+                if let Ok(range) = workbook.worksheet_range(&sheet_name) {
+                    if let Some(first_row) = range.rows().next() {
+                        let headers: Vec<String> = first_row.iter()
+                            .map(|cell| cell.to_string())
+                            .collect();
+                        return Ok(headers);
+                    }
+                }
+                Err(ParserError::ProcessingError("Could not read headers from Excel file".to_string()))
+            }
+            _ => Err(ParserError::UnsupportedFormat)
+        }
+    }
     
     fn process(&self, file_path: &Path) -> ParserResult<PivotTable> {
         // Parse file

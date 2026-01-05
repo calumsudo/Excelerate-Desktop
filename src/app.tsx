@@ -9,9 +9,19 @@ import Settings from "@pages/settings";
 import Login from "@pages/login";
 import { ProtectedRoute } from "@components/auth/protected-route";
 import { useAuth } from "@/contexts/auth-context";
+import { backendNotifications } from "@services/notification-service";
 
 function App() {
   const { user, loading } = useAuth();
+
+  // Initialize backend notification listener
+  useEffect(() => {
+    backendNotifications.initialize();
+
+    return () => {
+      backendNotifications.destroy();
+    };
+  }, []);
 
   // Preload Pyodide on app startup for better performance
   useEffect(() => {

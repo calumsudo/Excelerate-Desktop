@@ -12,11 +12,7 @@ impl InAdvParser {
         InAdvParser {
             funder_name: "InAdvance".to_string(),
             required_columns: vec![
-                "Process Date".to_string(),
                 "Status".to_string(),
-                "Funding Date".to_string(),
-                "Paid To".to_string(),
-                "Servicing Fee %".to_string(),
                 "Mgmt Fee".to_string(),
                 "Advance Id".to_string(),
                 "Amount".to_string(),
