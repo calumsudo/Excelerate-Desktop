@@ -55,6 +55,9 @@ pub fn run() {
             file_handler::clear_merchants_for_portfolio,
             file_handler::get_pivot_tables_for_update,
             file_handler::get_active_workbook_path,
+            file_handler::get_dashboard_stats,
+            file_handler::get_funder_distribution,
+            file_handler::get_monthly_funding_trends,
             validated_file_handler::save_funder_upload_validated,
             validated_file_handler::save_portfolio_workbook_validated
         ])

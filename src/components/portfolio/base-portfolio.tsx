@@ -222,7 +222,7 @@ const BasePortfolio: React.FC<BasePortfolioProps> = ({
                   }
                   isDisabled={isUpdatingNetRtr}
                 >
-                  {isUpdatingNetRtr ? "Processing with Python..." : "Update Net RTR"}
+                  {isUpdatingNetRtr ? "Processing..." : "Update Net RTR"}
                 </Button>
               </div>
             </div>
