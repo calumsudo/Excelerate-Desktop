@@ -1,8 +1,19 @@
+import { InviteUser } from '@components/auth/invite-user';
+import { useAuth } from '@/contexts/auth-context';
+
 function Settings() {
+  const { profile } = useAuth();
+
   return (
     <div className="p-6">
       <h1 className="text-3xl font-bold mb-4">Settings</h1>
       <div className="space-y-6 max-w-2xl">
+        {/* User Management - Only visible to admins */}
+        {profile?.role === 'admin' && (
+          <div>
+            <InviteUser />
+          </div>
+        )}
         <div className="bg-content2 rounded-lg p-6">
           <h2 className="text-xl font-semibold mb-4">General Settings</h2>
           <div className="space-y-4">

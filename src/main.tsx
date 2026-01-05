@@ -1,6 +1,7 @@
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { HeroUIProvider } from "@heroui/react";
+import { AuthProvider } from "@/contexts/auth-context";
 import App from "./app";
 import "./index.css";
 
@@ -27,9 +28,11 @@ document.addEventListener(
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <BrowserRouter>
     <HeroUIProvider>
-      <main className="dark text-foreground bg-background">
-        <App />
-      </main>
+      <AuthProvider>
+        <main className="dark text-foreground bg-background">
+          <App />
+        </main>
+      </AuthProvider>
     </HeroUIProvider>
   </BrowserRouter>
 );

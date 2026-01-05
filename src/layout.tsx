@@ -2,6 +2,7 @@ import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { ScrollShadow, Button, Listbox, ListboxItem, Tooltip } from "@heroui/react";
 import Sidebar from "@features/sidebar/sidebar";
 import { items, settingsItem } from "@features/sidebar/sidebar-items";
+import { UserMenu } from "@components/auth/user-menu";
 import { useEffect, useState, useRef } from "react";
 import { Icon } from "@iconify/react";
 
@@ -92,8 +93,15 @@ function Layout() {
           />
         </ScrollShadow>
 
-        {/* Settings button fixed at the bottom */}
-        <div className="mt-auto pb-2">
+        {/* Settings and User Menu fixed at the bottom */}
+        <div className="mt-auto pb-2 flex flex-col gap-2">
+          {/* User Profile Menu */}
+          {!isCompact && (
+            <div className="px-2 py-2 border-t border-divider">
+              <UserMenu />
+            </div>
+          )}
+
           <Listbox
             as="nav"
             className="list-none select-none"

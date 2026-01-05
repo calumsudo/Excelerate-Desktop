@@ -1,4 +1,4 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import { useEffect } from "react";
 import Layout from "./layout";
 import Dashboard from "@pages/dashboard";
@@ -6,10 +6,18 @@ import AlderPortfolio from "@pages/alder-portfolio";
 import WhiteRabbitPortfolio from "@pages/white-rabbit-portfolio";
 import FileExplorer from "@pages/file-explorer";
 import Settings from "@pages/settings";
+import Login from "@pages/login";
+import { ProtectedRoute } from "@components/auth/protected-route";
+import { useAuth } from "@/contexts/auth-context";
 
 function App() {
+  const { user, loading } = useAuth();
+
   // Preload Pyodide on app startup for better performance
   useEffect(() => {
+    // Only preload if user is authenticated
+    if (!user || loading) return;
+
     const preloadPyodide = async () => {
       try {
         console.log("Preloading Pyodide in background...");
@@ -26,12 +34,23 @@ function App() {
     const timer = setTimeout(preloadPyodide, 2000);
 
     return () => clearTimeout(timer);
-  }, []);
+  }, [user, loading]);
 
   return (
     <Routes>
-      <Route path="/" element={<Layout />}>
-        <Route index element={<Dashboard />} />
+      {/* Public routes */}
+      <Route path="/login" element={!user ? <Login /> : <Navigate to="/dashboard" replace />} />
+
+      {/* Protected routes */}
+      <Route
+        path="/"
+        element={
+          <ProtectedRoute>
+            <Layout />
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard" element={<Dashboard />} />
         <Route path="alder-portfolio" element={<AlderPortfolio />} />
         <Route path="white-rabbit-portfolio" element={<WhiteRabbitPortfolio />} />
