@@ -177,15 +177,13 @@ def generate_net_rtr_column(date_str):
         month, day, year = int(parts[0]), int(parts[1]), int(parts[2])
     else:
         raise ValueError(f"Unsupported date format: {date_str}")
-    
-    # For 2025, include the year suffix
-    if year == 2025 or year == 25:
-        return f"Net RTR {month}/{day}/25"
-    elif year > 2000:
-        # For full years, use M/D format
-        return f"Net RTR {month}/{day}"
+
+    # For years 2000 and above, use two-digit year format
+    if year >= 2000:
+        two_digit_year = str(year)[-2:]  # Get last 2 digits (e.g., 2026 -> 26)
+        return f"Net RTR {month}/{day}/{two_digit_year}"
     else:
-        # For two-digit years, include them
+        # For older dates, include the full two-digit year
         return f"Net RTR {month}/{day}/{str(year).zfill(2)}"
 
 # Generate the column header
@@ -264,14 +262,19 @@ for funder_pivot in pivot_tables:
         date_parts = report_date.split('-')
         if len(date_parts) == 3:
             current_date = datetime(int(date_parts[0]), int(date_parts[1]), int(date_parts[2]))
-            
+
             # Look for previous Fridays (up to 4 weeks back)
             found_previous = False
             for weeks_back in range(1, 5):
                 previous_friday = current_date - timedelta(days=7 * weeks_back)
-                # Generate the column name for the previous Friday
-                prev_col_name = f"Net RTR {previous_friday.month}/{previous_friday.day}/25"
-                
+                # Generate the column name for the previous Friday using the same format as generate_net_rtr_column
+                prev_year = previous_friday.year
+                if prev_year >= 2000:
+                    two_digit_year = str(prev_year)[-2:]
+                    prev_col_name = f"Net RTR {previous_friday.month}/{previous_friday.day}/{two_digit_year}"
+                else:
+                    prev_col_name = f"Net RTR {previous_friday.month}/{previous_friday.day}/{str(prev_year).zfill(2)}"
+
                 # Search for this column
                 for col, col_name in net_rtr_columns:
                     if col_name == prev_col_name:
@@ -280,7 +283,7 @@ for funder_pivot in pivot_tables:
                         print(f"Found previous week column '{prev_col_name}' at {col}, placing new column at {net_rtr_col}")
                         found_previous = True
                         break
-                
+
                 if found_previous:
                     break
         
@@ -294,10 +297,15 @@ for funder_pivot in pivot_tables:
                 # No Net RTR columns exist yet, add after last data column
                 net_rtr_col = last_data_col + 1
                 print(f"Adding first Net RTR column at {net_rtr_col} (after last data)")
-        
+
+        # Insert a new column at the calculated position to avoid overwriting
+        # This shifts all columns to the right from this position
+        ws.insert_cols(net_rtr_col)
+        print(f"Inserted new column at position {net_rtr_col}")
+
         # Set the header for the new column
         ws.cell(row=header_row, column=net_rtr_col, value=net_rtr_column)
-        
+
         # Copy formatting from the previous column header if available (without using deprecated .copy())
         if net_rtr_col > 1:
             prev_header = ws.cell(row=header_row, column=net_rtr_col - 1)
