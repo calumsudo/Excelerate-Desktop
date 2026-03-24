@@ -19,6 +19,21 @@ interface FunderPivotData {
   file_path: string;
 }
 
+export interface UnmatchedDealFromUpdate {
+  funder_name: string;
+  sheet_name: string;
+  advance_id: string;
+  merchant_name: string;
+  gross_amount: number;
+  management_fee: number;
+  net_amount: number;
+}
+
+export interface UpdateWorkbookResult {
+  filePath: string;
+  unmatchedDeals: UnmatchedDealFromUpdate[];
+}
+
 // Singleton instance of Pyodide
 let pyodideInstance: PyodideInterface | null = null;
 let isInitializing = false;
@@ -80,11 +95,12 @@ export class PyodideService {
 
   /**
    * Update portfolio workbook with Net RTR values using Pyodide and openpyxl
+   * Returns the file path and any unmatched deals found during processing
    */
   static async updatePortfolioWorkbookWithNetRtr(
     portfolioName: string,
     reportDate: string
-  ): Promise<void> {
+  ): Promise<UpdateWorkbookResult> {
     try {
       console.log(`Starting Pyodide-based Excel update for ${portfolioName} on ${reportDate}`);
 
@@ -145,6 +161,9 @@ from copy import copy
 
 # Parse the pivot tables data
 pivot_tables = json.loads(pivot_tables_json)
+
+# Track unmatched deals across all funders
+all_unmatched_deals = []
 
 # Convert JavaScript Uint8Array to Python bytes
 workbook_bytes = bytes(workbook_array.to_py())
@@ -380,7 +399,30 @@ for funder_pivot in pivot_tables:
                 updates_count += 1
     
     print(f"Updated {updates_count} rows with Net RTR values")
-    
+
+    # Find unmatched deals - advance IDs from pivot that weren't matched in worksheet
+    unmatched_advance_ids = set(net_amount_map.keys()) - set(matched_ids)
+
+    if unmatched_advance_ids:
+        print(f"WARNING: {len(unmatched_advance_ids)} advance IDs from pivot table were not found in worksheet:")
+        for advance_id in list(unmatched_advance_ids)[:10]:  # Show first 10
+            print(f"  - {advance_id}")
+
+        # Add to global unmatched list with full deal details
+        for row in pivot_data:
+            if row['advance_id'] in unmatched_advance_ids:
+                all_unmatched_deals.append({
+                    'funder_name': funder_name,
+                    'sheet_name': sheet_name,
+                    'advance_id': row['advance_id'],
+                    'merchant_name': row['merchant_name'],
+                    'gross_amount': row['gross_amount'],
+                    'management_fee': row['management_fee'],
+                    'net_amount': row['net_amount']
+                })
+    else:
+        print(f"All {len(matched_ids)} advance IDs were successfully matched")
+
     # Ensure the worksheet knows about the new column by updating dimensions
     if net_rtr_col > ws.max_column:
         ws.max_column = net_rtr_col
@@ -424,10 +466,13 @@ debug_info = {
     'updated': base64.b64encode(updated_workbook_bytes).decode('utf-8'),
     'test': base64.b64encode(test_bytes).decode('utf-8'),
     'updated_size': len(updated_workbook_bytes),
-    'test_size': len(test_bytes)
+    'test_size': len(test_bytes),
+    'unmatched_deals': all_unmatched_deals,
+    'unmatched_count': len(all_unmatched_deals)
 }
 print(f"Updated workbook base64 length: {len(debug_info['updated'])}")
 print(f"Test workbook base64 length: {len(debug_info['test'])}")
+print(f"Total unmatched deals across all funders: {len(all_unmatched_deals)}")
 
 # Return as JSON string
 import json
@@ -441,6 +486,9 @@ json.dumps(debug_info)
       const result = JSON.parse(resultJson);
       console.log("Updated workbook size:", result.updated_size);
       console.log("Test workbook size:", result.test_size);
+      console.log("Unmatched deals found:", result.unmatched_count);
+
+      const unmatchedDeals: UnmatchedDealFromUpdate[] = result.unmatched_deals || [];
 
       // Convert base64 string to Uint8Array for the updated workbook
       const binaryString = atob(result.updated);
@@ -536,6 +584,11 @@ json.dumps(debug_info)
         } catch (err) {
           console.error("Could not verify written file:", err);
         }
+
+        return {
+          filePath,
+          unmatchedDeals,
+        };
       } else {
         console.log("User cancelled save dialog");
         throw new Error("Save cancelled by user");

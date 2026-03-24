@@ -33,6 +33,31 @@ export interface FunderUploadInfo {
   file_size: number;
 }
 
+export interface UnmatchedDeal {
+  portfolio_name: string;
+  funder_name: string;
+  report_date: string;
+  upload_type: string;
+  advance_id: string;
+  merchant_name: string;
+  sum_of_syn_gross_amount: number;
+  total_servicing_fee: number;
+  sum_of_syn_net_amount: number;
+}
+
+export interface UpdateWithNetRtrResponse extends UploadResponse {
+  unmatched_deals?: Array<{
+    funder_name: string;
+    sheet_name: string;
+    advance_id: string;
+    merchant_name: string;
+    gross_amount: number;
+    management_fee: number;
+    net_amount: number;
+  }>;
+  unmatched_count?: number;
+}
+
 export class FileService {
   static async savePortfolioWorkbookWithVersion(
     portfolioName: string,
@@ -291,7 +316,7 @@ export class FileService {
   static async updatePortfolioWithNetRtr(
     portfolioName: string,
     reportDate: string
-  ): Promise<UploadResponse> {
+  ): Promise<UpdateWithNetRtrResponse> {
     try {
       console.log(`Updating ${portfolioName} portfolio with Net RTR for ${reportDate}`);
 
@@ -299,13 +324,20 @@ export class FileService {
       const { PyodideService } = await import("./pyodide-service");
 
       // Process the workbook using Pyodide/openpyxl
-      await PyodideService.updatePortfolioWorkbookWithNetRtr(portfolioName, reportDate);
+      const result = await PyodideService.updatePortfolioWorkbookWithNetRtr(portfolioName, reportDate);
 
-      // Return success response
+      // Log unmatched deals if any
+      if (result.unmatchedDeals && result.unmatchedDeals.length > 0) {
+        console.warn(`Found ${result.unmatchedDeals.length} unmatched deals:`, result.unmatchedDeals);
+      }
+
+      // Return success response with unmatched deals info
       return {
         success: true,
-        message: `Successfully updated portfolio with Net RTR values for ${reportDate}. File saved successfully.`,
-        file_path: `${portfolioName}_Portfolio_Updated_${reportDate.replace(/\//g, "-")}.xlsx`,
+        message: `Successfully updated portfolio with Net RTR values for ${reportDate}. File saved successfully.${result.unmatchedDeals.length > 0 ? ` Found ${result.unmatchedDeals.length} unmatched deals.` : ''}`,
+        file_path: result.filePath,
+        unmatched_deals: result.unmatchedDeals,
+        unmatched_count: result.unmatchedDeals.length,
       };
     } catch (error) {
       console.error("Error updating portfolio with Net RTR:", error);
@@ -379,6 +411,51 @@ export class FileService {
     } catch (error) {
       console.error("Error saving validated portfolio workbook:", error);
       toast.error("Upload failed", String(error));
+      throw error;
+    }
+  }
+
+  /**
+   * Find all deals from pivot tables that don't have matching merchants in the database
+   * @returns Array of unmatched deals with portfolio, funder, and deal details
+   */
+  static async findUnmatchedDeals(): Promise<UnmatchedDeal[]> {
+    try {
+      return await invoke<UnmatchedDeal[]>("find_unmatched_deals");
+    } catch (error) {
+      console.error("Error finding unmatched deals:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Find unmatched deals for a specific portfolio
+   * @param portfolioName - Name of the portfolio (e.g., "Alder" or "White Rabbit")
+   * @returns Array of unmatched deals for the specified portfolio
+   */
+  static async findUnmatchedDealsByPortfolio(portfolioName: string): Promise<UnmatchedDeal[]> {
+    try {
+      return await invoke<UnmatchedDeal[]>("find_unmatched_deals_by_portfolio", {
+        portfolioName,
+      });
+    } catch (error) {
+      console.error("Error finding unmatched deals by portfolio:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Find unmatched deals for a specific report date
+   * @param reportDate - Report date in MM/DD/YYYY format
+   * @returns Array of unmatched deals for the specified date
+   */
+  static async findUnmatchedDealsByDate(reportDate: string): Promise<UnmatchedDeal[]> {
+    try {
+      return await invoke<UnmatchedDeal[]>("find_unmatched_deals_by_date", {
+        reportDate,
+      });
+    } catch (error) {
+      console.error("Error finding unmatched deals by date:", error);
       throw error;
     }
   }
