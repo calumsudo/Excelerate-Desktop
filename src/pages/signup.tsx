@@ -1,16 +1,16 @@
-import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { Button, Input, Card, CardBody, CardHeader } from '@heroui/react';
-import { useAuth } from '@/contexts/auth-context';
+import { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import { Button, Input, Card, CardBody, CardHeader } from "@heroui/react";
+import { useAuth } from "@/contexts/auth-context";
 
 export default function SignUp() {
   const navigate = useNavigate();
   const { signUp } = useAuth();
 
-  const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -19,13 +19,11 @@ export default function SignUp() {
   const [fullNameError, setFullNameError] = useState<string | null>(null);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
-  const [confirmPasswordError, setConfirmPasswordError] = useState<string | null>(
-    null
-  );
+  const [confirmPasswordError, setConfirmPasswordError] = useState<string | null>(null);
 
   const validateFullName = (value: string): boolean => {
     if (!value || value.trim().length === 0) {
-      setFullNameError('Full name is required');
+      setFullNameError("Full name is required");
       return false;
     }
     setFullNameError(null);
@@ -34,12 +32,12 @@ export default function SignUp() {
 
   const validateEmail = (value: string): boolean => {
     if (!value) {
-      setEmailError('Email is required');
+      setEmailError("Email is required");
       return false;
     }
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(value)) {
-      setEmailError('Please enter a valid email address');
+      setEmailError("Please enter a valid email address");
       return false;
     }
     setEmailError(null);
@@ -48,23 +46,23 @@ export default function SignUp() {
 
   const validatePassword = (value: string): boolean => {
     if (!value) {
-      setPasswordError('Password is required');
+      setPasswordError("Password is required");
       return false;
     }
     if (value.length < 8) {
-      setPasswordError('Password must be at least 8 characters');
+      setPasswordError("Password must be at least 8 characters");
       return false;
     }
     if (!/(?=.*[a-z])/.test(value)) {
-      setPasswordError('Password must contain at least one lowercase letter');
+      setPasswordError("Password must contain at least one lowercase letter");
       return false;
     }
     if (!/(?=.*[A-Z])/.test(value)) {
-      setPasswordError('Password must contain at least one uppercase letter');
+      setPasswordError("Password must contain at least one uppercase letter");
       return false;
     }
     if (!/(?=.*\d)/.test(value)) {
-      setPasswordError('Password must contain at least one number');
+      setPasswordError("Password must contain at least one number");
       return false;
     }
     setPasswordError(null);
@@ -73,11 +71,11 @@ export default function SignUp() {
 
   const validateConfirmPassword = (value: string): boolean => {
     if (!value) {
-      setConfirmPasswordError('Please confirm your password');
+      setConfirmPasswordError("Please confirm your password");
       return false;
     }
     if (value !== password) {
-      setConfirmPasswordError('Passwords do not match');
+      setConfirmPasswordError("Passwords do not match");
       return false;
     }
     setConfirmPasswordError(null);
@@ -95,12 +93,7 @@ export default function SignUp() {
     const isPasswordValid = validatePassword(password);
     const isConfirmPasswordValid = validateConfirmPassword(confirmPassword);
 
-    if (
-      !isFullNameValid ||
-      !isEmailValid ||
-      !isPasswordValid ||
-      !isConfirmPasswordValid
-    ) {
+    if (!isFullNameValid || !isEmailValid || !isPasswordValid || !isConfirmPasswordValid) {
       return;
     }
 
@@ -111,19 +104,19 @@ export default function SignUp() {
       setSuccess(true);
       // Navigate to dashboard after successful signup
       setTimeout(() => {
-        navigate('/dashboard');
+        navigate("/dashboard");
       }, 1500);
     } catch (err) {
-      console.error('Sign up error:', err);
+      console.error("Sign up error:", err);
       if (err instanceof Error) {
         // Handle specific Supabase errors
-        if (err.message.includes('already registered')) {
-          setError('This email is already registered. Please sign in instead.');
+        if (err.message.includes("already registered")) {
+          setError("This email is already registered. Please sign in instead.");
         } else {
           setError(err.message);
         }
       } else {
-        setError('Failed to create account. Please try again.');
+        setError("Failed to create account. Please try again.");
       }
     } finally {
       setLoading(false);
@@ -135,16 +128,12 @@ export default function SignUp() {
       <Card className="w-full max-w-md">
         <CardHeader className="flex flex-col gap-1 px-6 pt-6">
           <h1 className="text-2xl font-bold">Create an Account</h1>
-          <p className="text-sm text-default-500">
-            Join Excelerate to get started
-          </p>
+          <p className="text-sm text-default-500">Join Excelerate to get started</p>
         </CardHeader>
         <CardBody className="gap-4 px-6 pb-6">
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             {error && (
-              <div className="rounded-lg bg-danger-50 p-3 text-sm text-danger">
-                {error}
-              </div>
+              <div className="rounded-lg bg-danger-50 p-3 text-sm text-danger">{error}</div>
             )}
 
             {success && (
@@ -229,7 +218,7 @@ export default function SignUp() {
               isDisabled={success}
               className="w-full"
             >
-              {loading ? 'Creating account...' : 'Sign Up'}
+              {loading ? "Creating account..." : "Sign Up"}
             </Button>
 
             <div className="text-center text-sm">

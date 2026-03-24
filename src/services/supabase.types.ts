@@ -3,13 +3,7 @@
  * These types are based on the PostgreSQL schema defined in PLAN.md
  */
 
-export type Json =
-  | string
-  | number
-  | boolean
-  | null
-  | { [key: string]: Json | undefined }
-  | Json[];
+export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
 export interface Database {
   public: {
@@ -19,7 +13,7 @@ export interface Database {
           id: string;
           email: string;
           full_name: string | null;
-          role: 'admin' | 'member';
+          role: "admin" | "member";
           created_at: string;
           updated_at: string;
         };
@@ -27,7 +21,7 @@ export interface Database {
           id: string;
           email: string;
           full_name?: string | null;
-          role?: 'admin' | 'member';
+          role?: "admin" | "member";
           created_at?: string;
           updated_at?: string;
         };
@@ -35,7 +29,7 @@ export interface Database {
           id?: string;
           email?: string;
           full_name?: string | null;
-          role?: 'admin' | 'member';
+          role?: "admin" | "member";
           created_at?: string;
           updated_at?: string;
         };
@@ -45,7 +39,7 @@ export interface Database {
           id: string;
           user_id: string;
           portfolio_name: string;
-          access_level: 'read' | 'write' | 'admin';
+          access_level: "read" | "write" | "admin";
           granted_at: string;
           granted_by: string | null;
         };
@@ -53,7 +47,7 @@ export interface Database {
           id?: string;
           user_id: string;
           portfolio_name: string;
-          access_level?: 'read' | 'write' | 'admin';
+          access_level?: "read" | "write" | "admin";
           granted_at?: string;
           granted_by?: string | null;
         };
@@ -61,7 +55,7 @@ export interface Database {
           id?: string;
           user_id?: string;
           portfolio_name?: string;
-          access_level?: 'read' | 'write' | 'admin';
+          access_level?: "read" | "write" | "admin";
           granted_at?: string;
           granted_by?: string | null;
         };
@@ -110,7 +104,7 @@ export interface Database {
           portfolio_name: string;
           funder_name: string;
           report_date: string;
-          upload_type: 'weekly' | 'monthly';
+          upload_type: "weekly" | "monthly";
           original_filename: string;
           stored_filename: string;
           file_path: string;
@@ -123,7 +117,7 @@ export interface Database {
           portfolio_name: string;
           funder_name: string;
           report_date: string;
-          upload_type: 'weekly' | 'monthly';
+          upload_type: "weekly" | "monthly";
           original_filename: string;
           stored_filename: string;
           file_path: string;
@@ -136,7 +130,7 @@ export interface Database {
           portfolio_name?: string;
           funder_name?: string;
           report_date?: string;
-          upload_type?: 'weekly' | 'monthly';
+          upload_type?: "weekly" | "monthly";
           original_filename?: string;
           stored_filename?: string;
           file_path?: string;
@@ -259,9 +253,9 @@ export interface Database {
       [_ in never]: never;
     };
     Enums: {
-      user_role: 'admin' | 'member';
-      access_level: 'read' | 'write' | 'admin';
-      upload_type: 'weekly' | 'monthly';
+      user_role: "admin" | "member";
+      access_level: "read" | "write" | "admin";
+      upload_type: "weekly" | "monthly";
     };
   };
 }

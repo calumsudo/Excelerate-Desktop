@@ -76,9 +76,7 @@ export function UnmatchedDealsResultModal({
         deal.net_amount.toFixed(2),
       ]);
 
-      const csvContent = [headers.join(","), ...rows.map((row) => row.join(","))].join(
-        "\n"
-      );
+      const csvContent = [headers.join(","), ...rows.map((row) => row.join(","))].join("\n");
 
       // Use Tauri's save dialog
       const defaultFileName = `unmatched_deals_${portfolioName}_${reportDate.replace(/\//g, "-")}.csv`;
@@ -124,8 +122,8 @@ export function UnmatchedDealsResultModal({
                   <div>
                     <h3 className="text-lg font-semibold mb-2 flex items-center gap-2">
                       <Icon icon="mdi:alert-circle" className="text-warning" width={24} />
-                      {unmatchedDeals.length} Deal{unmatchedDeals.length !== 1 ? "s" : ""} Not
-                      Found in Workbook
+                      {unmatchedDeals.length} Deal{unmatchedDeals.length !== 1 ? "s" : ""} Not Found
+                      in Workbook
                     </h3>
                     <p className="text-sm text-default-600 mb-3">
                       These deals need to be added to the {portfolioName} portfolio workbook.

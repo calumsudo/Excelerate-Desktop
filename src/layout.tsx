@@ -100,7 +100,10 @@ function Layout() {
           {/* Theme Toggle Button */}
           <div className={isCompact ? "flex justify-center" : ""}>
             {isCompact ? (
-              <Tooltip content={`Switch to ${theme === "dark" ? "light" : "dark"} mode`} placement="right">
+              <Tooltip
+                content={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+                placement="right"
+              >
                 <Button
                   isIconOnly
                   variant="light"
@@ -147,7 +150,7 @@ function Layout() {
               if (key) handleSelect(key as string);
             }}
             itemClasses={{
-              base: "data-[selected=true]:bg-default-100"
+              base: "data-[selected=true]:bg-default-100",
             }}
           >
             <ListboxItem

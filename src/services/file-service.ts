@@ -324,17 +324,23 @@ export class FileService {
       const { PyodideService } = await import("./pyodide-service");
 
       // Process the workbook using Pyodide/openpyxl
-      const result = await PyodideService.updatePortfolioWorkbookWithNetRtr(portfolioName, reportDate);
+      const result = await PyodideService.updatePortfolioWorkbookWithNetRtr(
+        portfolioName,
+        reportDate
+      );
 
       // Log unmatched deals if any
       if (result.unmatchedDeals && result.unmatchedDeals.length > 0) {
-        console.warn(`Found ${result.unmatchedDeals.length} unmatched deals:`, result.unmatchedDeals);
+        console.warn(
+          `Found ${result.unmatchedDeals.length} unmatched deals:`,
+          result.unmatchedDeals
+        );
       }
 
       // Return success response with unmatched deals info
       return {
         success: true,
-        message: `Successfully updated portfolio with Net RTR values for ${reportDate}. File saved successfully.${result.unmatchedDeals.length > 0 ? ` Found ${result.unmatchedDeals.length} unmatched deals.` : ''}`,
+        message: `Successfully updated portfolio with Net RTR values for ${reportDate}. File saved successfully.${result.unmatchedDeals.length > 0 ? ` Found ${result.unmatchedDeals.length} unmatched deals.` : ""}`,
         file_path: result.filePath,
         unmatched_deals: result.unmatchedDeals,
         unmatched_count: result.unmatchedDeals.length,
@@ -367,11 +373,11 @@ export class FileService {
 
       // Don't show duplicate error toast - backend already sends notification
       // Only show error if there's no validation_errors (meaning backend didn't send notification)
-      if (!response.success && (!response.validation_errors || response.validation_errors.length === 0)) {
-        toast.error(
-          `Upload failed: ${file.name}`,
-          response.message
-        );
+      if (
+        !response.success &&
+        (!response.validation_errors || response.validation_errors.length === 0)
+      ) {
+        toast.error(`Upload failed: ${file.name}`, response.message);
       }
 
       return response;
@@ -400,11 +406,11 @@ export class FileService {
 
       // Don't show duplicate error toast - backend already sends notification
       // Only show error if there's no validation_errors (meaning backend didn't send notification)
-      if (!response.success && (!response.validation_errors || response.validation_errors.length === 0)) {
-        toast.error(
-          `Upload failed: ${file.name}`,
-          response.message
-        );
+      if (
+        !response.success &&
+        (!response.validation_errors || response.validation_errors.length === 0)
+      ) {
+        toast.error(`Upload failed: ${file.name}`, response.message);
       }
 
       return response;

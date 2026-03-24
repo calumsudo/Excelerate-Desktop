@@ -1,6 +1,6 @@
-import { Navigate } from 'react-router-dom';
-import { useAuth } from '@/contexts/auth-context';
-import { Spinner } from '@heroui/react';
+import { Navigate } from "react-router-dom";
+import { useAuth } from "@/contexts/auth-context";
+import { Spinner } from "@heroui/react";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;

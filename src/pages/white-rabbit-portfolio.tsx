@@ -15,7 +15,7 @@ function WhiteRabbitPortfolio() {
   const [versions, setVersions] = useState<VersionInfo[]>([]);
   const [funderUploads, setFunderUploads] = useState<FunderUploadInfo[]>([]);
   const [clearViewDailyFilesList, setClearViewDailyFilesList] = useState<string[]>([]);
-  
+
   const {
     workbookError,
     weeklyErrorStates,
@@ -177,15 +177,17 @@ function WhiteRabbitPortfolio() {
   const [isUploading, setIsUploading] = useState(false);
   const [isUpdatingNetRtr, setIsUpdatingNetRtr] = useState(false);
   const [unmatchedDealsModalOpen, setUnmatchedDealsModalOpen] = useState(false);
-  const [unmatchedDeals, setUnmatchedDeals] = useState<Array<{
-    funder_name: string;
-    sheet_name: string;
-    advance_id: string;
-    merchant_name: string;
-    gross_amount: number;
-    management_fee: number;
-    net_amount: number;
-  }>>([]);
+  const [unmatchedDeals, setUnmatchedDeals] = useState<
+    Array<{
+      funder_name: string;
+      sheet_name: string;
+      advance_id: string;
+      merchant_name: string;
+      gross_amount: number;
+      management_fee: number;
+      net_amount: number;
+    }>
+  >([]);
 
   const handleFileUpload = async (file: File) => {
     console.log("WhiteRabbit Portfolio - File uploaded:", file.name);
@@ -615,9 +617,13 @@ function WhiteRabbitPortfolio() {
         if (response.unmatched_deals && response.unmatched_deals.length > 0) {
           setUnmatchedDeals(response.unmatched_deals);
           setUnmatchedDealsModalOpen(true);
-          alert(`Portfolio updated successfully! However, ${response.unmatched_count} deals from the pivot tables were not found in the workbook. Please review them.`);
+          alert(
+            `Portfolio updated successfully! However, ${response.unmatched_count} deals from the pivot tables were not found in the workbook. Please review them.`
+          );
         } else {
-          alert("Portfolio updated successfully with Net RTR values! All formatting preserved. All deals were matched.");
+          alert(
+            "Portfolio updated successfully with Net RTR values! All formatting preserved. All deals were matched."
+          );
         }
 
         // Refresh the workbook to show the updated version

@@ -1,14 +1,14 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Button, Input, Card, CardBody, CardHeader } from '@heroui/react';
-import { useAuth } from '@/contexts/auth-context';
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { Button, Input, Card, CardBody, CardHeader } from "@heroui/react";
+import { useAuth } from "@/contexts/auth-context";
 
 export default function Login() {
   const navigate = useNavigate();
   const { signIn } = useAuth();
 
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -18,12 +18,12 @@ export default function Login() {
 
   const validateEmail = (value: string): boolean => {
     if (!value) {
-      setEmailError('Email is required');
+      setEmailError("Email is required");
       return false;
     }
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(value)) {
-      setEmailError('Please enter a valid email address');
+      setEmailError("Please enter a valid email address");
       return false;
     }
     setEmailError(null);
@@ -32,11 +32,11 @@ export default function Login() {
 
   const validatePassword = (value: string): boolean => {
     if (!value) {
-      setPasswordError('Password is required');
+      setPasswordError("Password is required");
       return false;
     }
     if (value.length < 6) {
-      setPasswordError('Password must be at least 6 characters');
+      setPasswordError("Password must be at least 6 characters");
       return false;
     }
     setPasswordError(null);
@@ -59,13 +59,13 @@ export default function Login() {
 
     try {
       await signIn(email, password);
-      navigate('/dashboard');
+      navigate("/dashboard");
     } catch (err) {
-      console.error('Login error:', err);
+      console.error("Login error:", err);
       if (err instanceof Error) {
         setError(err.message);
       } else {
-        setError('Invalid email or password. Please try again.');
+        setError("Invalid email or password. Please try again.");
       }
     } finally {
       setLoading(false);
@@ -82,9 +82,7 @@ export default function Login() {
         <CardBody className="gap-4 px-6 pb-6">
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             {error && (
-              <div className="rounded-lg bg-danger-50 p-3 text-sm text-danger">
-                {error}
-              </div>
+              <div className="rounded-lg bg-danger-50 p-3 text-sm text-danger">{error}</div>
             )}
 
             <Input
@@ -119,13 +117,8 @@ export default function Login() {
               variant="bordered"
             />
 
-            <Button
-              type="submit"
-              color="primary"
-              isLoading={loading}
-              className="w-full"
-            >
-              {loading ? 'Signing in...' : 'Sign In'}
+            <Button type="submit" color="primary" isLoading={loading} className="w-full">
+              {loading ? "Signing in..." : "Sign In"}
             </Button>
 
             <div className="text-center text-sm text-default-500">

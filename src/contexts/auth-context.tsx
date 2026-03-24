@@ -1,6 +1,6 @@
-import { createContext, useContext, useEffect, useState } from 'react';
-import type { User, Session } from '@supabase/supabase-js';
-import { AuthService, type UserProfile } from '@services/auth-service';
+import { createContext, useContext, useEffect, useState } from "react";
+import type { User, Session } from "@supabase/supabase-js";
+import { AuthService, type UserProfile } from "@services/auth-service";
 
 interface AuthContextType {
   user: User | null;
@@ -36,7 +36,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Sign in function
   const signIn = async (email: string, password: string) => {
-    const { user: authUser, session: authSession, error } = await AuthService.signIn({
+    const {
+      user: authUser,
+      session: authSession,
+      error,
+    } = await AuthService.signIn({
       email,
       password,
     });
@@ -54,7 +58,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Sign up function
   const signUp = async (email: string, password: string, fullName?: string) => {
-    const { user: authUser, session: authSession, error } = await AuthService.signUp({
+    const {
+      user: authUser,
+      session: authSession,
+      error,
+    } = await AuthService.signUp({
       email,
       password,
       fullName,
@@ -104,7 +112,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = AuthService.onAuthStateChange((event, session) => {
-      console.log('Auth state changed:', event);
+      console.log("Auth state changed:", event);
       setSession(session);
       setUser(session?.user ?? null);
 
@@ -137,7 +145,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 }

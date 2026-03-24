@@ -1,5 +1,5 @@
-import { supabase } from './supabase';
-import type { User, Session, AuthError } from '@supabase/supabase-js';
+import { supabase } from "./supabase";
+import type { User, Session, AuthError } from "@supabase/supabase-js";
 
 export interface SignUpCredentials {
   email: string;
@@ -22,7 +22,7 @@ export interface UserProfile {
   id: string;
   email: string;
   full_name: string | null;
-  role: 'admin' | 'member';
+  role: "admin" | "member";
   created_at: string;
   updated_at: string;
 }
@@ -122,13 +122,13 @@ export class AuthService {
    */
   static async getUserProfile(userId: string): Promise<UserProfile | null> {
     const { data, error } = await supabase
-      .from('user_profiles')
-      .select('*')
-      .eq('id', userId)
+      .from("user_profiles")
+      .select("*")
+      .eq("id", userId)
       .single();
 
     if (error) {
-      console.error('Error fetching user profile:', error);
+      console.error("Error fetching user profile:", error);
       return null;
     }
 
@@ -140,15 +140,15 @@ export class AuthService {
    */
   static async updateUserProfile(
     userId: string,
-    updates: { full_name?: string; role?: 'admin' | 'member' }
+    updates: { full_name?: string; role?: "admin" | "member" }
   ): Promise<{ error: Error | null }> {
     const { error } = await supabase
-      .from('user_profiles')
+      .from("user_profiles")
       .update({
         ...updates,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', userId);
+      .eq("id", userId);
 
     return { error };
   }
@@ -156,9 +156,7 @@ export class AuthService {
   /**
    * Subscribe to auth state changes
    */
-  static onAuthStateChange(
-    callback: (event: string, session: Session | null) => void
-  ) {
+  static onAuthStateChange(callback: (event: string, session: Session | null) => void) {
     return supabase.auth.onAuthStateChange((event, session) => {
       callback(event, session);
     });
