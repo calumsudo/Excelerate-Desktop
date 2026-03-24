@@ -2,6 +2,8 @@ use rusqlite::{Connection, Result, params, OptionalExtension};
 use chrono::{DateTime, Utc};
 use serde::{Serialize, Deserialize};
 use std::path::PathBuf;
+use std::fs::File;
+use std::io::{BufReader, BufRead};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct FileVersion {
@@ -64,6 +66,28 @@ pub struct Merchant {
     pub total_amount_funded: Option<f64>,
     pub created_timestamp: DateTime<Utc>,
     pub updated_timestamp: DateTime<Utc>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct UnmatchedDeal {
+    pub portfolio_name: String,
+    pub funder_name: String,
+    pub report_date: String,
+    pub upload_type: String,
+    pub advance_id: String,
+    pub merchant_name: String,
+    pub sum_of_syn_gross_amount: f64,
+    pub total_servicing_fee: f64,
+    pub sum_of_syn_net_amount: f64,
+}
+
+#[derive(Debug, Clone)]
+struct PivotDealRow {
+    pub advance_id: String,
+    pub merchant_name: String,
+    pub sum_of_syn_gross_amount: f64,
+    pub total_servicing_fee: f64,
+    pub sum_of_syn_net_amount: f64,
 }
 
 pub struct Database {
@@ -789,7 +813,246 @@ impl Database {
         )?;
         Ok(rows_affected)
     }
-    
+
+    /// Compare deals from pivot tables against merchants in the database.
+    /// Returns a list of deals that don't have a matching merchant record.
+    pub fn find_unmatched_deals(&self) -> Result<Vec<UnmatchedDeal>> {
+        let mut unmatched_deals = Vec::new();
+
+        // Get all pivot tables
+        let pivot_tables = self.get_all_pivot_tables()?;
+
+        for pivot in pivot_tables {
+            // Read the pivot table CSV file
+            match self.read_pivot_table_file(&pivot) {
+                Ok(deals) => {
+                    // Check each deal against the merchants table
+                    for deal in deals {
+                        let merchant_exists = self.check_merchant_exists(
+                            &pivot.portfolio_name,
+                            &pivot.funder_name,
+                            &deal.merchant_name,
+                            Some(&deal.advance_id),
+                        )?;
+
+                        if !merchant_exists {
+                            unmatched_deals.push(UnmatchedDeal {
+                                portfolio_name: pivot.portfolio_name.clone(),
+                                funder_name: pivot.funder_name.clone(),
+                                report_date: pivot.report_date.clone(),
+                                upload_type: pivot.upload_type.clone(),
+                                advance_id: deal.advance_id,
+                                merchant_name: deal.merchant_name,
+                                sum_of_syn_gross_amount: deal.sum_of_syn_gross_amount,
+                                total_servicing_fee: deal.total_servicing_fee,
+                                sum_of_syn_net_amount: deal.sum_of_syn_net_amount,
+                            });
+                        }
+                    }
+                }
+                Err(e) => {
+                    eprintln!("Error reading pivot table {}: {}", pivot.pivot_file_path, e);
+                    continue;
+                }
+            }
+        }
+
+        Ok(unmatched_deals)
+    }
+
+    /// Find unmatched deals for a specific portfolio
+    pub fn find_unmatched_deals_by_portfolio(&self, portfolio_name: &str) -> Result<Vec<UnmatchedDeal>> {
+        let mut unmatched_deals = Vec::new();
+
+        // Get all pivot tables and filter by portfolio
+        let pivot_tables = self.get_all_pivot_tables()?
+            .into_iter()
+            .filter(|p| p.portfolio_name == portfolio_name)
+            .collect::<Vec<_>>();
+
+        for pivot in pivot_tables {
+            match self.read_pivot_table_file(&pivot) {
+                Ok(deals) => {
+                    for deal in deals {
+                        let merchant_exists = self.check_merchant_exists(
+                            &pivot.portfolio_name,
+                            &pivot.funder_name,
+                            &deal.merchant_name,
+                            Some(&deal.advance_id),
+                        )?;
+
+                        if !merchant_exists {
+                            unmatched_deals.push(UnmatchedDeal {
+                                portfolio_name: pivot.portfolio_name.clone(),
+                                funder_name: pivot.funder_name.clone(),
+                                report_date: pivot.report_date.clone(),
+                                upload_type: pivot.upload_type.clone(),
+                                advance_id: deal.advance_id,
+                                merchant_name: deal.merchant_name,
+                                sum_of_syn_gross_amount: deal.sum_of_syn_gross_amount,
+                                total_servicing_fee: deal.total_servicing_fee,
+                                sum_of_syn_net_amount: deal.sum_of_syn_net_amount,
+                            });
+                        }
+                    }
+                }
+                Err(e) => {
+                    eprintln!("Error reading pivot table {}: {}", pivot.pivot_file_path, e);
+                    continue;
+                }
+            }
+        }
+
+        Ok(unmatched_deals)
+    }
+
+    /// Find unmatched deals for a specific report date
+    pub fn find_unmatched_deals_by_date(&self, report_date: &str) -> Result<Vec<UnmatchedDeal>> {
+        let mut unmatched_deals = Vec::new();
+
+        // Normalize the input date to handle both MM/DD/YYYY and YYYY-MM-DD formats
+        let normalized_date = Self::normalize_date(report_date);
+
+        // Get all pivot tables and filter by report date
+        let pivot_tables = self.get_all_pivot_tables()?
+            .into_iter()
+            .filter(|p| {
+                let pivot_normalized = Self::normalize_date(&p.report_date);
+                pivot_normalized == normalized_date
+            })
+            .collect::<Vec<_>>();
+
+        for pivot in pivot_tables {
+            match self.read_pivot_table_file(&pivot) {
+                Ok(deals) => {
+                    for deal in deals {
+                        let merchant_exists = self.check_merchant_exists(
+                            &pivot.portfolio_name,
+                            &pivot.funder_name,
+                            &deal.merchant_name,
+                            Some(&deal.advance_id),
+                        )?;
+
+                        if !merchant_exists {
+                            unmatched_deals.push(UnmatchedDeal {
+                                portfolio_name: pivot.portfolio_name.clone(),
+                                funder_name: pivot.funder_name.clone(),
+                                report_date: pivot.report_date.clone(),
+                                upload_type: pivot.upload_type.clone(),
+                                advance_id: deal.advance_id,
+                                merchant_name: deal.merchant_name,
+                                sum_of_syn_gross_amount: deal.sum_of_syn_gross_amount,
+                                total_servicing_fee: deal.total_servicing_fee,
+                                sum_of_syn_net_amount: deal.sum_of_syn_net_amount,
+                            });
+                        }
+                    }
+                }
+                Err(e) => {
+                    eprintln!("Error reading pivot table {}: {}", pivot.pivot_file_path, e);
+                    continue;
+                }
+            }
+        }
+
+        Ok(unmatched_deals)
+    }
+
+    /// Read pivot table CSV file and extract deal records
+    fn read_pivot_table_file(&self, pivot: &FunderPivotTable) -> Result<Vec<PivotDealRow>> {
+        let file = File::open(&pivot.pivot_file_path)
+            .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+        let reader = BufReader::new(file);
+        let mut deals = Vec::new();
+
+        let mut lines = reader.lines();
+
+        // Skip header line
+        if let Some(Ok(_header)) = lines.next() {
+            // Process data lines
+            for line in lines {
+                if let Ok(line_str) = line {
+                    // Skip the totals row (has "Totals" in the first column)
+                    if line_str.starts_with("Totals,") {
+                        continue;
+                    }
+
+                    // Parse CSV line
+                    let parts: Vec<&str> = line_str.split(',').collect();
+                    if parts.len() >= 5 {
+                        let advance_id = parts[0].trim().to_string();
+                        let merchant_name = parts[1].trim().to_string();
+
+                        // Parse numeric values, handling potential errors
+                        let sum_of_syn_gross_amount = parts[2].trim().parse::<f64>().unwrap_or(0.0);
+                        let total_servicing_fee = parts[3].trim().parse::<f64>().unwrap_or(0.0);
+                        let sum_of_syn_net_amount = parts[4].trim().parse::<f64>().unwrap_or(0.0);
+
+                        // Skip empty rows
+                        if !advance_id.is_empty() && !merchant_name.is_empty() {
+                            deals.push(PivotDealRow {
+                                advance_id,
+                                merchant_name,
+                                sum_of_syn_gross_amount,
+                                total_servicing_fee,
+                                sum_of_syn_net_amount,
+                            });
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(deals)
+    }
+
+    /// Check if a merchant exists in the database
+    fn check_merchant_exists(
+        &self,
+        portfolio_name: &str,
+        funder_name: &str,
+        merchant_name: &str,
+        advance_id: Option<&str>,
+    ) -> Result<bool> {
+        let result = self.get_merchant(portfolio_name, funder_name, merchant_name, advance_id)?;
+        Ok(result.is_some())
+    }
+
+    /// Normalize date format to YYYY-MM-DD for consistent comparisons
+    /// Handles both MM/DD/YYYY and YYYY-MM-DD formats
+    fn normalize_date(date_str: &str) -> String {
+        // Check if it's already in YYYY-MM-DD format
+        if date_str.len() == 10 && date_str.chars().nth(4) == Some('-') && date_str.chars().nth(7) == Some('-') {
+            return date_str.to_string();
+        }
+
+        // Try to parse MM/DD/YYYY format
+        let parts: Vec<&str> = date_str.split('/').collect();
+        if parts.len() == 3 {
+            let month = parts[0].trim();
+            let day = parts[1].trim();
+            let year = parts[2].trim();
+
+            // Pad month and day with leading zeros if needed
+            let month_padded = if month.len() == 1 {
+                format!("0{}", month)
+            } else {
+                month.to_string()
+            };
+
+            let day_padded = if day.len() == 1 {
+                format!("0{}", day)
+            } else {
+                day.to_string()
+            };
+
+            return format!("{}-{}-{}", year, month_padded, day_padded);
+        }
+
+        // If we can't parse it, return as-is
+        date_str.to_string()
+    }
+
     fn row_to_merchant(row: &rusqlite::Row) -> rusqlite::Result<Merchant> {
         Ok(Merchant {
             id: row.get(0)?,

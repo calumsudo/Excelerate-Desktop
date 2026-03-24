@@ -4,7 +4,7 @@ use std::sync::Mutex;
 use serde::{Serialize, Deserialize};
 use chrono::{Utc, Datelike};
 use uuid::Uuid;
-use crate::database::{Database, FileVersion, FunderUpload, FunderPivotTable, Merchant};
+use crate::database::{Database, FileVersion, FunderUpload, FunderPivotTable, Merchant, UnmatchedDeal};
 use crate::parsers::{BaseParser, BhbParser, BigParser, BoomParser, EfinParser, InAdvParser, KingsParser, ClearViewPivotProcessor, PortfolioParser};
 
 lazy_static::lazy_static! {
@@ -1914,6 +1914,45 @@ pub fn get_monthly_funding_trends(portfolio_name: Option<String>) -> Result<Vec<
     
     // Reverse to get chronological order
     months.reverse();
-    
+
     Ok(months)
+}
+
+#[tauri::command]
+pub fn find_unmatched_deals() -> Result<Vec<UnmatchedDeal>, String> {
+    if DB.lock().unwrap().is_none() {
+        init_database()?;
+    }
+
+    let db_lock = DB.lock().unwrap();
+    let db = db_lock.as_ref().ok_or("Database not initialized")?;
+
+    db.find_unmatched_deals()
+        .map_err(|e| format!("Failed to find unmatched deals: {}", e))
+}
+
+#[tauri::command]
+pub fn find_unmatched_deals_by_portfolio(portfolio_name: String) -> Result<Vec<UnmatchedDeal>, String> {
+    if DB.lock().unwrap().is_none() {
+        init_database()?;
+    }
+
+    let db_lock = DB.lock().unwrap();
+    let db = db_lock.as_ref().ok_or("Database not initialized")?;
+
+    db.find_unmatched_deals_by_portfolio(&portfolio_name)
+        .map_err(|e| format!("Failed to find unmatched deals for portfolio: {}", e))
+}
+
+#[tauri::command]
+pub fn find_unmatched_deals_by_date(report_date: String) -> Result<Vec<UnmatchedDeal>, String> {
+    if DB.lock().unwrap().is_none() {
+        init_database()?;
+    }
+
+    let db_lock = DB.lock().unwrap();
+    let db = db_lock.as_ref().ok_or("Database not initialized")?;
+
+    db.find_unmatched_deals_by_date(&report_date)
+        .map_err(|e| format!("Failed to find unmatched deals for date: {}", e))
 }

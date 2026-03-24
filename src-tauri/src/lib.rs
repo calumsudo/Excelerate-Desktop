@@ -58,6 +58,9 @@ pub fn run() {
             file_handler::get_dashboard_stats,
             file_handler::get_funder_distribution,
             file_handler::get_monthly_funding_trends,
+            file_handler::find_unmatched_deals,
+            file_handler::find_unmatched_deals_by_portfolio,
+            file_handler::find_unmatched_deals_by_date,
             validated_file_handler::save_funder_upload_validated,
             validated_file_handler::save_portfolio_workbook_validated
         ])
