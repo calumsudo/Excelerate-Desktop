@@ -6,173 +6,68 @@ import FileService, { VersionInfo, FunderUploadInfo } from "@services/file-servi
 import { useFileErrorState } from "@/hooks/use-file-error-state";
 import { UnmatchedDealsResultModal } from "@components/portfolio/unmatched-deals-result-modal";
 
+const PORTFOLIO = "White Rabbit";
+
+const BIG_SLOT_NAMES = ["BIG W1", "BIG W2", "BIG W3", "BIG W4"];
+
+const monthlyFunderList: FunderData[] = [
+  {
+    name: "BHB",
+    acceptedTypes: ["text/csv"],
+    acceptedExtensions: [".csv"],
+    maxSizeKB: 5120,
+  },
+  {
+    name: "Clear View",
+    acceptedTypes: ["application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"],
+    acceptedExtensions: [".xlsx"],
+    maxSizeKB: 10240,
+  },
+  {
+    name: "eFin",
+    acceptedTypes: [
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "text/csv",
+    ],
+    acceptedExtensions: [".xlsx", ".csv"],
+    maxSizeKB: 5120,
+  },
+  {
+    name: "Kings",
+    acceptedTypes: ["text/csv"],
+    acceptedExtensions: [".csv"],
+    maxSizeKB: 15360,
+  },
+  {
+    name: "Boom",
+    acceptedTypes: [
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "application/vnd.ms-excel",
+    ],
+    acceptedExtensions: [".xlsx", ".xls"],
+    maxSizeKB: 10240,
+  },
+  {
+    name: "Payva",
+    acceptedTypes: [],
+    acceptedExtensions: [],
+    disabled: true,
+  },
+];
+
 function WhiteRabbitPortfolio() {
-  const [weeklyFiles, setWeeklyFiles] = useState<Record<string, File>>({});
   const [monthlyFiles, setMonthlyFiles] = useState<Record<string, File>>({});
-  const [clearViewDailyFiles, setClearViewDailyFiles] = useState<File[]>([]);
+  const [bigWeeklyFiles, setBigWeeklyFiles] = useState<File[]>([]);
   const [existingWorkbook, setExistingWorkbook] = useState<File | null>(null);
   const [selectedDate, setSelectedDate] = useState<DateValue | null>(null);
   const [versions, setVersions] = useState<VersionInfo[]>([]);
   const [funderUploads, setFunderUploads] = useState<FunderUploadInfo[]>([]);
-  const [clearViewDailyFilesList, setClearViewDailyFilesList] = useState<string[]>([]);
-
   const {
     workbookError,
-    weeklyErrorStates,
     monthlyErrorStates,
     setWorkbookErrorState,
     setFunderErrorState,
   } = useFileErrorState();
-
-  useEffect(() => {
-    const loadActiveVersion = async () => {
-      const activeVersion = await FileService.getActiveVersion("White Rabbit");
-      if (activeVersion) {
-        const file = new File([], activeVersion.original_filename, {
-          type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        });
-        Object.defineProperty(file, "size", {
-          value: activeVersion.file_size,
-          writable: false,
-        });
-        setExistingWorkbook(file);
-      }
-    };
-
-    const loadVersions = async () => {
-      const portfolioVersions = await FileService.getPortfolioVersions("White Rabbit");
-      setVersions(portfolioVersions);
-    };
-
-    loadActiveVersion();
-    loadVersions();
-  }, []);
-
-  // Load funder uploads when date changes
-  useEffect(() => {
-    const loadFunderUploads = async () => {
-      if (selectedDate) {
-        const reportDate = selectedDate.toString();
-        const uploads = await FileService.getFunderUploadsForDate("White Rabbit", reportDate);
-        setFunderUploads(uploads);
-
-        // Load Clear View daily files for the week
-        const dailyFiles = await FileService.getClearViewDailyFilesForWeek(
-          "White Rabbit",
-          reportDate
-        );
-        setClearViewDailyFilesList(dailyFiles);
-
-        // Get the Clear View daily uploads to get file sizes
-        const clearViewDailyUploads = uploads.filter(
-          (u) => u.funder_name === "Clear View" && u.upload_type === "daily"
-        );
-
-        // Create File objects for Clear View daily files to show in upload component
-        const clearViewFiles: File[] = clearViewDailyUploads.map((upload) => {
-          const file = new File([], upload.original_filename, { type: "text/csv" });
-          // Add the actual file size
-          Object.defineProperty(file, "size", {
-            value: upload.file_size,
-            writable: false,
-          });
-          // Add a custom property to indicate this is from backend
-          Object.defineProperty(file, "isFromBackend", {
-            value: true,
-            writable: false,
-          });
-          return file;
-        });
-        setClearViewDailyFiles(clearViewFiles);
-
-        // Create File objects for existing uploads to show in UI
-        const weeklyFilesMap: Record<string, File> = {};
-        const monthlyFilesMap: Record<string, File> = {};
-
-        uploads.forEach((upload) => {
-          const file = new File([], upload.original_filename, {
-            type: upload.original_filename.endsWith(".csv")
-              ? "text/csv"
-              : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-          });
-          Object.defineProperty(file, "size", {
-            value: upload.file_size,
-            writable: false,
-          });
-
-          if (upload.upload_type === "monthly") {
-            monthlyFilesMap[upload.funder_name] = file;
-          } else if (upload.upload_type === "weekly") {
-            weeklyFilesMap[upload.funder_name] = file;
-          }
-        });
-
-        setWeeklyFiles(weeklyFilesMap);
-        setMonthlyFiles(monthlyFilesMap);
-      } else {
-        setFunderUploads([]);
-        setClearViewDailyFilesList([]);
-        setClearViewDailyFiles([]);
-        setWeeklyFiles({});
-        setMonthlyFiles({});
-      }
-    };
-
-    loadFunderUploads();
-  }, [selectedDate]);
-
-  const weeklyFunders: FunderData[] = [
-    {
-      name: "BHB",
-      acceptedTypes: ["text/csv", "application/csv"],
-      acceptedExtensions: [".csv"],
-      maxSizeKB: 5120,
-    },
-    {
-      name: "BIG",
-      acceptedTypes: [
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "application/vnd.ms-excel",
-      ],
-      acceptedExtensions: [".xlsx", ".xls"],
-      maxSizeKB: 5120,
-    },
-    {
-      name: "Clear View",
-      acceptedTypes: ["text/csv", "application/csv"],
-      acceptedExtensions: [".csv"],
-      maxSizeKB: 5120,
-    },
-    {
-      name: "eFin",
-      acceptedTypes: ["text/csv", "application/csv"],
-      acceptedExtensions: [".csv"],
-      maxSizeKB: 5120,
-    },
-  ];
-
-  const monthlyFunders: FunderData[] = [
-    {
-      name: "Kings",
-      acceptedTypes: ["text/csv", "application/csv"],
-      acceptedExtensions: [".csv"],
-      maxSizeKB: 15360,
-    },
-    {
-      name: "Boom",
-      acceptedTypes: [
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "application/vnd.ms-excel",
-      ],
-      acceptedExtensions: [".xlsx", ".xls"],
-      maxSizeKB: 10240,
-    },
-  ];
-
-  const handleDateChange = (date: DateValue | null) => {
-    console.log("WhiteRabbit Portfolio - Date selected:", date?.toString());
-    setSelectedDate(date);
-  };
 
   const [isUploading, setIsUploading] = useState(false);
   const [isUpdatingNetRtr, setIsUpdatingNetRtr] = useState(false);
@@ -189,53 +84,85 @@ function WhiteRabbitPortfolio() {
     }>
   >([]);
 
+  useEffect(() => {
+    const loadActiveVersion = async () => {
+      const activeVersion = await FileService.getActiveVersion(PORTFOLIO);
+      if (activeVersion) {
+        const file = new File([], activeVersion.original_filename, {
+          type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        });
+        Object.defineProperty(file, "size", { value: activeVersion.file_size, writable: false });
+        setExistingWorkbook(file);
+      }
+    };
+    const loadVersions = async () => {
+      setVersions(await FileService.getPortfolioVersions(PORTFOLIO));
+    };
+    loadActiveVersion();
+    loadVersions();
+  }, []);
+
+  useEffect(() => {
+    const loadFunderUploads = async () => {
+      if (!selectedDate) {
+        setFunderUploads([]);
+        setMonthlyFiles({});
+        setBigWeeklyFiles([]);
+        return;
+      }
+      const reportDate = selectedDate.toString();
+      const uploads = await FileService.getFunderUploadsForDate(PORTFOLIO, reportDate);
+      setFunderUploads(uploads);
+
+      // Load monthly funder files
+      const filesMap: Record<string, File> = {};
+      uploads
+        .filter((u) => u.upload_type === "monthly")
+        .forEach((upload) => {
+          const file = new File([], upload.original_filename, {
+            type: upload.original_filename.endsWith(".csv")
+              ? "text/csv"
+              : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          });
+          Object.defineProperty(file, "size", { value: upload.file_size, writable: false });
+          filesMap[upload.funder_name] = file;
+        });
+      setMonthlyFiles(filesMap);
+
+      // Load BIG weekly files (stored as "BIG W1", "BIG W2", etc.)
+      const bigUploads = uploads.filter(
+        (u) => u.funder_name.startsWith("BIG W") && u.upload_type === "monthly"
+      );
+      const bigFiles = bigUploads.map((upload) => {
+        const file = new File([], upload.original_filename, {
+          type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        });
+        Object.defineProperty(file, "size", { value: upload.file_size, writable: false });
+        return file;
+      });
+      setBigWeeklyFiles(bigFiles);
+    };
+    loadFunderUploads();
+  }, [selectedDate]);
+
+  const handleDateChange = (date: DateValue | null) => setSelectedDate(date);
+
   const handleFileUpload = async (file: File) => {
-    console.log("WhiteRabbit Portfolio - File uploaded:", file.name);
-
-    // Prevent multiple simultaneous uploads
-    if (isUploading) {
-      console.log("Upload already in progress, skipping...");
-      return;
-    }
-
-    if (!selectedDate) {
-      console.error("No report date selected. Please select a Friday date first.");
-      return;
-    }
-
+    if (isUploading || !selectedDate) return;
     const reportDate = selectedDate.toString();
-
     try {
       setIsUploading(true);
-      const versionExists = await FileService.checkVersionExists("White Rabbit", reportDate);
+      const versionExists = await FileService.checkVersionExists(PORTFOLIO, reportDate);
       if (versionExists) {
-        const confirmOverwrite = window.confirm(
-          `A version already exists for ${reportDate}. Do you want to overwrite it?`
-        );
-        if (!confirmOverwrite) {
-          return;
-        }
+        if (!window.confirm(`A version already exists for ${reportDate}. Overwrite?`)) return;
       }
-
-      const response = await FileService.savePortfolioWorkbookValidated(
-        "White Rabbit",
-        file,
-        reportDate
-      );
-
+      const response = await FileService.savePortfolioWorkbookValidated(PORTFOLIO, file, reportDate);
       if (response.success) {
-        console.log("Workbook saved successfully:", response.file_path);
-        console.log("Version backup created:", response.backup_path);
         setExistingWorkbook(file);
-        setWorkbookErrorState(false); // Clear any error state
-
-        const updatedVersions = await FileService.getPortfolioVersions("White Rabbit");
-        setVersions(updatedVersions);
+        setWorkbookErrorState(false);
+        setVersions(await FileService.getPortfolioVersions(PORTFOLIO));
       } else {
-        console.error("Failed to save workbook:", response.message);
-        // Set error state to show red border
-        const errorMsg = response.validation_errors?.join(", ") || response.message;
-        setWorkbookErrorState(true, errorMsg);
+        setWorkbookErrorState(true, response.validation_errors?.join(", ") || response.message);
       }
     } catch (error) {
       console.error("Error saving workbook:", error);
@@ -244,148 +171,23 @@ function WhiteRabbitPortfolio() {
     }
   };
 
-  const handleClearMainFile = async () => {
-    console.log("WhiteRabbit Portfolio - Clearing main workbook");
-    setExistingWorkbook(null);
-  };
-
-  const handleWeeklyFunderUpload = async (funderName: string, file: File) => {
-    console.log(`WhiteRabbit Portfolio - Weekly upload for ${funderName}:`, file.name);
-
-    if (!selectedDate) {
-      console.error("No report date selected. Please select a Friday date first.");
-      return;
-    }
-
-    const reportDate = selectedDate.toString();
-
-    try {
-      const exists = await FileService.checkFunderUploadExists(
-        "White Rabbit",
-        funderName,
-        reportDate,
-        "weekly"
-      );
-
-      if (exists) {
-        const confirmOverwrite = window.confirm(
-          `A file already exists for ${funderName} on ${reportDate}. Do you want to overwrite it?`
-        );
-        if (!confirmOverwrite) {
-          return;
-        }
-      }
-
-      const response = await FileService.saveFunderUploadValidated(
-        "White Rabbit",
-        funderName,
-        file,
-        reportDate,
-        "weekly"
-      );
-
-      if (response.success) {
-        console.log(`Funder file saved: ${response.file_path}`);
-        setWeeklyFiles((prev) => ({ ...prev, [funderName]: file }));
-        setFunderErrorState("weekly", funderName, false); // Clear any error state
-
-        // Refresh funder uploads list and Clear View daily files
-        const uploads = await FileService.getFunderUploadsForDate("White Rabbit", reportDate);
-        setFunderUploads(uploads);
-
-        const dailyFiles = await FileService.getClearViewDailyFilesForWeek(
-          "White Rabbit",
-          reportDate
-        );
-        setClearViewDailyFilesList(dailyFiles);
-
-        // Update the Clear View daily files for the upload component
-        const clearViewFiles: File[] = dailyFiles.map((filePath, index) => {
-          const filename = filePath.split("/").pop() || `daily_file_${index + 1}.csv`;
-          const file = new File([], filename, { type: "text/csv" });
-          Object.defineProperty(file, "isFromBackend", {
-            value: true,
-            writable: false,
-          });
-          return file;
-        });
-        setClearViewDailyFiles(clearViewFiles);
-      } else {
-        // Set error state to show red border
-        const errorMsg = response.validation_errors?.join(", ") || response.message;
-        setFunderErrorState("weekly", funderName, true, errorMsg);
-      }
-    } catch (error) {
-      console.error(`Error uploading funder file for ${funderName}:`, error);
-      setFunderErrorState("weekly", funderName, true, "Upload failed");
-    }
-  };
+  const handleClearMainFile = () => setExistingWorkbook(null);
 
   const handleMonthlyFunderUpload = async (funderName: string, file: File) => {
-    console.log(`WhiteRabbit Portfolio - Monthly upload for ${funderName}:`, file.name);
-
-    if (!selectedDate) {
-      console.error("No report date selected. Please select a Friday date first.");
-      return;
-    }
-
+    if (!selectedDate) return;
     const reportDate = selectedDate.toString();
-
     try {
-      const exists = await FileService.checkFunderUploadExists(
-        "White Rabbit",
-        funderName,
-        reportDate,
-        "monthly"
-      );
-
+      const exists = await FileService.checkFunderUploadExists(PORTFOLIO, funderName, reportDate, "monthly");
       if (exists) {
-        const confirmOverwrite = window.confirm(
-          `A file already exists for ${funderName} on ${reportDate}. Do you want to overwrite it?`
-        );
-        if (!confirmOverwrite) {
-          return;
-        }
+        if (!window.confirm(`A file already exists for ${funderName} on ${reportDate}. Overwrite?`)) return;
       }
-
-      const response = await FileService.saveFunderUploadValidated(
-        "White Rabbit",
-        funderName,
-        file,
-        reportDate,
-        "monthly"
-      );
-
+      const response = await FileService.saveFunderUploadValidated(PORTFOLIO, funderName, file, reportDate, "monthly");
       if (response.success) {
-        console.log(`Funder file saved: ${response.file_path}`);
         setMonthlyFiles((prev) => ({ ...prev, [funderName]: file }));
-        setFunderErrorState("monthly", funderName, false); // Clear any error state
-
-        // Refresh funder uploads list and Clear View daily files
-        const uploads = await FileService.getFunderUploadsForDate("White Rabbit", reportDate);
-        setFunderUploads(uploads);
-
-        const dailyFiles = await FileService.getClearViewDailyFilesForWeek(
-          "White Rabbit",
-          reportDate
-        );
-        setClearViewDailyFilesList(dailyFiles);
-
-        // Update the Clear View daily files for the upload component
-        const clearViewFiles: File[] = dailyFiles.map((filePath, index) => {
-          const filename = filePath.split("/").pop() || `daily_file_${index + 1}.csv`;
-          const file = new File([], filename, { type: "text/csv" });
-          Object.defineProperty(file, "isFromBackend", {
-            value: true,
-            writable: false,
-          });
-          return file;
-        });
-        setClearViewDailyFiles(clearViewFiles);
+        setFunderErrorState("monthly", funderName, false);
+        setFunderUploads(await FileService.getFunderUploadsForDate(PORTFOLIO, reportDate));
       } else {
-        // Set error state to show red border
-        const errorMsg = response.validation_errors?.join(", ") || response.message;
-        setFunderErrorState("monthly", funderName, true, errorMsg);
+        setFunderErrorState("monthly", funderName, true, response.validation_errors?.join(", ") || response.message);
       }
     } catch (error) {
       console.error(`Error uploading funder file for ${funderName}:`, error);
@@ -393,367 +195,146 @@ function WhiteRabbitPortfolio() {
     }
   };
 
-  const handleWeeklyClearFile = async (funderName: string) => {
-    console.log(`WhiteRabbit Portfolio - Clearing weekly file for ${funderName}`);
-
-    // If there's an uploaded file in the database, delete it
-    if (selectedDate) {
-      const reportDate = selectedDate.toString();
-      const uploads = funderUploads.filter(
-        (u) => u.funder_name === funderName && u.upload_type === "weekly"
-      );
-
-      if (uploads.length > 0) {
-        try {
-          // Use specialized handler for Clear View files
-          if (funderName === "Clear View") {
-            const response = await FileService.deleteClearViewFile(
-              uploads[0].id,
-              "White Rabbit",
-              reportDate,
-              false // is_daily = false (this is a weekly file)
-            );
-            if (response.success) {
-              console.log(`Successfully deleted ${funderName} weekly upload and combined pivot`);
-            }
-          } else {
-            const success = await FileService.deleteFunderUpload(uploads[0].id);
-            if (success) {
-              console.log(`Successfully deleted ${funderName} weekly upload from database`);
-            }
-          }
-          // Refresh the uploads list
-          const updatedUploads = await FileService.getFunderUploadsForDate(
-            "White Rabbit",
-            reportDate
-          );
-          setFunderUploads(updatedUploads);
-        } catch (error) {
-          console.error(`Error deleting ${funderName} weekly upload:`, error);
-        }
-      }
-    }
-
-    // Clear from local state
-    setWeeklyFiles((prev) => {
-      const updated = { ...prev };
-      delete updated[funderName];
-      return updated;
-    });
-  };
-
   const handleMonthlyClearFile = async (funderName: string) => {
-    console.log(`WhiteRabbit Portfolio - Clearing monthly file for ${funderName}`);
-
-    // If there's an uploaded file in the database, delete it
     if (selectedDate) {
       const reportDate = selectedDate.toString();
-      const uploads = funderUploads.filter(
-        (u) => u.funder_name === funderName && u.upload_type === "monthly"
-      );
-
-      if (uploads.length > 0) {
+      const upload = funderUploads.find((u) => u.funder_name === funderName && u.upload_type === "monthly");
+      if (upload) {
         try {
-          const success = await FileService.deleteFunderUpload(uploads[0].id);
-          if (success) {
-            console.log(`Successfully deleted ${funderName} monthly upload from database`);
-            // Refresh the uploads list
-            const updatedUploads = await FileService.getFunderUploadsForDate(
-              "White Rabbit",
-              reportDate
-            );
-            setFunderUploads(updatedUploads);
-          }
+          await FileService.deleteFunderUpload(upload.id);
+          setFunderUploads(await FileService.getFunderUploadsForDate(PORTFOLIO, reportDate));
         } catch (error) {
-          console.error(`Error deleting ${funderName} monthly upload:`, error);
+          console.error(`Error deleting ${funderName} upload:`, error);
         }
       }
     }
-
-    // Clear from local state
-    setMonthlyFiles((prev) => {
-      const updated = { ...prev };
-      delete updated[funderName];
-      return updated;
-    });
+    setMonthlyFiles((prev) => { const u = { ...prev }; delete u[funderName]; return u; });
   };
 
-  const handleClearViewDailyUpload = async (files: File[]) => {
-    console.log(`White Rabbit Portfolio - Clear View Daily upload, ${files.length} files`);
-
-    if (!selectedDate) {
-      console.error("No report date selected. Please select a Friday date first.");
-      return;
-    }
-
+  // BIG weekly upload — assigns file to the next available slot (BIG W1, BIG W2, etc.)
+  const handleBigWeeklyUpload = async (file: File) => {
+    if (!selectedDate) return;
     const reportDate = selectedDate.toString();
-    setClearViewDailyFiles(files);
+    const nextSlotIndex = bigWeeklyFiles.length;
+    if (nextSlotIndex >= BIG_SLOT_NAMES.length) return;
 
-    // Save each file with Clear View as the funder name
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      try {
-        // Use "Clear View" as the funder name for all daily files
-        // The backend will handle the file naming and organization
-        const funderName = "Clear View";
-
-        // Check if this specific file already exists (by filename)
-        const existingUploads = funderUploads.filter(
-          (u) =>
-            u.funder_name === funderName &&
-            u.upload_type === "daily" &&
-            u.original_filename === file.name
-        );
-
-        if (existingUploads.length > 0) {
-          const confirmOverwrite = window.confirm(
-            `The file "${file.name}" already exists for ${reportDate}. Do you want to overwrite it?`
-          );
-          if (!confirmOverwrite) {
-            continue;
-          }
-          // Delete the existing upload before re-uploading
-          await FileService.deleteFunderUpload(existingUploads[0].id);
-        }
-
-        const response = await FileService.saveFunderUploadValidated(
-          "White Rabbit",
-          funderName,
-          file,
-          reportDate,
-          "daily"
-        );
-
-        if (response.success) {
-          console.log(`Clear View daily file "${file.name}" saved: ${response.file_path}`);
-        }
-
-        // Add a small delay between uploads to ensure file system synchronization
-        if (i < files.length - 1) {
-          await new Promise((resolve) => setTimeout(resolve, 100));
-        }
-      } catch (error) {
-        console.error(`Error uploading Clear View daily file "${file.name}":`, error);
+    const slotName = BIG_SLOT_NAMES[nextSlotIndex];
+    try {
+      const exists = await FileService.checkFunderUploadExists(PORTFOLIO, slotName, reportDate, "monthly");
+      if (exists) {
+        if (!window.confirm(`A file already exists for ${slotName} on ${reportDate}. Overwrite?`)) return;
       }
-    }
-
-    // After all files are uploaded, process the pivot table
-    if (files.length > 0) {
-      try {
-        // Add a delay to ensure all files are fully written to disk
-        await new Promise((resolve) => setTimeout(resolve, 200));
-
-        console.log("Processing Clear View daily pivot table...");
-        const pivotResponse = await FileService.processClearViewDailyPivot(
-          "White Rabbit",
-          reportDate
-        );
-        if (pivotResponse.success) {
-          console.log("Clear View daily pivot table created successfully:", pivotResponse.message);
-        } else {
-          console.error("Failed to create Clear View daily pivot table:", pivotResponse.message);
-        }
-      } catch (error) {
-        console.error("Error processing Clear View daily pivot:", error);
+      const response = await FileService.saveFunderUploadValidated(PORTFOLIO, slotName, file, reportDate, "monthly");
+      if (response.success) {
+        setBigWeeklyFiles((prev) => [...prev, file]);
+        setFunderUploads(await FileService.getFunderUploadsForDate(PORTFOLIO, reportDate));
+      } else {
+        console.error(`Failed to upload BIG weekly file: ${response.message}`);
       }
+    } catch (error) {
+      console.error(`Error uploading BIG weekly file:`, error);
     }
+  };
 
-    // Refresh funder uploads list and Clear View daily files
-    const uploads = await FileService.getFunderUploadsForDate("White Rabbit", reportDate);
-    setFunderUploads(uploads);
+  // BIG weekly remove — deletes the file at the given index
+  const handleBigWeeklyRemove = async (index: number) => {
+    if (!selectedDate) return;
+    const reportDate = selectedDate.toString();
 
-    const dailyFiles = await FileService.getClearViewDailyFilesForWeek("White Rabbit", reportDate);
-    setClearViewDailyFilesList(dailyFiles);
-
-    // Get the Clear View daily uploads with file sizes
-    const clearViewDailyUploads = uploads.filter(
-      (u) => u.funder_name === "Clear View" && u.upload_type === "daily"
+    const slotName = BIG_SLOT_NAMES[index];
+    const upload = funderUploads.find(
+      (u) => u.funder_name === slotName && u.upload_type === "monthly"
     );
 
-    // Update the Clear View daily files for the upload component
-    const clearViewFiles: File[] = clearViewDailyUploads.map((upload) => {
-      const file = new File([], upload.original_filename, { type: "text/csv" });
-      Object.defineProperty(file, "size", {
-        value: upload.file_size,
-        writable: false,
-      });
-      Object.defineProperty(file, "isFromBackend", {
-        value: true,
-        writable: false,
-      });
-      return file;
-    });
-    setClearViewDailyFiles(clearViewFiles);
+    if (upload) {
+      try {
+        await FileService.deleteFunderUpload(upload.id);
+      } catch (error) {
+        console.error(`Error deleting ${slotName} upload:`, error);
+      }
+    }
+
+    setBigWeeklyFiles((prev) => prev.filter((_, i) => i !== index));
+    setFunderUploads(await FileService.getFunderUploadsForDate(PORTFOLIO, reportDate));
   };
 
   const handleUpdateNetRtr = async () => {
-    if (!selectedDate) {
-      console.error("No date selected");
-      return;
-    }
-
-    if (isUpdatingNetRtr) {
-      console.log("Update already in progress");
-      return;
-    }
-
+    if (!selectedDate || isUpdatingNetRtr) return;
     try {
       setIsUpdatingNetRtr(true);
-      console.log("Starting Net RTR update for White Rabbit portfolio");
-
-      // Show loading message for Pyodide initialization
-      const loadingMessage = "Initializing Python environment for Excel processing...";
-      console.log(loadingMessage);
-
-      const response = await FileService.updatePortfolioWithNetRtr(
-        "White Rabbit",
-        selectedDate.toString()
-      );
-
+      const response = await FileService.updatePortfolioWithNetRtr(PORTFOLIO, selectedDate.toString());
       if (response.success) {
-        console.log("Portfolio updated successfully:", response.message);
-
-        // Check if there are unmatched deals
         if (response.unmatched_deals && response.unmatched_deals.length > 0) {
           setUnmatchedDeals(response.unmatched_deals);
           setUnmatchedDealsModalOpen(true);
-          alert(
-            `Portfolio updated successfully! However, ${response.unmatched_count} deals from the pivot tables were not found in the workbook. Please review them.`
-          );
+          alert(`Portfolio updated! ${response.unmatched_count} unmatched deals found. Please review.`);
         } else {
-          alert(
-            "Portfolio updated successfully with Net RTR values! All formatting preserved. All deals were matched."
-          );
+          alert("Portfolio updated successfully with Net RTR values! All deals matched.");
         }
-
-        // Refresh the workbook to show the updated version
-        const updatedVersions = await FileService.getPortfolioVersions("White Rabbit");
-        setVersions(updatedVersions);
+        setVersions(await FileService.getPortfolioVersions(PORTFOLIO));
       } else {
-        console.error("Failed to update portfolio:", response.message);
         alert(`Failed to update portfolio: ${response.message}`);
       }
     } catch (error) {
       console.error("Error updating portfolio:", error);
-      alert("Error updating portfolio with Net RTR values. Please check console for details.");
+      alert("Error updating portfolio. Check console for details.");
     } finally {
       setIsUpdatingNetRtr(false);
     }
   };
 
-  // Check if we can update Net RTR (need workbook and at least some funder files)
-  const canUpdateNetRtr = () => {
-    if (!selectedDate || !existingWorkbook) return false;
-
-    // Check if we have at least one weekly funder file
-    const hasWeeklyFiles = Object.keys(weeklyFiles).length > 0;
-    const hasMonthlyFiles = Object.keys(monthlyFiles).length > 0;
-
-    return hasWeeklyFiles || hasMonthlyFiles;
-  };
-
-  const handleClearViewDailyRemove = async (index: number) => {
-    const fileToRemove = clearViewDailyFiles[index];
-    console.log(`White Rabbit Portfolio - Removing Clear View daily file: ${fileToRemove.name}`);
-
-    // If there's a report date and this file was uploaded to the backend
-    if (selectedDate && fileToRemove) {
-      const reportDate = selectedDate.toString();
-
-      // Find the upload record for this file
-      const uploadRecord = funderUploads.find(
-        (u) =>
-          u.funder_name === "Clear View" &&
-          u.upload_type === "daily" &&
-          u.original_filename === fileToRemove.name
-      );
-
-      if (uploadRecord) {
-        try {
-          // Use the specialized Clear View deletion handler
-          const response = await FileService.deleteClearViewFile(
-            uploadRecord.id,
-            "White Rabbit",
-            reportDate,
-            true // is_daily = true
-          );
-
-          if (response.success) {
-            console.log(`Successfully deleted Clear View daily file: ${fileToRemove.name}`);
-
-            // Refresh the uploads list
-            const updatedUploads = await FileService.getFunderUploadsForDate(
-              "White Rabbit",
-              reportDate
-            );
-            setFunderUploads(updatedUploads);
-
-            // Refresh the daily files list
-            const dailyFiles = await FileService.getClearViewDailyFilesForWeek(
-              "White Rabbit",
-              reportDate
-            );
-            setClearViewDailyFilesList(dailyFiles);
-          }
-        } catch (error) {
-          console.error(`Error deleting Clear View daily file:`, error);
-        }
-      }
-    }
-
-    // Update local state
-    const newFiles = clearViewDailyFiles.filter((_, i) => i !== index);
-    setClearViewDailyFiles(newFiles);
-  };
+  const canUpdateNetRtr = !!(
+    selectedDate &&
+    existingWorkbook &&
+    (Object.keys(monthlyFiles).length > 0 || bigWeeklyFiles.length > 0)
+  );
 
   return (
     <>
       <BasePortfolio
-        portfolioName="White Rabbit"
+        portfolioName={PORTFOLIO}
         onDateChange={handleDateChange}
         onFileUpload={handleFileUpload}
         onClearMainFile={handleClearMainFile}
-        weeklyFunders={weeklyFunders}
-        monthlyFunders={monthlyFunders}
-        onWeeklyFunderUpload={handleWeeklyFunderUpload}
+        monthlyFunders={monthlyFunderList}
         onMonthlyFunderUpload={handleMonthlyFunderUpload}
-        onWeeklyClearFile={handleWeeklyClearFile}
         onMonthlyClearFile={handleMonthlyClearFile}
-        weeklyUploadedFiles={weeklyFiles}
         monthlyUploadedFiles={monthlyFiles}
         existingWorkbookFile={existingWorkbook}
         workbookError={workbookError}
-        weeklyErrorStates={weeklyErrorStates}
         monthlyErrorStates={monthlyErrorStates}
-        showClearViewDaily={true}
-        onClearViewDailyUpload={handleClearViewDailyUpload}
-        onClearViewDailyRemove={handleClearViewDailyRemove}
-        clearViewDailyFiles={clearViewDailyFiles}
+        showBigWeekly
+        bigWeeklyFiles={bigWeeklyFiles}
+        onBigWeeklyUpload={handleBigWeeklyUpload}
+        onBigWeeklyRemove={handleBigWeeklyRemove}
         onUpdateNetRtr={handleUpdateNetRtr}
-        canUpdateNetRtr={canUpdateNetRtr()}
+        canUpdateNetRtr={canUpdateNetRtr}
         isUpdatingNetRtr={isUpdatingNetRtr}
       />
-      {selectedDate && (funderUploads.length > 0 || clearViewDailyFilesList.length > 0) && (
+
+      {/* Uploaded Files Summary */}
+      {selectedDate && (funderUploads.length > 0 || bigWeeklyFiles.length > 0) && (
         <div className="max-w-6xl mx-auto mt-6 p-6 bg-default-50 rounded-lg border border-default-200">
           <h3 className="text-xl font-semibold mb-4">
             Uploaded Files for {selectedDate.toString()}
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* BIG Weekly Files */}
             <div>
-              <h4 className="font-medium text-sm text-default-600 mb-2">Weekly Funders</h4>
+              <h4 className="font-medium text-sm text-default-600 mb-2">BIG Weekly Reports</h4>
               <div className="space-y-2">
-                {weeklyFunders.map((funder) => {
+                {BIG_SLOT_NAMES.map((slotName, index) => {
                   const uploaded = funderUploads.find(
-                    (u) => u.funder_name === funder.name && !u.funder_name.includes("Monthly")
+                    (u) => u.funder_name === slotName && u.upload_type === "monthly"
                   );
                   return (
                     <div
-                      key={funder.name}
+                      key={slotName}
                       className="flex items-center justify-between p-2 bg-default-100 rounded"
                     >
-                      <span className="text-sm">{funder.name}</span>
+                      <span className="text-sm">Week {index + 1}</span>
                       {uploaded ? (
-                        <span className="text-xs text-success-600 flex items-center gap-1">
+                        <span className="text-xs text-success-600">
                           ✓ {uploaded.original_filename}
                         </span>
                       ) : (
@@ -764,12 +345,17 @@ function WhiteRabbitPortfolio() {
                 })}
               </div>
             </div>
-            {monthlyFunders.length > 0 && (
-              <div>
-                <h4 className="font-medium text-sm text-default-600 mb-2">Monthly Funders</h4>
-                <div className="space-y-2">
-                  {monthlyFunders.map((funder) => {
-                    const uploaded = funderUploads.find((u) => u.funder_name === funder.name);
+
+            {/* Monthly Funders */}
+            <div>
+              <h4 className="font-medium text-sm text-default-600 mb-2">Monthly Funders</h4>
+              <div className="space-y-2">
+                {monthlyFunderList
+                  .filter((f) => !f.disabled)
+                  .map((funder) => {
+                    const uploaded = funderUploads.find(
+                      (u) => u.funder_name === funder.name && u.upload_type === "monthly"
+                    );
                     return (
                       <div
                         key={funder.name}
@@ -777,7 +363,7 @@ function WhiteRabbitPortfolio() {
                       >
                         <span className="text-sm">{funder.name}</span>
                         {uploaded ? (
-                          <span className="text-xs text-success-600 flex items-center gap-1">
+                          <span className="text-xs text-success-600">
                             ✓ {uploaded.original_filename}
                           </span>
                         ) : (
@@ -786,35 +372,13 @@ function WhiteRabbitPortfolio() {
                       </div>
                     );
                   })}
-                </div>
               </div>
-            )}
-            {clearViewDailyFilesList.length > 0 && (
-              <div className="md:col-span-2">
-                <h4 className="font-medium text-sm text-default-600 mb-2">
-                  Clear View Daily Files
-                </h4>
-                <div className="space-y-2">
-                  {clearViewDailyFilesList.map((filePath, index) => {
-                    const filename = filePath.split("/").pop() || filePath;
-                    return (
-                      <div
-                        key={index}
-                        className="flex items-center justify-between p-2 bg-default-100 rounded"
-                      >
-                        <span className="text-sm">Daily File {index + 1}</span>
-                        <span className="text-xs text-success-600 flex items-center gap-1">
-                          ✓ {filename}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
+            </div>
           </div>
         </div>
       )}
+
+      {/* Version History */}
       {versions.length > 0 && (
         <div className="max-w-6xl mx-auto mt-6 p-6 bg-default-50 rounded-lg border border-default-200">
           <h3 className="text-xl font-semibold mb-4">Version History</h3>
@@ -826,10 +390,7 @@ function WhiteRabbitPortfolio() {
               >
                 <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 min-w-0">
                   <span className="font-medium whitespace-nowrap">{version.report_date}</span>
-                  <span
-                    className="text-sm text-default-500 truncate"
-                    title={version.original_filename}
-                  >
+                  <span className="text-sm text-default-500 truncate" title={version.original_filename}>
                     {version.original_filename}
                   </span>
                   {version.is_active && (
@@ -847,12 +408,11 @@ function WhiteRabbitPortfolio() {
         </div>
       )}
 
-      {/* Unmatched Deals Modal */}
       <UnmatchedDealsResultModal
         isOpen={unmatchedDealsModalOpen}
         onOpenChange={setUnmatchedDealsModalOpen}
         unmatchedDeals={unmatchedDeals}
-        portfolioName="White Rabbit"
+        portfolioName={PORTFOLIO}
         reportDate={selectedDate?.toString() || ""}
       />
     </>

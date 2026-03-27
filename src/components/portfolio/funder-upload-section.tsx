@@ -6,6 +6,7 @@ export interface FunderData {
   acceptedTypes: string[];
   acceptedExtensions: string[];
   maxSizeKB?: number;
+  disabled?: boolean;
 }
 
 interface FunderUploadSectionProps {
@@ -54,25 +55,44 @@ const FunderUploadSection: React.FC<FunderUploadSectionProps> = ({
       </h3>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {funders.map((funder) => (
-          <div key={funder.name} className="bg-default-50 rounded-lg p-4 border border-default-200">
-            <h4 className="text-sm font-medium text-foreground mb-3 text-center">{funder.name}</h4>
+        {funders.map((funder) =>
+          funder.disabled ? (
+            <div
+              key={funder.name}
+              className="bg-default-100 rounded-lg p-4 border border-default-200 opacity-50"
+            >
+              <h4 className="text-sm font-medium text-default-400 mb-3 text-center">
+                {funder.name}
+              </h4>
+              <div className="flex items-center justify-center h-16 text-xs text-default-400">
+                Coming soon
+              </div>
+            </div>
+          ) : (
+            <div
+              key={funder.name}
+              className="bg-default-50 rounded-lg p-4 border border-default-200"
+            >
+              <h4 className="text-sm font-medium text-foreground mb-3 text-center">
+                {funder.name}
+              </h4>
 
-            <FileUpload
-              onFileUpload={(file) => handleFileUpload(funder.name, file)}
-              selectedFile={getFileForFunder(funder.name)}
-              onClearFile={() => handleClearFile(funder.name)}
-              label={`Upload ${type} report`}
-              description={`${funder.acceptedExtensions.join(", ")} files only`}
-              acceptedTypes={funder.acceptedTypes}
-              acceptedExtensions={funder.acceptedExtensions}
-              maxSizeKB={funder.maxSizeKB || 10240}
-              uploadId={`funder-${type}-${funder.name}`}
-              hasError={errorStates[funder.name]?.hasError || false}
-              errorMessage={errorStates[funder.name]?.message}
-            />
-          </div>
-        ))}
+              <FileUpload
+                onFileUpload={(file) => handleFileUpload(funder.name, file)}
+                selectedFile={getFileForFunder(funder.name)}
+                onClearFile={() => handleClearFile(funder.name)}
+                label={`Upload ${type} report`}
+                description={`${funder.acceptedExtensions.join(", ")} files only`}
+                acceptedTypes={funder.acceptedTypes}
+                acceptedExtensions={funder.acceptedExtensions}
+                maxSizeKB={funder.maxSizeKB || 10240}
+                uploadId={`funder-${type}-${funder.name}`}
+                hasError={errorStates[funder.name]?.hasError || false}
+                errorMessage={errorStates[funder.name]?.message}
+              />
+            </div>
+          )
+        )}
       </div>
     </div>
   );

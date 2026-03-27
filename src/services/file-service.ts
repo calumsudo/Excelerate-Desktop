@@ -160,21 +160,17 @@ export class FileService {
     }
   }
 
-  static async deleteClearViewFile(
-    uploadId: string,
+  static async aggregateBigMonthly(
     portfolioName: string,
-    reportDate: string,
-    isDaily: boolean
+    reportDate: string
   ): Promise<UploadResponse> {
     try {
-      return await invoke<UploadResponse>("delete_clearview_file", {
-        uploadId,
+      return await invoke<UploadResponse>("aggregate_big_monthly", {
         portfolioName,
         reportDate,
-        isDaily,
       });
     } catch (error) {
-      console.error("Error deleting Clear View file:", error);
+      console.error("Error aggregating BIG monthly pivot:", error);
       throw error;
     }
   }
@@ -278,38 +274,6 @@ export class FileService {
     } catch (error) {
       console.error("Error checking funder upload existence:", error);
       return false;
-    }
-  }
-
-  static async processClearViewDailyPivot(
-    portfolioName: string,
-    reportDate: string
-  ): Promise<UploadResponse> {
-    try {
-      const response = await invoke<UploadResponse>("process_clearview_daily_pivot", {
-        portfolioName,
-        reportDate,
-      });
-
-      return response;
-    } catch (error) {
-      console.error("Error processing Clear View daily pivot:", error);
-      throw error;
-    }
-  }
-
-  static async getClearViewDailyFilesForWeek(
-    portfolioName: string,
-    reportDate: string
-  ): Promise<string[]> {
-    try {
-      return await invoke<string[]>("get_clearview_daily_files_for_week", {
-        portfolioName,
-        reportDate,
-      });
-    } catch (error) {
-      console.error("Error getting Clear View daily files:", error);
-      return [];
     }
   }
 

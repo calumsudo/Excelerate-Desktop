@@ -5,7 +5,7 @@ use serde::{Serialize, Deserialize};
 use chrono::{Utc, Datelike};
 use uuid::Uuid;
 use crate::database::{Database, FileVersion, FunderUpload, FunderPivotTable, Merchant, UnmatchedDeal};
-use crate::parsers::{BaseParser, BhbParser, BigParser, BoomParser, EfinParser, InAdvParser, KingsParser, ClearViewPivotProcessor, PortfolioParser};
+use crate::parsers::{BaseParser, BhbParser, BigParser, BigAggregator, BoomParser, EfinParser, InAdvParser, KingsParser, ClearViewMonthlyParser, ClearViewPivotProcessor, PortfolioParser};
 
 lazy_static::lazy_static! {
     static ref DB: Mutex<Option<Database>> = Mutex::new(None);
@@ -89,49 +89,17 @@ pub fn ensure_directories() -> Result<(), String> {
         base_dir.join("White Rabbit").join("Funder Pivot Tables").join("Monthly"),
     ];
     
-    // Add weekly funder directories for Alder
-    let alder_weekly_funders = vec!["BHB", "BIG", "eFin", "InAdvance"];
-    for funder in &alder_weekly_funders {
-        directories.push(base_dir.join("Alder").join("Funder Uploads").join("Weekly").join(funder));
-        directories.push(base_dir.join("Alder").join("Funder Pivot Tables").join("Weekly").join(funder));
+    // Monthly funder directories for both portfolios
+    let monthly_funders = vec!["BHB", "BIG", "BIG W1", "BIG W2", "BIG W3", "BIG W4", "Clear View", "eFin", "Kings", "Boom", "Payva"];
+    for portfolio in &["Alder", "White Rabbit"] {
+        for funder in &monthly_funders {
+            directories.push(base_dir.join(portfolio).join("Funder Uploads").join("Monthly").join(funder));
+            directories.push(base_dir.join(portfolio).join("Funder Pivot Tables").join("Monthly").join(funder));
+        }
+        // InAdvance is Alder-only but add for both to keep it simple
+        directories.push(base_dir.join(portfolio).join("Funder Uploads").join("Monthly").join("InAdvance"));
+        directories.push(base_dir.join(portfolio).join("Funder Pivot Tables").join("Monthly").join("InAdvance"));
     }
-    
-    // Add special Clear View directory structure for Alder
-    directories.push(base_dir.join("Alder").join("Funder Uploads").join("Weekly").join("Clear View"));
-    directories.push(base_dir.join("Alder").join("Funder Uploads").join("Weekly").join("Clear View").join("Daily"));
-    directories.push(base_dir.join("Alder").join("Funder Uploads").join("Weekly").join("Clear View").join("Weekly"));
-    directories.push(base_dir.join("Alder").join("Funder Pivot Tables").join("Weekly").join("Clear View"));
-    directories.push(base_dir.join("Alder").join("Funder Pivot Tables").join("Weekly").join("Clear View").join("Daily"));
-    directories.push(base_dir.join("Alder").join("Funder Pivot Tables").join("Weekly").join("Clear View").join("Weekly"));
-    directories.push(base_dir.join("Alder").join("Funder Pivot Tables").join("Weekly").join("Clear View").join("Combined"));
-    
-    // Add monthly funder directories for Alder
-    directories.push(base_dir.join("Alder").join("Funder Uploads").join("Monthly").join("Kings"));
-    directories.push(base_dir.join("Alder").join("Funder Pivot Tables").join("Monthly").join("Kings"));
-    directories.push(base_dir.join("Alder").join("Funder Uploads").join("Monthly").join("Boom"));
-    directories.push(base_dir.join("Alder").join("Funder Pivot Tables").join("Monthly").join("Boom"));
-    
-    // Add weekly funder directories for White Rabbit
-    let white_rabbit_weekly_funders = vec!["BHB", "BIG", "eFin"];
-    for funder in &white_rabbit_weekly_funders {
-        directories.push(base_dir.join("White Rabbit").join("Funder Uploads").join("Weekly").join(funder));
-        directories.push(base_dir.join("White Rabbit").join("Funder Pivot Tables").join("Weekly").join(funder));
-    }
-    
-    // Add special Clear View directory structure for White Rabbit
-    directories.push(base_dir.join("White Rabbit").join("Funder Uploads").join("Weekly").join("Clear View"));
-    directories.push(base_dir.join("White Rabbit").join("Funder Uploads").join("Weekly").join("Clear View").join("Daily"));
-    directories.push(base_dir.join("White Rabbit").join("Funder Uploads").join("Weekly").join("Clear View").join("Weekly"));
-    directories.push(base_dir.join("White Rabbit").join("Funder Pivot Tables").join("Weekly").join("Clear View"));
-    directories.push(base_dir.join("White Rabbit").join("Funder Pivot Tables").join("Weekly").join("Clear View").join("Daily"));
-    directories.push(base_dir.join("White Rabbit").join("Funder Pivot Tables").join("Weekly").join("Clear View").join("Weekly"));
-    directories.push(base_dir.join("White Rabbit").join("Funder Pivot Tables").join("Weekly").join("Clear View").join("Combined"));
-    
-    // Add monthly funder directories for White Rabbit  
-    directories.push(base_dir.join("White Rabbit").join("Funder Uploads").join("Monthly").join("Kings"));
-    directories.push(base_dir.join("White Rabbit").join("Funder Pivot Tables").join("Monthly").join("Kings"));
-    directories.push(base_dir.join("White Rabbit").join("Funder Uploads").join("Monthly").join("Boom"));
-    directories.push(base_dir.join("White Rabbit").join("Funder Pivot Tables").join("Monthly").join("Boom"));
     
     for dir in directories {
         fs::create_dir_all(&dir)
@@ -395,88 +363,68 @@ pub fn check_workbook_exists(portfolio_name: &str) -> bool {
     }
 }
 
-fn process_clearview_file(
+fn process_clearview_monthly_file(
     file_path: &Path,
     portfolio_name: &str,
     report_date: &str,
     upload_id: &str,
 ) -> Result<(), String> {
-    // Reduced logging to avoid blocking frontend
-    
-    let processor = ClearViewPivotProcessor::new(
-        portfolio_name.to_string(),
-        report_date.to_string(),
-    );
-    
-    // Determine if this is a daily or weekly file based on path structure
-    let path_str = file_path.to_string_lossy();
-    let is_daily = path_str.contains("/Daily/") || path_str.contains("\\Daily\\");
-    
     if DB.lock().unwrap().is_none() {
         init_database()?;
     }
-    
-    let db_lock = DB.lock().unwrap();
-    let db = db_lock.as_ref().ok_or("Database not initialized")?;
-    
-    if is_daily {
-        // Process daily file and update aggregated pivot
-        let (pivot, pivot_path) = processor.process_single_daily_file(file_path)
-            .map_err(|e| format!("Failed to process daily Clear View file: {:?}", e))?;
-        
-        // Store daily aggregated pivot metadata
-        processor.store_pivot_metadata(
-            db,
-            upload_id,
-            &pivot_path,
-            &pivot,
-            crate::parsers::clearview_pivot_processor::PivotTableType::DailyAggregated,
-        ).map_err(|e| format!("Failed to store daily pivot metadata: {}", e))?;
-        
-        // Check if we need to update the combined pivot
-        if let Some((combined_pivot, combined_path)) = processor.update_combined_pivot_if_needed()
-            .map_err(|e| format!("Failed to update combined pivot: {:?}", e))? {
-            
-            // Store combined pivot metadata
-            let combined_id = uuid::Uuid::new_v4().to_string();
-            processor.store_pivot_metadata(
-                db,
-                &combined_id,
-                &combined_path,
-                &combined_pivot,
-                crate::parsers::clearview_pivot_processor::PivotTableType::Combined,
-            ).map_err(|e| format!("Failed to store combined pivot metadata: {}", e))?;
-        }
-    } else {
-        // Process weekly file
-        let (pivot, pivot_path) = processor.create_weekly_report_pivot(file_path)
-            .map_err(|e| format!("Failed to process weekly Clear View file: {:?}", e))?;
-        
-        // Store weekly pivot metadata
-        processor.store_pivot_metadata(
-            db,
-            upload_id,
-            &pivot_path,
-            &pivot,
-            crate::parsers::clearview_pivot_processor::PivotTableType::WeeklyReport,
-        ).map_err(|e| format!("Failed to store weekly pivot metadata: {}", e))?;
-        
-        // Check if we need to update the combined pivot
-        if let Some((combined_pivot, combined_path)) = processor.update_combined_pivot_if_needed()
-            .map_err(|e| format!("Failed to update combined pivot: {:?}", e))? {
-            
-            // Store combined pivot metadata  
-            let combined_id = uuid::Uuid::new_v4().to_string();
-            processor.store_pivot_metadata(
-                db,
-                &combined_id,
-                &combined_path,
-                &combined_pivot,
-                crate::parsers::clearview_pivot_processor::PivotTableType::Combined,
-            ).map_err(|e| format!("Failed to store combined pivot metadata: {}", e))?;
+
+    // Generate pivots for both portfolios from the single uploaded file
+    let portfolios = ["Alder", "White Rabbit"];
+    for &pf in &portfolios {
+        let parser = ClearViewMonthlyParser::new(pf);
+        let pivot = parser.process(file_path)
+            .map_err(|e| format!("Failed to parse ClearView monthly file for {}: {:?}", pf, e))?;
+
+        let csv_content = pivot.to_csv_string()
+            .map_err(|e| format!("Failed to generate CSV for {}: {}", pf, e))?;
+
+        let portfolio_dir = get_portfolio_dir(pf)?;
+        let pivot_dir = portfolio_dir
+            .join("Funder Pivot Tables")
+            .join("Monthly")
+            .join("Clear View");
+        fs::create_dir_all(&pivot_dir)
+            .map_err(|e| format!("Failed to create pivot directory: {}", e))?;
+
+        let pivot_path = pivot_dir.join(format!("{}.csv", report_date));
+        fs::write(&pivot_path, csv_content.as_bytes())
+            .map_err(|e| format!("Failed to save pivot table: {}", e))?;
+
+        // Only store DB record for the uploading portfolio using the given upload_id;
+        // use a new id for the other portfolio
+        let effective_upload_id = if pf == portfolio_name {
+            upload_id.to_string()
+        } else {
+            Uuid::new_v4().to_string()
+        };
+
+        let pivot_record = FunderPivotTable {
+            id: Uuid::new_v4().to_string(),
+            upload_id: effective_upload_id,
+            portfolio_name: pf.to_string(),
+            funder_name: "Clear View".to_string(),
+            report_date: report_date.to_string(),
+            upload_type: "monthly".to_string(),
+            pivot_file_path: pivot_path.to_string_lossy().to_string(),
+            total_gross: pivot.total_gross,
+            total_fee: pivot.total_fee,
+            total_net: pivot.total_net,
+            row_count: (pivot.rows.len().saturating_sub(1)) as i32,
+            created_timestamp: Utc::now(),
+        };
+
+        let db_lock = DB.lock().unwrap();
+        if let Some(db) = db_lock.as_ref() {
+            db.insert_funder_pivot_table(&pivot_record)
+                .map_err(|e| format!("Failed to save CV pivot table to database: {}", e))?;
         }
     }
-    
+
     Ok(())
 }
 
@@ -488,14 +436,19 @@ fn process_funder_file(
     upload_type: &str,
     upload_id: &str,
 ) -> Result<(), String> {
-    // Special handling for Clear View files
+    // Special handling for Clear View monthly files (auto-splits to both portfolios)
     if funder_name == "Clear View" || funder_name == "ClearView" {
-        return process_clearview_file(
+        return process_clearview_monthly_file(
             file_path,
             portfolio_name,
             report_date,
             upload_id,
         );
+    }
+
+    // Payva placeholder - not yet implemented
+    if funder_name == "Payva" {
+        return Ok(());
     }
     
     // Select the appropriate parser based on funder name
@@ -505,7 +458,7 @@ fn process_funder_file(
             parser.process(file_path)
                 .map_err(|e| format!("Failed to parse BHB file: {}", e))?
         },
-        "BIG" => {
+        "BIG" | "BIG W1" | "BIG W2" | "BIG W3" | "BIG W4" => {
             let parser = BigParser::new();
             parser.process(file_path)
                 .map_err(|e| format!("Failed to parse BIG file: {}", e))?
@@ -630,67 +583,18 @@ pub fn save_funder_upload(
     // println!("Processing upload - Portfolio: {}, Funder: {}, File: {}, Date: {}, Type: {}", 
     //     portfolio_name, funder_name, file_name, report_date, upload_type);
     
-    // Check if this is a Clear View file (handle various naming patterns from frontend)
-    let is_clearview = funder_name == "Clear View" 
-        || funder_name == "ClearView" 
-        || funder_name.starts_with("ClearView_Daily")
-        || funder_name.starts_with("Clear View Daily");
-    
-    // Normalize the funder name for Clear View (removed - using final_funder_name in tuple instead)
-    
-    // Special handling for Clear View files
-    let (funder_dir, stored_filename, final_funder_name) = if is_clearview {
-        // Determine if this is a daily or weekly Clear View file
-        // Check multiple indicators
-        let is_daily = upload_type == "daily" 
-            || funder_name.contains("Daily")
-            || file_name.to_lowercase().contains("syndicate_report");
-        
-        // println!("Clear View file detected - Is Daily: {}", is_daily);
-        
-        if is_daily {
-            // All daily files for a week go into a single folder based on the report date (Friday)
-            let folder_date = report_date.replace('/', "-");
-            
-            let daily_dir = portfolio_dir
-                .join("Funder Uploads")
-                .join("Weekly")  // Daily files still go under Weekly folder structure
-                .join("Clear View")
-                .join("Daily")
-                .join(&folder_date);
-            
-            // Keep original filename for daily files
-            (daily_dir, file_name.to_string(), "Clear View".to_string())
-        } else {
-            // Weekly files go to Weekly/Clear View/Weekly/
-            let weekly_dir = portfolio_dir
-                .join("Funder Uploads")
-                .join("Weekly")
-                .join("Clear View")
-                .join("Weekly");
-            
-            // Use report date as filename for weekly files (convert to consistent format)
-            let file_date = report_date.replace('/', "-");
-            let file_extension = Path::new(file_name)
-                .extension()
-                .and_then(|ext| ext.to_str())
-                .unwrap_or("csv");
-            (weekly_dir, format!("{}.{}", file_date, file_extension), "Clear View".to_string())
-        }
-    } else {
-        // Standard funder directory structure for non-Clear View funders
-        let funder_dir = portfolio_dir
-            .join("Funder Uploads")
-            .join(if upload_type == "weekly" { "Weekly" } else { "Monthly" })
-            .join(funder_name);
-        
-        // Generate filename using report date and original extension
-        let file_extension = Path::new(file_name)
-            .extension()
-            .and_then(|ext| ext.to_str())
-            .unwrap_or("csv");
-        (funder_dir, format!("{}.{}", report_date, file_extension), funder_name.to_string())
-    };
+    // Standard funder directory structure - all funders now use Monthly
+    let funder_dir = portfolio_dir
+        .join("Funder Uploads")
+        .join("Monthly")
+        .join(funder_name);
+
+    let file_extension = Path::new(file_name)
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .unwrap_or("csv");
+    let stored_filename = format!("{}.{}", report_date, file_extension);
+    let final_funder_name = funder_name.to_string();
     
     // Create funder directory if it doesn't exist
     // println!("Creating directory: {:?}", funder_dir);
@@ -732,35 +636,25 @@ pub fn save_funder_upload(
         }
     }  // db_lock is dropped here
     
-    // For Clear View daily files, skip immediate processing to allow multiple files to be uploaded first
-    // The frontend should call process_clearview_daily_pivot after all files are uploaded
-    let pivot_result = if is_clearview && upload_type == "daily" {
-        Ok(()) // Skip processing for Clear View daily files
-    } else {
-        // Process other funders normally
-        process_funder_file(
-            &file_path,
-            portfolio_name,
-            &final_funder_name,
-            report_date,
-            upload_type,
-            &upload_id,
-        )
-    };
-    
-    let (success, message) = if is_clearview && upload_type == "daily" {
-        // Special message for Clear View daily files
-        (true, format!("Clear View daily file saved successfully. Call process_clearview_daily_pivot to generate pivot table after all files are uploaded."))
-    } else {
-        match pivot_result {
-            Ok(_) => {
-                (true, format!("Funder file saved and pivot table created successfully for {} - {}", final_funder_name, report_date))
-            },
-            Err(e) => {
-                // Still return success for file upload even if pivot fails
-                (true, format!("Funder file saved. Note: {}", e))
-            },
+    let pivot_result = process_funder_file(
+        &file_path,
+        portfolio_name,
+        &final_funder_name,
+        report_date,
+        upload_type,
+        &upload_id,
+    );
+
+    // For BIG weekly slots, auto-aggregate all uploaded weeks into the monthly pivot
+    if final_funder_name.starts_with("BIG W") {
+        if let Err(e) = aggregate_big_monthly_internal(portfolio_name, report_date) {
+            println!("BIG auto-aggregation warning: {}", e);
         }
+    }
+
+    let (success, message) = match pivot_result {
+        Ok(_) => (true, format!("Funder file saved and pivot table created successfully for {} - {}", final_funder_name, report_date)),
+        Err(e) => (true, format!("Funder file saved. Note: {}", e)),
     };
     
     Ok(UploadResponse {
@@ -1574,11 +1468,11 @@ pub fn get_pivot_tables_for_update(
     
     // List of funders to check with their sheet names
     let funders = vec![
-        ("BHB", "BHB", "Weekly"),
-        ("BIG", "BIG", "Weekly"),
-        ("Clear View", "CV", "Weekly"),  // Special case - will use Combined subdirectory
-        ("eFin", "EFin", "Weekly"),
-        ("InAdvance", "InAd", "Weekly"),
+        ("BHB", "BHB", "Monthly"),
+        ("BIG", "BIG", "Monthly"),
+        ("Clear View", "CV", "Monthly"),  // Special case - will use Combined subdirectory
+        ("eFin", "EFin", "Monthly"),
+        ("InAdvance", "InAd", "Monthly"),
         ("Boom", "Boom", "Monthly"),
         ("Kings", "Kings", "Monthly"),
     ];
@@ -1916,6 +1810,86 @@ pub fn get_monthly_funding_trends(portfolio_name: Option<String>) -> Result<Vec<
     months.reverse();
 
     Ok(months)
+}
+
+#[tauri::command]
+fn aggregate_big_monthly_internal(portfolio_name: &str, report_date: &str) -> Result<(), String> {
+    // Collect file paths (hold lock only for the query)
+    let file_paths = {
+        let db_lock = DB.lock().unwrap();
+        let db = db_lock.as_ref().ok_or("Database not initialized")?;
+        let uploads = db.get_funder_uploads_by_portfolio_and_date(portfolio_name, report_date)
+            .map_err(|e| format!("Failed to query BIG uploads: {}", e))?;
+        uploads.iter()
+            .filter(|u| u.funder_name.starts_with("BIG W"))
+            .map(|u| std::path::PathBuf::from(&u.file_path))
+            .collect::<Vec<_>>()
+    };
+
+    if file_paths.is_empty() {
+        return Ok(());
+    }
+
+    let pivot = BigAggregator::aggregate_files(file_paths)
+        .map_err(|e| format!("Failed to aggregate BIG files: {:?}", e))?;
+
+    let csv_content = pivot.to_csv_string()
+        .map_err(|e| format!("Failed to generate BIG pivot CSV: {}", e))?;
+
+    let portfolio_dir = get_portfolio_dir(portfolio_name)?;
+    let pivot_dir = portfolio_dir
+        .join("Funder Pivot Tables")
+        .join("Monthly")
+        .join("BIG");
+    fs::create_dir_all(&pivot_dir)
+        .map_err(|e| format!("Failed to create BIG pivot directory: {}", e))?;
+
+    let pivot_path = pivot_dir.join(format!("{}.csv", report_date));
+    fs::write(&pivot_path, csv_content.as_bytes())
+        .map_err(|e| format!("Failed to save BIG pivot table: {}", e))?;
+
+    {
+        let db_lock = DB.lock().unwrap();
+        let db = db_lock.as_ref().ok_or("Database not initialized")?;
+        let pivot_record = FunderPivotTable {
+            id: Uuid::new_v4().to_string(),
+            upload_id: Uuid::new_v4().to_string(),
+            portfolio_name: portfolio_name.to_string(),
+            funder_name: "BIG".to_string(),
+            report_date: report_date.to_string(),
+            upload_type: "monthly".to_string(),
+            pivot_file_path: pivot_path.to_string_lossy().to_string(),
+            total_gross: pivot.total_gross,
+            total_fee: pivot.total_fee,
+            total_net: pivot.total_net,
+            row_count: (pivot.rows.len().saturating_sub(1)) as i32,
+            created_timestamp: Utc::now(),
+        };
+        db.insert_funder_pivot_table(&pivot_record)
+            .map_err(|e| format!("Failed to save BIG pivot to database: {}", e))?;
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
+pub fn aggregate_big_monthly(
+    portfolio_name: &str,
+    report_date: &str,
+) -> Result<UploadResponse, String> {
+    if DB.lock().unwrap().is_none() {
+        init_database()?;
+    }
+
+    aggregate_big_monthly_internal(portfolio_name, report_date)?;
+
+    Ok(UploadResponse {
+        success: true,
+        message: "BIG monthly pivot created successfully.".to_string(),
+        file_path: None,
+        version_id: None,
+        backup_path: None,
+    })
 }
 
 #[tauri::command]

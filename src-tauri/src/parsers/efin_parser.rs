@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::path::Path;
 use crate::parsers::base_parser::{
     BaseParser, ParserError, ParserResult, ProcessedData, PivotTable,
-    read_csv_file
+    read_csv_file, read_excel_file
 };
 
 pub struct EfinParser;
@@ -32,7 +32,24 @@ impl BaseParser for EfinParser {
     }
 
     fn parse_file(&self, file_path: &Path) -> ParserResult<Vec<HashMap<String, String>>> {
-        read_csv_file(file_path)
+        let extension = file_path.extension()
+            .and_then(|e| e.to_str())
+            .unwrap_or("")
+            .to_lowercase();
+        match extension.as_str() {
+            "xlsx" | "xls" => {
+                // eFin monthly XLSX uses the first sheet
+                use calamine::{open_workbook, Reader, Xlsx};
+                let workbook: Xlsx<_> = open_workbook(file_path)
+                    .map_err(|_| ParserError::ProcessingError("Failed to open eFin Excel file".to_string()))?;
+                let sheet_name = workbook.sheet_names()
+                    .first()
+                    .cloned()
+                    .ok_or_else(|| ParserError::ProcessingError("No sheets in eFin Excel file".to_string()))?;
+                read_excel_file(file_path, &sheet_name)
+            }
+            _ => read_csv_file(file_path),
+        }
     }
 
     fn validate_columns(&self, headers: &[String]) -> ParserResult<()> {
