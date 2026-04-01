@@ -41,88 +41,116 @@ export type Database = {
     Tables: {
       deals: {
         Row: {
-          advance_id: string | null
-          bad_debt_adjustment: number | null
-          buy_rate: number | null
-          commission_amount: number | null
-          commission_rate: number | null
-          created_at: string | null
-          date_funded: string | null
-          default_date: string | null
-          fico: string | null
-          funder_advance_id: string | null
-          funder_code: string
           id: string
-          industry_code: string | null
-          is_default: boolean | null
-          merchant_name: string
+          merchant_id: string | null
+          portfolio_id: number | null
+          funder_id: number | null
+          advance_id: string | null
+          funder_advance_id: string | null
+          fico: number | null
+          buy_rate: number | null
+          commission: number | null
+          total_amount_funded: number | null
           num_daily_payments: number | null
           num_weekly_payments: number | null
-          portfolio_name: string
-          sell_rate: number | null
-          state: string | null
-          term_months: number | null
-          total_funded_amount: number | null
-          total_rtr: number | null
+          deal_length_months: number | null
+          participation_on_amount: number | null
+          new_dollars: boolean | null
+          rtr: boolean | null
+          is_default: boolean | null
+          date_funded: string | null
+          default_date: string | null
+          default_notes: Json | null
+          created_at: string | null
           updated_at: string | null
-          user_id: string
-          website: string | null
         }
         Insert: {
-          advance_id?: string | null
-          bad_debt_adjustment?: number | null
-          buy_rate?: number | null
-          commission_amount?: number | null
-          commission_rate?: number | null
-          created_at?: string | null
-          date_funded?: string | null
-          default_date?: string | null
-          fico?: string | null
-          funder_advance_id?: string | null
-          funder_code: string
           id?: string
-          industry_code?: string | null
-          is_default?: boolean | null
-          merchant_name: string
+          merchant_id?: string | null
+          portfolio_id?: number | null
+          funder_id?: number | null
+          advance_id?: string | null
+          funder_advance_id?: string | null
+          fico?: number | null
+          buy_rate?: number | null
+          commission?: number | null
+          total_amount_funded?: number | null
           num_daily_payments?: number | null
           num_weekly_payments?: number | null
-          portfolio_name: string
-          sell_rate?: number | null
-          state?: string | null
-          term_months?: number | null
-          total_funded_amount?: number | null
-          total_rtr?: number | null
+          deal_length_months?: number | null
+          participation_on_amount?: number | null
+          new_dollars?: boolean | null
+          rtr?: boolean | null
+          is_default?: boolean | null
+          date_funded?: string | null
+          default_date?: string | null
+          default_notes?: Json | null
+          created_at?: string | null
           updated_at?: string | null
-          user_id: string
-          website?: string | null
         }
         Update: {
-          advance_id?: string | null
-          bad_debt_adjustment?: number | null
-          buy_rate?: number | null
-          commission_amount?: number | null
-          commission_rate?: number | null
-          created_at?: string | null
-          date_funded?: string | null
-          default_date?: string | null
-          fico?: string | null
-          funder_advance_id?: string | null
-          funder_code?: string
           id?: string
-          industry_code?: string | null
-          is_default?: boolean | null
-          merchant_name?: string
+          merchant_id?: string | null
+          portfolio_id?: number | null
+          funder_id?: number | null
+          advance_id?: string | null
+          funder_advance_id?: string | null
+          fico?: number | null
+          buy_rate?: number | null
+          commission?: number | null
+          total_amount_funded?: number | null
           num_daily_payments?: number | null
           num_weekly_payments?: number | null
-          portfolio_name?: string
-          sell_rate?: number | null
-          state?: string | null
-          term_months?: number | null
-          total_funded_amount?: number | null
-          total_rtr?: number | null
+          deal_length_months?: number | null
+          participation_on_amount?: number | null
+          new_dollars?: boolean | null
+          rtr?: boolean | null
+          is_default?: boolean | null
+          date_funded?: string | null
+          default_date?: string | null
+          default_notes?: Json | null
+          created_at?: string | null
           updated_at?: string | null
-          user_id?: string
-          website?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deals_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deals_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "portfolios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deals_funder_id_fkey"
+            columns: ["funder_id"]
+            isOneToOne: false
+            referencedRelation: "funders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      funders: {
+        Row: {
+          id: number
+          name: string
+          code: string | null
+        }
+        Insert: {
+          id?: number
+          name: string
+          code?: string | null
+        }
+        Update: {
+          id?: number
+          name?: string
+          code?: string | null
         }
         Relationships: []
       }
@@ -265,81 +293,83 @@ export type Database = {
       }
       industries: {
         Row: {
-          category: string | null
-          id: string
+          id: number
           name: string
         }
         Insert: {
-          category?: string | null
-          id?: string
+          id?: number
           name: string
         }
         Update: {
-          category?: string | null
-          id?: string
+          id?: number
           name?: string
         }
         Relationships: []
       }
       merchants: {
         Row: {
-          advance_id: string | null
-          buy_rate: number | null
-          commission: number | null
-          created_timestamp: string | null
-          date_funded: string | null
-          fico: string | null
-          funder_advance_id: string | null
-          funder_name: string
           id: string
-          industry_naics_or_sic: string | null
-          merchant_name: string
-          portfolio_name: string
-          state: string | null
-          total_amount_funded: number | null
-          updated_timestamp: string | null
-          user_id: string
+          name: string
+          industry_id: number | null
+          state_id: number | null
           website: string | null
+          funder_id: number | null
+          portfolio_id: number | null
+          created_at: string | null
+          updated_at: string | null
         }
         Insert: {
-          advance_id?: string | null
-          buy_rate?: number | null
-          commission?: number | null
-          created_timestamp?: string | null
-          date_funded?: string | null
-          fico?: string | null
-          funder_advance_id?: string | null
-          funder_name: string
           id?: string
-          industry_naics_or_sic?: string | null
-          merchant_name: string
-          portfolio_name: string
-          state?: string | null
-          total_amount_funded?: number | null
-          updated_timestamp?: string | null
-          user_id: string
+          name: string
+          industry_id?: number | null
+          state_id?: number | null
           website?: string | null
+          funder_id?: number | null
+          portfolio_id?: number | null
+          created_at?: string | null
+          updated_at?: string | null
         }
         Update: {
-          advance_id?: string | null
-          buy_rate?: number | null
-          commission?: number | null
-          created_timestamp?: string | null
-          date_funded?: string | null
-          fico?: string | null
-          funder_advance_id?: string | null
-          funder_name?: string
           id?: string
-          industry_naics_or_sic?: string | null
-          merchant_name?: string
-          portfolio_name?: string
-          state?: string | null
-          total_amount_funded?: number | null
-          updated_timestamp?: string | null
-          user_id?: string
+          name?: string
+          industry_id?: number | null
+          state_id?: number | null
           website?: string | null
+          funder_id?: number | null
+          portfolio_id?: number | null
+          created_at?: string | null
+          updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "merchants_industry_id_fkey"
+            columns: ["industry_id"]
+            isOneToOne: false
+            referencedRelation: "industries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "merchants_state_id_fkey"
+            columns: ["state_id"]
+            isOneToOne: false
+            referencedRelation: "states"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "merchants_funder_id_fkey"
+            columns: ["funder_id"]
+            isOneToOne: false
+            referencedRelation: "funders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "merchants_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "portfolios"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       net_rtr_payments: {
         Row: {
@@ -410,6 +440,69 @@ export type Database = {
           id?: string
           portfolio_name?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      portfolios: {
+        Row: {
+          id: number
+          name: string
+        }
+        Insert: {
+          id?: number
+          name: string
+        }
+        Update: {
+          id?: number
+          name?: string
+        }
+        Relationships: []
+      }
+      portfolio_funders: {
+        Row: {
+          portfolio_id: number
+          funder_id: number
+        }
+        Insert: {
+          portfolio_id: number
+          funder_id: number
+        }
+        Update: {
+          portfolio_id?: number
+          funder_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portfolio_funders_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "portfolios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portfolio_funders_funder_id_fkey"
+            columns: ["funder_id"]
+            isOneToOne: false
+            referencedRelation: "funders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      states: {
+        Row: {
+          id: number
+          code: string
+          name: string
+        }
+        Insert: {
+          id?: number
+          code: string
+          name: string
+        }
+        Update: {
+          id?: number
+          code?: string
+          name?: string
         }
         Relationships: []
       }

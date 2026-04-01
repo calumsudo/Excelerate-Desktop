@@ -29,6 +29,11 @@ export const items: SidebarItem[] = [
     icon: "solar:folder-with-files-outline",
     title: "File Explorer",
   },
+  {
+    key: "database",
+    icon: "solar:database-outline",
+    title: "Database",
+  },
 ];
 
 export const settingsItem: SidebarItem = {

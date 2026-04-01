@@ -5,6 +5,8 @@ import Dashboard from "@pages/dashboard";
 import AlderPortfolio from "@pages/alder-portfolio";
 import WhiteRabbitPortfolio from "@pages/white-rabbit-portfolio";
 import FileExplorer from "@pages/file-explorer";
+import DatabasePage from "@pages/database";
+import DatabaseTablePage from "@pages/database-table";
 import Settings from "@pages/settings";
 import Login from "@pages/login";
 import { ProtectedRoute } from "@components/auth/protected-route";
@@ -65,6 +67,8 @@ function App() {
         <Route path="alder-portfolio" element={<AlderPortfolio />} />
         <Route path="white-rabbit-portfolio" element={<WhiteRabbitPortfolio />} />
         <Route path="file-explorer" element={<FileExplorer />} />
+        <Route path="database" element={<DatabasePage />} />
+        <Route path="database/:tableName" element={<DatabaseTablePage />} />
         <Route path="settings" element={<Settings />} />
       </Route>
     </Routes>
