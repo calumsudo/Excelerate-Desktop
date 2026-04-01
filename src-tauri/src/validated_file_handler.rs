@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::Path;
 use serde::{Serialize, Deserialize};
-use tauri::{AppHandle, Emitter};
+use tauri::AppHandle;
 use crate::file_handler::{
     save_funder_upload as original_save_funder_upload,
     save_portfolio_workbook_with_version as original_save_portfolio_workbook,

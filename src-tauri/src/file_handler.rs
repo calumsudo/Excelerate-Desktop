@@ -991,6 +991,7 @@ pub fn read_excel_file(file_path: &str) -> Result<serde_json::Value, String> {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct ClearViewPivotResponse {
     pub success: bool,
     pub message: String,
@@ -1005,6 +1006,7 @@ pub struct ClearViewPivotResponse {
     pub combined_total_net: Option<f64>,
 }
 
+#[allow(dead_code)]
 #[tauri::command]
 pub fn process_clearview_pivots(
     portfolio_name: &str,
@@ -1130,6 +1132,7 @@ pub fn process_clearview_pivots(
     Ok(response)
 }
 
+#[allow(dead_code)]
 #[tauri::command]
 pub fn process_clearview_daily_pivot(
     portfolio_name: &str,
@@ -1184,6 +1187,7 @@ pub fn process_clearview_daily_pivot(
     })
 }
 
+#[allow(dead_code)]
 #[tauri::command]
 pub fn delete_clearview_file(
     upload_id: &str,
@@ -1297,6 +1301,7 @@ pub fn delete_clearview_file(
     })
 }
 
+#[allow(dead_code)]
 #[tauri::command]
 pub fn get_clearview_daily_files_for_week(
     portfolio_name: &str,

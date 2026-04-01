@@ -170,6 +170,7 @@ impl NotificationManager {
     }
     
     /// Send a warning notification
+    #[allow(dead_code)]
     pub fn warning(app_handle: &AppHandle, title: impl Into<String>, description: Option<String>) -> Result<(), String> {
         Self::send(app_handle, NotificationPayload {
             notification_type: NotificationType::Warning,
@@ -180,6 +181,7 @@ impl NotificationManager {
     }
     
     /// Send an info notification
+    #[allow(dead_code)]
     pub fn info(app_handle: &AppHandle, title: impl Into<String>, description: Option<String>) -> Result<(), String> {
         Self::send(app_handle, NotificationPayload {
             notification_type: NotificationType::Info,
@@ -191,6 +193,7 @@ impl NotificationManager {
 }
 
 /// Trait for validating file structures
+#[allow(dead_code)]
 pub trait FileValidator {
     fn validate(&self, file_path: &std::path::Path) -> Result<ValidationResult, String>;
 }
