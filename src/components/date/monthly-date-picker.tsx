@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { DatePicker } from "@heroui/react";
-import { CalendarDate, getLocalTimeZone, today, DateValue } from "@internationalized/date";
+import { CalendarDate, getLocalTimeZone, today, DateValue, ZonedDateTime, toZoned } from "@internationalized/date";
 
 interface MonthlyDatePickerProps {
   onDateChange?: (date: DateValue | null) => void;
@@ -25,8 +25,8 @@ const MonthlyDatePicker: React.FC<MonthlyDatePickerProps> = ({
     return firstOfNextMonth.subtract({ days: 1 });
   };
 
-  const initialDate = getMostRecentCompletedMonth();
-  const [selectedDate, setSelectedDate] = useState<DateValue | null>(initialDate);
+  const initialDate = toZoned(getMostRecentCompletedMonth(), getLocalTimeZone());
+  const [selectedDate, setSelectedDate] = useState<ZonedDateTime | null>(initialDate);
 
   useEffect(() => {
     if (initialDate && onDateChange) {
@@ -42,7 +42,7 @@ const MonthlyDatePicker: React.FC<MonthlyDatePickerProps> = ({
     return nextDay.getMonth() === jsDate.getMonth();
   };
 
-  const handleDateChange = (date: DateValue | null) => {
+  const handleDateChange = (date: ZonedDateTime | null) => {
     if (date && !isDateUnavailable(date)) {
       setSelectedDate(date);
       onDateChange?.(date);
