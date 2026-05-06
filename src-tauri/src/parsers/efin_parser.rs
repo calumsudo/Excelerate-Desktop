@@ -7,6 +7,12 @@ use std::path::Path;
 
 pub struct EfinParser;
 
+impl Default for EfinParser {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl EfinParser {
     pub fn new() -> Self {
         EfinParser
@@ -160,7 +166,7 @@ mod tests {
                     println!("Total Fee: {:.2}", pivot_table.total_fee);
                     println!("Total Net: {:.2}", pivot_table.total_net);
                     println!("Number of rows: {}", pivot_table.rows.len());
-                    assert!(pivot_table.rows.len() > 0);
+                    assert!(!pivot_table.rows.is_empty());
 
                     // Verify totals match what's expected
                     assert!(pivot_table.total_gross > 0.0);

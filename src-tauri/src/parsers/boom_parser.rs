@@ -7,6 +7,12 @@ pub struct BoomParser {
     funder_name: String,
 }
 
+impl Default for BoomParser {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl BoomParser {
     pub fn new() -> Self {
         BoomParser {
@@ -44,8 +50,7 @@ impl BoomParser {
             Data::Int(i) => *i as f64,
             Data::String(s) => {
                 // Try to parse string as currency
-                s.replace('$', "")
-                    .replace(',', "")
+                s.replace(['$', ','], "")
                     .replace('(', "-")
                     .replace(')', "")
                     .trim()
@@ -96,7 +101,7 @@ impl BoomParser {
         // Verify headers are in expected positions
         if let Some(header_row) = range.rows().nth(header_row_idx) {
             // Check if we have the expected headers
-            let advance_header = header_row.get(0).and_then(|cell| self.clean_value(cell));
+            let advance_header = header_row.first().and_then(|cell| self.clean_value(cell));
             let merchant_header = header_row.get(2).and_then(|cell| self.clean_value(cell));
             let gross_header = header_row.get(13).and_then(|cell| self.clean_value(cell));
 
@@ -133,7 +138,7 @@ impl BoomParser {
         // Process data rows
         for (_row_idx, row) in range.rows().enumerate().skip(data_start_row) {
             // Column A (0): Advance ID
-            let advance_id = row.get(0).and_then(|cell| self.clean_value(cell));
+            let advance_id = row.first().and_then(|cell| self.clean_value(cell));
 
             if advance_id.is_none() {
                 continue; // Skip rows without valid advance ID

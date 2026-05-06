@@ -47,6 +47,12 @@ pub struct PivotTable {
     pub total_net: f64,
 }
 
+impl Default for PivotTable {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl PivotTable {
     pub fn new() -> Self {
         PivotTable {
@@ -91,7 +97,7 @@ impl PivotTable {
         let mut writer = csv::Writer::from_writer(vec![]);
 
         // Write headers
-        writer.write_record(&[
+        writer.write_record([
             "Advance ID",
             "Merchant Name",
             "Sum of Syn Gross Amount",
@@ -101,7 +107,7 @@ impl PivotTable {
 
         // Write rows
         for row in &self.rows {
-            writer.write_record(&[
+            writer.write_record([
                 &row.advance_id,
                 &row.merchant_name,
                 &format!("{:.2}", row.sum_of_syn_gross_amount),
@@ -238,8 +244,7 @@ pub trait BaseParser {
 
     fn currency_to_float(&self, value: &str) -> ParserResult<f64> {
         let cleaned = value
-            .replace('$', "")
-            .replace(',', "")
+            .replace(['$', ','], "")
             .replace('(', "-")
             .replace(')', "")
             .trim()
@@ -298,8 +303,7 @@ pub fn read_excel_file(
     use calamine::{open_workbook, Reader, Xlsx};
 
     let mut workbook: Xlsx<_> = open_workbook(file_path).map_err(|_| {
-        ParserError::Excel(calamine::Error::Io(std::io::Error::new(
-            std::io::ErrorKind::Other,
+        ParserError::Excel(calamine::Error::Io(std::io::Error::other(
             "Failed to open workbook",
         )))
     })?;

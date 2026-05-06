@@ -79,7 +79,7 @@ impl PortfolioParser {
         let mut merchant_count = 0;
 
         // Process data rows starting from row 3 (index 2)
-        let total_rows = range.height() as usize;
+        let total_rows = range.height();
         for row_index in (header_row_index + 1)..total_rows {
             // Check if the row has any data
             if self.is_row_empty(range, row_index, &column_indices) {
@@ -116,7 +116,7 @@ impl PortfolioParser {
     ) -> Result<Vec<String>, String> {
         let mut headers = Vec::new();
 
-        let total_cols = range.width() as usize;
+        let total_cols = range.width();
         for col_index in 0..total_cols {
             let cell_value = range
                 .get_value((row_index as u32, col_index as u32))

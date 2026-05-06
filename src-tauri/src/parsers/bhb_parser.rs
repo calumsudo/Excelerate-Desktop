@@ -7,6 +7,12 @@ pub struct BhbParser {
     required_columns: Vec<String>,
 }
 
+impl Default for BhbParser {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl BhbParser {
     pub fn new() -> Self {
         BhbParser {

@@ -7,6 +7,12 @@ pub struct BigParser {
     funder_name: String,
 }
 
+impl Default for BigParser {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl BigParser {
     pub fn new() -> Self {
         BigParser {
@@ -72,7 +78,7 @@ impl BigParser {
 
         // Find the header row (look for "Funding ID" or similar in column A)
         let mut header_row_idx = 2; // Default header row
-        let header_values = vec![
+        let header_values = [
             "funding id",
             "fundingid",
             "funding_id",
@@ -82,7 +88,7 @@ impl BigParser {
         ];
 
         for (row_idx, row) in range.rows().enumerate().take(10) {
-            if let Some(first_cell) = row.get(0) {
+            if let Some(first_cell) = row.first() {
                 let cell_str = first_cell.to_string().to_lowercase();
                 if header_values.iter().any(|h| cell_str.contains(h)) {
                     header_row_idx = row_idx;
@@ -118,7 +124,7 @@ impl BigParser {
         // Process data rows
         for (_row_idx, row) in range.rows().enumerate().skip(data_start_row) {
             // Column A (0): Funding ID / Advance ID
-            let advance_id = row.get(0).and_then(|cell| self.clean_advance_id(cell));
+            let advance_id = row.first().and_then(|cell| self.clean_advance_id(cell));
 
             if advance_id.is_none() {
                 continue; // Skip rows without valid advance ID

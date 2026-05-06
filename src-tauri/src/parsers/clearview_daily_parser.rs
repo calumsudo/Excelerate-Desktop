@@ -37,11 +37,9 @@ impl ClearViewDailyParser {
 
     fn parse_currency(&self, value: &str) -> ParserResult<f64> {
         let cleaned = value
-            .replace('$', "")
-            .replace(',', "")
+            .replace(['$', ','], "")
             .replace('(', "-")
-            .replace(')', "")
-            .replace('"', "")
+            .replace([')', '"'], "")
             .trim()
             .to_string();
 

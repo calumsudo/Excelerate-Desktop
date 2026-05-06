@@ -997,34 +997,33 @@ impl Database {
         // Skip header line
         if let Some(Ok(_header)) = lines.next() {
             // Process data lines
-            for line in lines {
-                if let Ok(line_str) = line {
-                    // Skip the totals row (has "Totals" in the first column)
-                    if line_str.starts_with("Totals,") {
-                        continue;
-                    }
+            #[allow(clippy::lines_filter_map_ok)]
+            for line_str in lines.filter_map(|l| l.ok()) {
+                // Skip the totals row (has "Totals" in the first column)
+                if line_str.starts_with("Totals,") {
+                    continue;
+                }
 
-                    // Parse CSV line
-                    let parts: Vec<&str> = line_str.split(',').collect();
-                    if parts.len() >= 5 {
-                        let advance_id = parts[0].trim().to_string();
-                        let merchant_name = parts[1].trim().to_string();
+                // Parse CSV line
+                let parts: Vec<&str> = line_str.split(',').collect();
+                if parts.len() >= 5 {
+                    let advance_id = parts[0].trim().to_string();
+                    let merchant_name = parts[1].trim().to_string();
 
-                        // Parse numeric values, handling potential errors
-                        let sum_of_syn_gross_amount = parts[2].trim().parse::<f64>().unwrap_or(0.0);
-                        let total_servicing_fee = parts[3].trim().parse::<f64>().unwrap_or(0.0);
-                        let sum_of_syn_net_amount = parts[4].trim().parse::<f64>().unwrap_or(0.0);
+                    // Parse numeric values, handling potential errors
+                    let sum_of_syn_gross_amount = parts[2].trim().parse::<f64>().unwrap_or(0.0);
+                    let total_servicing_fee = parts[3].trim().parse::<f64>().unwrap_or(0.0);
+                    let sum_of_syn_net_amount = parts[4].trim().parse::<f64>().unwrap_or(0.0);
 
-                        // Skip empty rows
-                        if !advance_id.is_empty() && !merchant_name.is_empty() {
-                            deals.push(PivotDealRow {
-                                advance_id,
-                                merchant_name,
-                                sum_of_syn_gross_amount,
-                                total_servicing_fee,
-                                sum_of_syn_net_amount,
-                            });
-                        }
+                    // Skip empty rows
+                    if !advance_id.is_empty() && !merchant_name.is_empty() {
+                        deals.push(PivotDealRow {
+                            advance_id,
+                            merchant_name,
+                            sum_of_syn_gross_amount,
+                            total_servicing_fee,
+                            sum_of_syn_net_amount,
+                        });
                     }
                 }
             }

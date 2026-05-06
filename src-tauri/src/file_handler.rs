@@ -258,7 +258,7 @@ pub fn save_portfolio_workbook_with_version(
 
     Ok(UploadResponse {
         success: true,
-        message: format!("Workbook saved successfully with version tracking"),
+        message: "Workbook saved successfully with version tracking".to_string(),
         file_path: Some(main_path.to_string_lossy().to_string()),
         version_id: Some(version_id),
         backup_path: Some(version_path.to_string_lossy().to_string()),
@@ -334,7 +334,7 @@ pub fn restore_version(version_id: &str) -> Result<UploadResponse, String> {
 
         Ok(UploadResponse {
             success: true,
-            message: format!("Version restored successfully"),
+            message: "Version restored successfully".to_string(),
             file_path: Some(main_path.to_string_lossy().to_string()),
             version_id: Some(version_id.to_string()),
             backup_path: Some(version_path.to_string_lossy().to_string()),
@@ -533,6 +533,7 @@ fn process_clearview_monthly_file(
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 fn process_funder_file(
     file_path: &Path,
     portfolio_name: &str,
@@ -995,7 +996,7 @@ pub fn get_all_database_files() -> Result<Vec<DatabaseFileEntry>, String> {
             let file_name = pivot
                 .pivot_file_path
                 .split('/')
-                .last()
+                .next_back()
                 .unwrap_or("pivot_table.csv")
                 .to_string();
 
@@ -1123,6 +1124,7 @@ pub fn read_excel_file(file_path: &str) -> Result<serde_json::Value, String> {
     }))
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ClearViewPivotResponse {
     pub success: bool,
@@ -1138,6 +1140,7 @@ pub struct ClearViewPivotResponse {
     pub combined_total_net: Option<f64>,
 }
 
+#[allow(dead_code)]
 #[tauri::command]
 pub fn process_clearview_pivots(
     portfolio_name: &str,
@@ -1172,7 +1175,7 @@ pub fn process_clearview_pivots(
     // Process daily files if provided
     let daily_pivot =
         if !daily_file_paths.is_empty() {
-            let paths: Vec<PathBuf> = daily_file_paths.iter().map(|p| PathBuf::from(p)).collect();
+            let paths: Vec<PathBuf> = daily_file_paths.iter().map(PathBuf::from).collect();
 
             match processor.create_daily_aggregated_pivot(paths) {
                 Ok((pivot, path)) => {
@@ -1264,6 +1267,7 @@ pub fn process_clearview_pivots(
     Ok(response)
 }
 
+#[allow(dead_code)]
 #[tauri::command]
 pub fn process_clearview_daily_pivot(
     portfolio_name: &str,
@@ -1323,6 +1327,7 @@ pub fn process_clearview_daily_pivot(
     })
 }
 
+#[allow(dead_code)]
 #[tauri::command]
 pub fn delete_clearview_file(
     upload_id: &str,
@@ -1442,6 +1447,7 @@ pub fn delete_clearview_file(
     })
 }
 
+#[allow(dead_code)]
 #[tauri::command]
 pub fn get_clearview_daily_files_for_week(
     portfolio_name: &str,

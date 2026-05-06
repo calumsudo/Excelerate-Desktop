@@ -181,8 +181,7 @@ fn parse_cell_currency(cell: Option<&calamine::Data>) -> f64 {
         None => return 0.0,
     };
     let cleaned = s
-        .replace('$', "")
-        .replace(',', "")
+        .replace(['$', ','], "")
         .replace('(', "-")
         .replace(')', "")
         .trim()

@@ -99,9 +99,9 @@ impl ValidationResult {
                 // If 3 or more columns are missing, it's probably the wrong file type
                 (
                     "Wrong file type".to_string(),
-                    format!("This doesn't appear to be the correct file format for this funder. Please check that you've selected the right file.")
+                    "This doesn't appear to be the correct file format for this funder. Please check that you've selected the right file.".to_string()
                 )
-            } else if missing_columns.len() > 0 {
+            } else if !missing_columns.is_empty() {
                 // If 1-2 columns are missing, list them specifically
                 let missing_names: Vec<String> = missing_columns
                     .iter()
@@ -187,6 +187,7 @@ impl NotificationManager {
     }
 
     /// Send a warning notification
+    #[allow(dead_code)]
     pub fn warning(
         app_handle: &AppHandle,
         title: impl Into<String>,
@@ -204,6 +205,7 @@ impl NotificationManager {
     }
 
     /// Send an info notification
+    #[allow(dead_code)]
     pub fn info(
         app_handle: &AppHandle,
         title: impl Into<String>,
@@ -222,6 +224,7 @@ impl NotificationManager {
 }
 
 /// Trait for validating file structures
+#[allow(dead_code)]
 pub trait FileValidator {
     fn validate(&self, file_path: &std::path::Path) -> Result<ValidationResult, String>;
 }

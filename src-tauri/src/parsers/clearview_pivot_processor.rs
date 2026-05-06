@@ -34,7 +34,7 @@ impl ClearViewPivotProcessor {
         // Find all existing daily files for this week
         let all_daily_files = self
             .get_daily_files_for_week("")
-            .map_err(|e| ParserError::ProcessingError(e))?;
+            .map_err(ParserError::ProcessingError)?;
 
         println!(
             "[DEBUG] Found {} daily files in folder to process",
@@ -100,7 +100,7 @@ impl ClearViewPivotProcessor {
 
     /// Update combined pivot table if weekly report exists
     pub fn update_combined_pivot_if_needed(&self) -> ParserResult<Option<(PivotTable, String)>> {
-        let base_dir = get_excelerate_dir().map_err(|e| ParserError::ProcessingError(e))?;
+        let base_dir = get_excelerate_dir().map_err(ParserError::ProcessingError)?;
 
         // Check if weekly report pivot exists
         let weekly_pivot_path = base_dir
@@ -141,13 +141,13 @@ impl ClearViewPivotProcessor {
 
     /// Load pivot table from CSV file
     fn load_pivot_from_csv(&self, path: &Path) -> ParserResult<PivotTable> {
-        let csv_content = std::fs::read_to_string(path).map_err(|e| ParserError::Io(e))?;
+        let csv_content = std::fs::read_to_string(path).map_err(ParserError::Io)?;
 
         let mut reader = csv::Reader::from_reader(csv_content.as_bytes());
         let mut pivot = PivotTable::new();
 
         for result in reader.records() {
-            let record = result.map_err(|e| ParserError::Csv(e))?;
+            let record = result.map_err(ParserError::Csv)?;
 
             if record.len() >= 5 {
                 let advance_id = record.get(0).unwrap_or("").to_string();
@@ -228,7 +228,7 @@ impl ClearViewPivotProcessor {
         pivot: &PivotTable,
         pivot_type: PivotTableType,
     ) -> ParserResult<String> {
-        let base_dir = get_excelerate_dir().map_err(|e| ParserError::ProcessingError(e))?;
+        let base_dir = get_excelerate_dir().map_err(ParserError::ProcessingError)?;
 
         // Determine subdirectory and filename based on pivot type
         let (sub_dir, filename) = match pivot_type {
@@ -260,13 +260,13 @@ impl ClearViewPivotProcessor {
             .join(sub_dir);
 
         // Ensure directory exists
-        std::fs::create_dir_all(&pivot_dir).map_err(|e| ParserError::Io(e))?;
+        std::fs::create_dir_all(&pivot_dir).map_err(ParserError::Io)?;
 
         let file_path = pivot_dir.join(&filename);
 
         // Convert pivot table to CSV and save
         let csv_content = pivot.to_csv_string()?;
-        std::fs::write(&file_path, csv_content).map_err(|e| ParserError::Io(e))?;
+        std::fs::write(&file_path, csv_content).map_err(ParserError::Io)?;
 
         Ok(file_path.to_string_lossy().to_string())
     }

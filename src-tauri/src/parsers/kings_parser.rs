@@ -6,6 +6,12 @@ use std::path::Path;
 
 pub struct KingsParser;
 
+impl Default for KingsParser {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl KingsParser {
     pub fn new() -> Self {
         KingsParser

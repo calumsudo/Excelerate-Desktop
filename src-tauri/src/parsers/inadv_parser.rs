@@ -7,6 +7,12 @@ pub struct InAdvParser {
     required_columns: Vec<String>,
 }
 
+impl Default for InAdvParser {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl InAdvParser {
     pub fn new() -> Self {
         InAdvParser {
