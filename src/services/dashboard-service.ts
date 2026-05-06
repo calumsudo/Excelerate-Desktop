@@ -1,4 +1,4 @@
-import { invoke } from '@tauri-apps/api/core';
+import { invoke } from "@tauri-apps/api/core";
 
 export interface MerchantData {
   id: string;
@@ -52,18 +52,18 @@ export interface PortfolioSummary {
 
 export async function getPortfolioMerchants(portfolioName: string): Promise<MerchantData[]> {
   try {
-    return await invoke<MerchantData[]>('get_merchants_by_portfolio', { portfolioName });
+    return await invoke<MerchantData[]>("get_merchants_by_portfolio", { portfolioName });
   } catch (error) {
-    console.error('Failed to fetch portfolio merchants:', error);
+    console.error("Failed to fetch portfolio merchants:", error);
     return [];
   }
 }
 
 export async function getDashboardStats(portfolioName?: string): Promise<DashboardStats> {
   try {
-    return await invoke<DashboardStats>('get_dashboard_stats', { portfolioName });
+    return await invoke<DashboardStats>("get_dashboard_stats", { portfolioName });
   } catch (error) {
-    console.error('Failed to fetch dashboard stats:', error);
+    console.error("Failed to fetch dashboard stats:", error);
     return {
       totalMerchants: 0,
       totalFunded: 0,
@@ -77,27 +77,27 @@ export async function getDashboardStats(portfolioName?: string): Promise<Dashboa
 
 export async function getFunderDistribution(portfolioName?: string): Promise<FunderDistribution[]> {
   try {
-    return await invoke<FunderDistribution[]>('get_funder_distribution', { portfolioName });
+    return await invoke<FunderDistribution[]>("get_funder_distribution", { portfolioName });
   } catch (error) {
-    console.error('Failed to fetch funder distribution:', error);
+    console.error("Failed to fetch funder distribution:", error);
     return [];
   }
 }
 
 export async function getMonthlyFundingTrends(portfolioName?: string): Promise<MonthlyFunding[]> {
   try {
-    return await invoke<MonthlyFunding[]>('get_monthly_funding_trends', { portfolioName });
+    return await invoke<MonthlyFunding[]>("get_monthly_funding_trends", { portfolioName });
   } catch (error) {
-    console.error('Failed to fetch monthly funding trends:', error);
+    console.error("Failed to fetch monthly funding trends:", error);
     return [];
   }
 }
 
 export async function getPortfolioSummaries(): Promise<PortfolioSummary[]> {
   try {
-    return await invoke<PortfolioSummary[]>('get_portfolio_summaries');
+    return await invoke<PortfolioSummary[]>("get_portfolio_summaries");
   } catch (error) {
-    console.error('Failed to fetch portfolio summaries:', error);
+    console.error("Failed to fetch portfolio summaries:", error);
     return [];
   }
 }
@@ -105,30 +105,32 @@ export async function getPortfolioSummaries(): Promise<PortfolioSummary[]> {
 export function calculateMetrics(merchants: MerchantData[]) {
   const totalMerchants = merchants.length;
   const totalFunded = merchants.reduce((sum, m) => sum + (m.total_amount_funded || 0), 0);
-  
-  const validBuyRates = merchants.filter(m => m.buy_rate).map(m => m.buy_rate!);
-  const avgBuyRate = validBuyRates.length > 0 
-    ? validBuyRates.reduce((sum, rate) => sum + rate, 0) / validBuyRates.length 
-    : 0;
-  
-  const validCommissions = merchants.filter(m => m.commission).map(m => m.commission!);
-  const avgCommission = validCommissions.length > 0
-    ? validCommissions.reduce((sum, comm) => sum + comm, 0) / validCommissions.length
-    : 0;
-  
-  const uniqueFunders = new Set(merchants.map(m => m.funder_name));
+
+  const validBuyRates = merchants.filter((m) => m.buy_rate).map((m) => m.buy_rate!);
+  const avgBuyRate =
+    validBuyRates.length > 0
+      ? validBuyRates.reduce((sum, rate) => sum + rate, 0) / validBuyRates.length
+      : 0;
+
+  const validCommissions = merchants.filter((m) => m.commission).map((m) => m.commission!);
+  const avgCommission =
+    validCommissions.length > 0
+      ? validCommissions.reduce((sum, comm) => sum + comm, 0) / validCommissions.length
+      : 0;
+
+  const uniqueFunders = new Set(merchants.map((m) => m.funder_name));
   const activeFunders = uniqueFunders.size;
-  
+
   // Count fundings from the last 30 days
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-  
-  const recentFundings = merchants.filter(m => {
+
+  const recentFundings = merchants.filter((m) => {
     if (!m.date_funded) return false;
     const fundedDate = new Date(m.date_funded);
     return fundedDate >= thirtyDaysAgo;
   }).length;
-  
+
   return {
     totalMerchants,
     totalFunded,
@@ -140,14 +142,17 @@ export function calculateMetrics(merchants: MerchantData[]) {
 }
 
 export function groupByFunder(merchants: MerchantData[]): FunderDistribution[] {
-  const funderTotals = merchants.reduce((acc, merchant) => {
-    const amount = merchant.total_amount_funded || 0;
-    acc[merchant.funder_name] = (acc[merchant.funder_name] || 0) + amount;
-    return acc;
-  }, {} as Record<string, number>);
-  
+  const funderTotals = merchants.reduce(
+    (acc, merchant) => {
+      const amount = merchant.total_amount_funded || 0;
+      acc[merchant.funder_name] = (acc[merchant.funder_name] || 0) + amount;
+      return acc;
+    },
+    {} as Record<string, number>
+  );
+
   const totalAmount = Object.values(funderTotals).reduce((sum, amt) => sum + amt, 0);
-  
+
   return Object.entries(funderTotals)
     .map(([name, value]) => ({
       name,
@@ -159,37 +164,40 @@ export function groupByFunder(merchants: MerchantData[]): FunderDistribution[] {
 }
 
 export function getMonthlyTrends(merchants: MerchantData[]): MonthlyFunding[] {
-  const monthlyData = merchants.reduce((acc, merchant) => {
-    if (!merchant.date_funded) return acc;
-    
-    const date = new Date(merchant.date_funded);
-    const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-    
-    if (!acc[monthKey]) {
-      acc[monthKey] = { amount: 0, count: 0 };
-    }
-    
-    acc[monthKey].amount += merchant.total_amount_funded || 0;
-    acc[monthKey].count += 1;
-    
-    return acc;
-  }, {} as Record<string, { amount: number; count: number }>);
-  
+  const monthlyData = merchants.reduce(
+    (acc, merchant) => {
+      if (!merchant.date_funded) return acc;
+
+      const date = new Date(merchant.date_funded);
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+
+      if (!acc[monthKey]) {
+        acc[monthKey] = { amount: 0, count: 0 };
+      }
+
+      acc[monthKey].amount += merchant.total_amount_funded || 0;
+      acc[monthKey].count += 1;
+
+      return acc;
+    },
+    {} as Record<string, { amount: number; count: number }>
+  );
+
   // Get last 6 months
   const months: MonthlyFunding[] = [];
   const now = new Date();
-  
+
   for (let i = 5; i >= 0; i--) {
     const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-    const monthName = date.toLocaleDateString('en-US', { month: 'short' });
-    
+    const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+    const monthName = date.toLocaleDateString("en-US", { month: "short" });
+
     months.push({
       month: monthName,
       amount: monthlyData[monthKey]?.amount || 0,
       count: monthlyData[monthKey]?.count || 0,
     });
   }
-  
+
   return months;
 }

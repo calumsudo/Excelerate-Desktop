@@ -56,18 +56,16 @@ class ToastService {
     return promise
       .then((data) => {
         if (messages.success) {
-          const successMsg = typeof messages.success === "function" 
-            ? messages.success(data) 
-            : messages.success;
+          const successMsg =
+            typeof messages.success === "function" ? messages.success(data) : messages.success;
           this.success(successMsg);
         }
         return data;
       })
       .catch((error) => {
         if (messages.error) {
-          const errorMsg = typeof messages.error === "function" 
-            ? messages.error(error) 
-            : messages.error;
+          const errorMsg =
+            typeof messages.error === "function" ? messages.error(error) : messages.error;
           this.error(errorMsg);
         }
         throw error;

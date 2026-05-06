@@ -12,11 +12,10 @@ impl BhbParser {
         BhbParser {
             funder_name: "BHB".to_string(),
             required_columns: vec![
-                "Deal ID".to_string(),
+                "Deal Id".to_string(),
                 "Deal Name".to_string(),
                 "Participator Gross Amount".to_string(),
                 "Non Qualifying Collections".to_string(),
-                "Total Reversals".to_string(),
                 "Fee".to_string(),
                 "Res. Commission".to_string(),
                 "Net Payment Amount".to_string(),
@@ -62,8 +61,8 @@ impl BaseParser for BhbParser {
     
     fn process_row(&self, row: &HashMap<String, String>) -> ParserResult<Option<ProcessedData>> {
         // Get Deal ID and validate it's numeric
-        let deal_id = row.get("Deal ID")
-            .ok_or_else(|| ParserError::ProcessingError("Missing Deal ID".to_string()))?;
+        let deal_id = row.get("Deal Id")
+            .ok_or_else(|| ParserError::ProcessingError("Missing Deal Id".to_string()))?;
         
         // Skip non-numeric Deal IDs
         if deal_id.parse::<f64>().is_err() {

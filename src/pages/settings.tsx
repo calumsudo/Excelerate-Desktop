@@ -1,5 +1,5 @@
-import { InviteUser } from '@components/auth/invite-user';
-import { useAuth } from '@/contexts/auth-context';
+import { InviteUser } from "@components/auth/invite-user";
+import { useAuth } from "@/contexts/auth-context";
 import { Card, CardBody, CardHeader, Select, SelectItem, Checkbox, Button } from "@heroui/react";
 import { useTheme } from "@/contexts/theme-context";
 import { Icon } from "@iconify/react";
@@ -14,7 +14,7 @@ function Settings() {
   const exportFormats = [
     { value: "csv", label: "CSV" },
     { value: "excel", label: "Excel" },
-    { value: "json", label: "JSON" }
+    { value: "json", label: "JSON" },
   ];
 
   return (
@@ -22,7 +22,7 @@ function Settings() {
       <h1 className="text-3xl font-bold mb-6">Settings</h1>
       <div className="space-y-6 max-w-2xl">
         {/* User Management - Only visible to admins */}
-        {profile?.role === 'admin' && (
+        {profile?.role === "admin" && (
           <Card>
             <CardHeader className="pb-3">
               <h2 className="text-xl font-semibold">User Management</h2>
@@ -74,16 +74,10 @@ function Settings() {
               className="max-w-xs"
             >
               {exportFormats.map((format) => (
-                <SelectItem key={format.value}>
-                  {format.label}
-                </SelectItem>
+                <SelectItem key={format.value}>{format.label}</SelectItem>
               ))}
             </Select>
-            <Checkbox
-              isSelected={autoSave}
-              onValueChange={setAutoSave}
-              className="max-w-full"
-            >
+            <Checkbox isSelected={autoSave} onValueChange={setAutoSave} className="max-w-full">
               <span className="text-sm">Auto-save processed files</span>
             </Checkbox>
           </CardBody>

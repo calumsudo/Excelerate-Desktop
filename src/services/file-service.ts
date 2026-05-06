@@ -160,25 +160,6 @@ export class FileService {
     }
   }
 
-  static async deleteClearViewFile(
-    uploadId: string,
-    portfolioName: string,
-    reportDate: string,
-    isDaily: boolean
-  ): Promise<UploadResponse> {
-    try {
-      return await invoke<UploadResponse>("delete_clearview_file", {
-        uploadId,
-        portfolioName,
-        reportDate,
-        isDaily,
-      });
-    } catch (error) {
-      console.error("Error deleting Clear View file:", error);
-      throw error;
-    }
-  }
-
   static async getPortfolioWorkbookPath(portfolioName: string): Promise<string> {
     try {
       return await invoke<string>("get_portfolio_workbook_path", {
@@ -281,38 +262,6 @@ export class FileService {
     }
   }
 
-  static async processClearViewDailyPivot(
-    portfolioName: string,
-    reportDate: string
-  ): Promise<UploadResponse> {
-    try {
-      const response = await invoke<UploadResponse>("process_clearview_daily_pivot", {
-        portfolioName,
-        reportDate,
-      });
-
-      return response;
-    } catch (error) {
-      console.error("Error processing Clear View daily pivot:", error);
-      throw error;
-    }
-  }
-
-  static async getClearViewDailyFilesForWeek(
-    portfolioName: string,
-    reportDate: string
-  ): Promise<string[]> {
-    try {
-      return await invoke<string[]>("get_clearview_daily_files_for_week", {
-        portfolioName,
-        reportDate,
-      });
-    } catch (error) {
-      console.error("Error getting Clear View daily files:", error);
-      return [];
-    }
-  }
-
   static async updatePortfolioWithNetRtr(
     portfolioName: string,
     reportDate: string
@@ -324,17 +273,23 @@ export class FileService {
       const { PyodideService } = await import("./pyodide-service");
 
       // Process the workbook using Pyodide/openpyxl
-      const result = await PyodideService.updatePortfolioWorkbookWithNetRtr(portfolioName, reportDate);
+      const result = await PyodideService.updatePortfolioWorkbookWithNetRtr(
+        portfolioName,
+        reportDate
+      );
 
       // Log unmatched deals if any
       if (result.unmatchedDeals && result.unmatchedDeals.length > 0) {
-        console.warn(`Found ${result.unmatchedDeals.length} unmatched deals:`, result.unmatchedDeals);
+        console.warn(
+          `Found ${result.unmatchedDeals.length} unmatched deals:`,
+          result.unmatchedDeals
+        );
       }
 
       // Return success response with unmatched deals info
       return {
         success: true,
-        message: `Successfully updated portfolio with Net RTR values for ${reportDate}. File saved successfully.${result.unmatchedDeals.length > 0 ? ` Found ${result.unmatchedDeals.length} unmatched deals.` : ''}`,
+        message: `Successfully updated portfolio with Net RTR values for ${reportDate}. File saved successfully.${result.unmatchedDeals.length > 0 ? ` Found ${result.unmatchedDeals.length} unmatched deals.` : ""}`,
         file_path: result.filePath,
         unmatched_deals: result.unmatchedDeals,
         unmatched_count: result.unmatchedDeals.length,
@@ -367,11 +322,11 @@ export class FileService {
 
       // Don't show duplicate error toast - backend already sends notification
       // Only show error if there's no validation_errors (meaning backend didn't send notification)
-      if (!response.success && (!response.validation_errors || response.validation_errors.length === 0)) {
-        toast.error(
-          `Upload failed: ${file.name}`,
-          response.message
-        );
+      if (
+        !response.success &&
+        (!response.validation_errors || response.validation_errors.length === 0)
+      ) {
+        toast.error(`Upload failed: ${file.name}`, response.message);
       }
 
       return response;
@@ -400,11 +355,11 @@ export class FileService {
 
       // Don't show duplicate error toast - backend already sends notification
       // Only show error if there's no validation_errors (meaning backend didn't send notification)
-      if (!response.success && (!response.validation_errors || response.validation_errors.length === 0)) {
-        toast.error(
-          `Upload failed: ${file.name}`,
-          response.message
-        );
+      if (
+        !response.success &&
+        (!response.validation_errors || response.validation_errors.length === 0)
+      ) {
+        toast.error(`Upload failed: ${file.name}`, response.message);
       }
 
       return response;

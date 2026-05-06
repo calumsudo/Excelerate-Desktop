@@ -1,22 +1,14 @@
-import { useState } from 'react';
-import {
-  Button,
-  Input,
-  Card,
-  CardBody,
-  CardHeader,
-  Select,
-  SelectItem,
-} from '@heroui/react';
-import { useAuth } from '@/contexts/auth-context';
-import { AuthService } from '@services/auth-service';
+import { useState } from "react";
+import { Button, Input, Card, CardBody, CardHeader, Select, SelectItem } from "@heroui/react";
+import { useAuth } from "@/contexts/auth-context";
+import { AuthService } from "@services/auth-service";
 
 export function InviteUser() {
   const { profile } = useAuth();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [fullName, setFullName] = useState('');
-  const [role, setRole] = useState<'admin' | 'member'>('member');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [role, setRole] = useState<"admin" | "member">("member");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -27,13 +19,11 @@ export function InviteUser() {
   const [fullNameError, setFullNameError] = useState<string | null>(null);
 
   // Only admins can invite users
-  if (profile?.role !== 'admin') {
+  if (profile?.role !== "admin") {
     return (
       <Card>
         <CardBody>
-          <p className="text-default-500">
-            Only administrators can invite new users.
-          </p>
+          <p className="text-default-500">Only administrators can invite new users.</p>
         </CardBody>
       </Card>
     );
@@ -41,7 +31,7 @@ export function InviteUser() {
 
   const validateFullName = (value: string): boolean => {
     if (!value || value.trim().length === 0) {
-      setFullNameError('Full name is required');
+      setFullNameError("Full name is required");
       return false;
     }
     setFullNameError(null);
@@ -50,12 +40,12 @@ export function InviteUser() {
 
   const validateEmail = (value: string): boolean => {
     if (!value) {
-      setEmailError('Email is required');
+      setEmailError("Email is required");
       return false;
     }
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(value)) {
-      setEmailError('Please enter a valid email address');
+      setEmailError("Please enter a valid email address");
       return false;
     }
     setEmailError(null);
@@ -64,11 +54,11 @@ export function InviteUser() {
 
   const validatePassword = (value: string): boolean => {
     if (!value) {
-      setPasswordError('Password is required');
+      setPasswordError("Password is required");
       return false;
     }
     if (value.length < 8) {
-      setPasswordError('Password must be at least 8 characters');
+      setPasswordError("Password must be at least 8 characters");
       return false;
     }
     setPasswordError(null);
@@ -104,31 +94,31 @@ export function InviteUser() {
       }
 
       if (!user) {
-        throw new Error('Failed to create user account');
+        throw new Error("Failed to create user account");
       }
 
       // Update the user's role if not member
-      if (role !== 'member') {
+      if (role !== "member") {
         await AuthService.updateUserProfile(user.id, { role });
       }
 
       setSuccess(`User ${fullName} (${email}) has been invited successfully!`);
 
       // Reset form
-      setEmail('');
-      setPassword('');
-      setFullName('');
-      setRole('member');
+      setEmail("");
+      setPassword("");
+      setFullName("");
+      setRole("member");
     } catch (err) {
-      console.error('Invite user error:', err);
+      console.error("Invite user error:", err);
       if (err instanceof Error) {
-        if (err.message.includes('already registered')) {
-          setError('This email is already registered.');
+        if (err.message.includes("already registered")) {
+          setError("This email is already registered.");
         } else {
           setError(err.message);
         }
       } else {
-        setError('Failed to invite user. Please try again.');
+        setError("Failed to invite user. Please try again.");
       }
     } finally {
       setLoading(false);
@@ -139,22 +129,14 @@ export function InviteUser() {
     <Card className="w-full">
       <CardHeader className="flex flex-col gap-1 px-6 pt-6">
         <h2 className="text-xl font-bold">Invite New User</h2>
-        <p className="text-sm text-default-500">
-          Create an account for a new team member
-        </p>
+        <p className="text-sm text-default-500">Create an account for a new team member</p>
       </CardHeader>
       <CardBody className="gap-4 px-6 pb-6">
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          {error && (
-            <div className="rounded-lg bg-danger-50 p-3 text-sm text-danger">
-              {error}
-            </div>
-          )}
+          {error && <div className="rounded-lg bg-danger-50 p-3 text-sm text-danger">{error}</div>}
 
           {success && (
-            <div className="rounded-lg bg-success-50 p-3 text-sm text-success">
-              {success}
-            </div>
+            <div className="rounded-lg bg-success-50 p-3 text-sm text-success">{success}</div>
           )}
 
           <Input
@@ -210,7 +192,7 @@ export function InviteUser() {
             label="Role"
             placeholder="Select a role"
             selectedKeys={[role]}
-            onChange={(e) => setRole(e.target.value as 'admin' | 'member')}
+            onChange={(e) => setRole(e.target.value as "admin" | "member")}
             variant="bordered"
             isRequired
           >
@@ -222,13 +204,8 @@ export function InviteUser() {
             </SelectItem>
           </Select>
 
-          <Button
-            type="submit"
-            color="primary"
-            isLoading={loading}
-            className="w-full"
-          >
-            {loading ? 'Inviting user...' : 'Invite User'}
+          <Button type="submit" color="primary" isLoading={loading} className="w-full">
+            {loading ? "Inviting user..." : "Invite User"}
           </Button>
         </form>
       </CardBody>

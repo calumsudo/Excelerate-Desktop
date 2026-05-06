@@ -44,18 +44,13 @@ export default function ToastNotification({
       transition={{ duration: 0.2, ease: "easeOut" }}
       className="pointer-events-auto"
     >
-      <Card
-        className={`min-w-[320px] max-w-[400px] border-1 ${colors[type]} shadow-lg`}
-        isBlurred
-      >
+      <Card className={`min-w-[320px] max-w-[400px] border-1 ${colors[type]} shadow-lg`} isBlurred>
         <CardBody className="p-4">
           <div className="flex items-start gap-3">
             <Icon icon={iconName} className={`w-5 h-5 mt-0.5 flex-shrink-0 ${iconColors[type]}`} />
             <div className="flex-1 min-w-0">
               <p className="font-semibold text-sm">{title}</p>
-              {description && (
-                <p className="text-xs mt-1 opacity-90">{description}</p>
-              )}
+              {description && <p className="text-xs mt-1 opacity-90">{description}</p>}
             </div>
             <Button
               isIconOnly

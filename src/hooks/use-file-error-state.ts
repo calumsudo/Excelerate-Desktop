@@ -13,9 +13,7 @@ export function useFileErrorState() {
 
   const setWorkbookErrorState = useCallback((hasError: boolean, message?: string) => {
     // Simplify the message for display in the UI component
-    const simplifiedMessage = message && message.length > 50 
-      ? "Invalid file format" 
-      : message;
+    const simplifiedMessage = message && message.length > 50 ? "Invalid file format" : message;
     setWorkbookError({ hasError, message: simplifiedMessage });
     if (!hasError) {
       // Clear error after a moment when it's resolved
@@ -24,17 +22,21 @@ export function useFileErrorState() {
   }, []);
 
   const setFunderErrorState = useCallback(
-    (type: "weekly" | "monthly" | "daily", funderName: string, hasError: boolean, message?: string) => {
-      const setter = type === "weekly" 
-        ? setWeeklyErrorStates 
-        : type === "monthly" 
-        ? setMonthlyErrorStates 
-        : setDailyErrorStates;
+    (
+      type: "weekly" | "monthly" | "daily",
+      funderName: string,
+      hasError: boolean,
+      message?: string
+    ) => {
+      const setter =
+        type === "weekly"
+          ? setWeeklyErrorStates
+          : type === "monthly"
+            ? setMonthlyErrorStates
+            : setDailyErrorStates;
 
       // Simplify the message for display in the UI component
-      const simplifiedMessage = message && message.length > 50 
-        ? "Invalid file format" 
-        : message;
+      const simplifiedMessage = message && message.length > 50 ? "Invalid file format" : message;
 
       setter((prev) => ({
         ...prev,

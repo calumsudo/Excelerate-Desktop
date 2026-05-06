@@ -38,9 +38,7 @@ export function UnmatchedDealsModal({
 }: UnmatchedDealsModalProps) {
   const [unmatchedDeals, setUnmatchedDeals] = useState<UnmatchedDeal[]>([]);
   const [loading, setLoading] = useState(false);
-  const [selectedPortfolio, setSelectedPortfolio] = useState<string>(
-    defaultPortfolio || "all"
-  );
+  const [selectedPortfolio, setSelectedPortfolio] = useState<string>(defaultPortfolio || "all");
   const [selectedDate, setSelectedDate] = useState<string>(defaultDate || "");
   const [hasSearched, setHasSearched] = useState(false);
 
@@ -102,9 +100,7 @@ export function UnmatchedDealsModal({
         deal.sum_of_syn_net_amount.toFixed(2),
       ]);
 
-      const csvContent = [headers.join(","), ...rows.map((row) => row.join(","))].join(
-        "\n"
-      );
+      const csvContent = [headers.join(","), ...rows.map((row) => row.join(","))].join("\n");
 
       // Use Tauri's save dialog
       const defaultFileName = `unmatched_deals_${new Date().toISOString().split("T")[0]}.csv`;
@@ -128,26 +124,12 @@ export function UnmatchedDealsModal({
     }
   };
 
-  const totalGross = unmatchedDeals.reduce(
-    (sum, deal) => sum + deal.sum_of_syn_gross_amount,
-    0
-  );
-  const totalFees = unmatchedDeals.reduce(
-    (sum, deal) => sum + deal.total_servicing_fee,
-    0
-  );
-  const totalNet = unmatchedDeals.reduce(
-    (sum, deal) => sum + deal.sum_of_syn_net_amount,
-    0
-  );
+  const totalGross = unmatchedDeals.reduce((sum, deal) => sum + deal.sum_of_syn_gross_amount, 0);
+  const totalFees = unmatchedDeals.reduce((sum, deal) => sum + deal.total_servicing_fee, 0);
+  const totalNet = unmatchedDeals.reduce((sum, deal) => sum + deal.sum_of_syn_net_amount, 0);
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onOpenChange={onOpenChange}
-      size="5xl"
-      scrollBehavior="inside"
-    >
+    <Modal isOpen={isOpen} onOpenChange={onOpenChange} size="5xl" scrollBehavior="inside">
       <ModalContent>
         {(onClose) => (
           <>
@@ -166,15 +148,9 @@ export function UnmatchedDealsModal({
                   onChange={(e) => setSelectedPortfolio(e.target.value)}
                   className="max-w-xs"
                 >
-                  <SelectItem key="all">
-                    All Portfolios
-                  </SelectItem>
-                  <SelectItem key="Alder">
-                    Alder
-                  </SelectItem>
-                  <SelectItem key="White Rabbit">
-                    White Rabbit
-                  </SelectItem>
+                  <SelectItem key="all">All Portfolios</SelectItem>
+                  <SelectItem key="Alder">Alder</SelectItem>
+                  <SelectItem key="White Rabbit">White Rabbit</SelectItem>
                 </Select>
 
                 <div className="flex flex-col gap-2 flex-1">
@@ -220,19 +196,31 @@ export function UnmatchedDealsModal({
                         <div>
                           <span className="text-default-600">Total Gross:</span>
                           <p className="font-semibold">
-                            ${totalGross.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            $
+                            {totalGross.toLocaleString(undefined, {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
                           </p>
                         </div>
                         <div>
                           <span className="text-default-600">Total Fees:</span>
                           <p className="font-semibold">
-                            ${totalFees.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            $
+                            {totalFees.toLocaleString(undefined, {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
                           </p>
                         </div>
                         <div>
                           <span className="text-default-600">Total Net:</span>
                           <p className="font-semibold">
-                            ${totalNet.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            $
+                            {totalNet.toLocaleString(undefined, {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
                           </p>
                         </div>
                       </div>
@@ -252,17 +240,11 @@ export function UnmatchedDealsModal({
               {/* No Results */}
               {!loading && hasSearched && unmatchedDeals.length === 0 && (
                 <div className="p-8 bg-success-50 dark:bg-success-100/10 border border-success-200 dark:border-success-200/20 rounded-lg text-center">
-                  <Icon
-                    icon="mdi:check-circle"
-                    className="text-success mx-auto mb-2"
-                    width={48}
-                  />
+                  <Icon icon="mdi:check-circle" className="text-success mx-auto mb-2" width={48} />
                   <p className="text-success-700 dark:text-success-500 text-lg font-semibold">
                     All deals have matching merchant records!
                   </p>
-                  <p className="text-default-600 text-sm mt-1">
-                    No unmatched deals found.
-                  </p>
+                  <p className="text-default-600 text-sm mt-1">No unmatched deals found.</p>
                 </div>
               )}
 
@@ -300,12 +282,8 @@ export function UnmatchedDealsModal({
                               {deal.upload_type}
                             </Chip>
                           </TableCell>
-                          <TableCell className="font-mono text-sm">
-                            {deal.advance_id}
-                          </TableCell>
-                          <TableCell className="font-medium">
-                            {deal.merchant_name}
-                          </TableCell>
+                          <TableCell className="font-mono text-sm">{deal.advance_id}</TableCell>
+                          <TableCell className="font-medium">{deal.merchant_name}</TableCell>
                           <TableCell className="text-right font-mono text-sm">
                             $
                             {deal.sum_of_syn_gross_amount.toLocaleString(undefined, {
@@ -337,11 +315,7 @@ export function UnmatchedDealsModal({
               {/* Initial State */}
               {!loading && !hasSearched && (
                 <div className="py-12 text-center text-default-500">
-                  <Icon
-                    icon="mdi:magnify"
-                    className="mx-auto mb-3"
-                    width={64}
-                  />
+                  <Icon icon="mdi:magnify" className="mx-auto mb-3" width={64} />
                   <p className="text-lg">Select filters and click Search to find unmatched deals</p>
                 </div>
               )}

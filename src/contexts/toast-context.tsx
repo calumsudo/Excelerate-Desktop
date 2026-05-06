@@ -26,7 +26,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const showToast = useCallback((toast: Omit<Toast, "id">) => {
     const id = Date.now().toString();
     const newToast = { ...toast, id };
-    
+
     setToasts((prev) => [...prev, newToast]);
 
     // Don't auto-dismiss error toasts - require manual dismissal
@@ -54,11 +54,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       <div className="fixed top-4 right-4 z-50 flex flex-col gap-2 pointer-events-none">
         <AnimatePresence>
           {toasts.map((toast) => (
-            <ToastNotification
-              key={toast.id}
-              {...toast}
-              onClose={() => hideToast(toast.id)}
-            />
+            <ToastNotification key={toast.id} {...toast} onClose={() => hideToast(toast.id)} />
           ))}
         </AnimatePresence>
       </div>

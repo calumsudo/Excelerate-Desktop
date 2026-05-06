@@ -15,10 +15,24 @@ import {
   Tab,
   Tabs,
   Spacer,
-  cn
+  cn,
 } from "@heroui/react";
 import { Icon } from "@iconify/react";
-import { ResponsiveContainer, PieChart, Pie, Tooltip, Cell, Label, BarChart, Bar, XAxis, YAxis, Area, AreaChart, CartesianGrid } from "recharts";
+import {
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Tooltip,
+  Cell,
+  Label,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Area,
+  AreaChart,
+  CartesianGrid,
+} from "recharts";
 import {
   MerchantData,
   FunderDistribution,
@@ -26,7 +40,7 @@ import {
   getPortfolioMerchants,
   calculateMetrics,
   groupByFunder,
-  getMonthlyTrends
+  getMonthlyTrends,
 } from "@services/dashboard-service";
 
 type PortfolioOption = "all" | "alder" | "white-rabbit";
@@ -52,18 +66,18 @@ function Dashboard() {
       setError(null);
       try {
         let allMerchants: MerchantData[] = [];
-        
+
         if (selectedPortfolio === "all") {
           const [alderData, whiteRabbitData] = await Promise.all([
             getPortfolioMerchants("Alder"),
-            getPortfolioMerchants("White Rabbit")
+            getPortfolioMerchants("White Rabbit"),
           ]);
           allMerchants = [...alderData, ...whiteRabbitData];
         } else {
           const portfolioName = selectedPortfolio === "alder" ? "Alder" : "White Rabbit";
           allMerchants = await getPortfolioMerchants(portfolioName);
         }
-        
+
         setMerchants(allMerchants);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load data");
@@ -86,7 +100,7 @@ function Dashboard() {
       change: "New this month",
       changeType: "positive",
       trendType: "up",
-      icon: "solar:users-group-rounded-bold"
+      icon: "solar:users-group-rounded-bold",
     },
     {
       title: "Total Funded",
@@ -94,7 +108,7 @@ function Dashboard() {
       change: "12.5%",
       changeType: "positive",
       trendType: "up",
-      icon: "solar:dollar-bold"
+      icon: "solar:dollar-bold",
     },
     {
       title: "Avg Buy Rate",
@@ -102,7 +116,7 @@ function Dashboard() {
       change: "0.2%",
       changeType: "neutral",
       trendType: "neutral",
-      icon: "solar:chart-bold"
+      icon: "solar:chart-bold",
     },
     {
       title: "Active Funders",
@@ -110,7 +124,7 @@ function Dashboard() {
       change: `${stats.recentFundings} recent`,
       changeType: stats.recentFundings > 0 ? "positive" : "neutral",
       trendType: stats.recentFundings > 0 ? "up" : "neutral",
-      icon: "solar:buildings-bold"
+      icon: "solar:buildings-bold",
     },
   ];
 
@@ -152,14 +166,14 @@ function Dashboard() {
       {/* Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         {/* Funder Distribution Pie Chart */}
-        <FunderDistributionChart 
-          data={funderDistribution} 
+        <FunderDistributionChart
+          data={funderDistribution}
           loading={loading}
           title="Funding Distribution by Partner"
         />
 
         {/* Monthly Trends Bar Chart */}
-        <MonthlyFundingChart 
+        <MonthlyFundingChart
           data={monthlyTrends}
           loading={loading}
           title="Monthly Funding Trends"
@@ -167,23 +181,24 @@ function Dashboard() {
       </div>
 
       {/* Comprehensive Funding Analytics */}
-      <FundingAnalyticsChart
-        merchants={merchants}
-        loading={loading}
-      />
+      <FundingAnalyticsChart merchants={merchants} loading={loading} />
 
       {/* Funder Specific Stats Section */}
       <div className="space-y-6">
         <h2 className="text-xl font-semibold">Funder Performance Details</h2>
-        
+
         {/* Top Funders Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {funderDistribution.slice(0, 6).map((funder, index) => (
-            <FunderStatCard 
+            <FunderStatCard
               key={funder.name}
               funder={funder}
-              merchants={merchants.filter(m => m.funder_name === funder.name)}
-              color={["primary", "secondary", "success", "warning", "danger", "default"][index % 6] as any}
+              merchants={merchants.filter((m) => m.funder_name === funder.name)}
+              color={
+                ["primary", "secondary", "success", "warning", "danger", "default"][
+                  index % 6
+                ] as any
+              }
               loading={loading}
             />
           ))}
@@ -191,27 +206,26 @@ function Dashboard() {
 
         {/* State Distribution and Industry Breakdown */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <StateDistributionChart 
-            merchants={merchants}
-            loading={loading}
-          />
-          <IndustryBreakdownChart
-            merchants={merchants}
-            loading={loading}
-          />
+          <StateDistributionChart merchants={merchants} loading={loading} />
+          <IndustryBreakdownChart merchants={merchants} loading={loading} />
         </div>
 
         {/* Funder Comparison Table */}
-        <FunderComparisonTable 
-          merchants={merchants}
-          loading={loading}
-        />
+        <FunderComparisonTable merchants={merchants} loading={loading} />
       </div>
     </div>
   );
 }
 
-const TrendCard = ({ title, value, change, changeType, trendType, icon, loading }: TrendCardProps & { loading?: boolean }) => {
+const TrendCard = ({
+  title,
+  value,
+  change,
+  changeType,
+  trendType,
+  icon,
+  loading,
+}: TrendCardProps & { loading?: boolean }) => {
   if (loading) {
     return (
       <Card className="dark:border-default-100 border border-transparent">
@@ -244,7 +258,11 @@ const TrendCard = ({ title, value, change, changeType, trendType, icon, loading 
               content: "font-medium text-[0.65rem]",
             }}
             color={
-              changeType === "positive" ? "success" : changeType === "neutral" ? "warning" : "danger"
+              changeType === "positive"
+                ? "success"
+                : changeType === "neutral"
+                  ? "warning"
+                  : "danger"
             }
             radius="sm"
             size="sm"
@@ -267,12 +285,12 @@ const TrendCard = ({ title, value, change, changeType, trendType, icon, loading 
   );
 };
 
-const FunderDistributionChart = ({ 
-  data, 
-  loading, 
-  title 
-}: { 
-  data: FunderDistribution[]; 
+const FunderDistributionChart = ({
+  data,
+  loading,
+  title,
+}: {
+  data: FunderDistribution[];
   loading: boolean;
   title: string;
 }) => {
@@ -328,7 +346,7 @@ const FunderDistributionChart = ({
           <span className="text-medium text-default-500 font-medium">total</span>
         </dd>
       </div>
-      
+
       {data.length > 0 ? (
         <>
           <ResponsiveContainer
@@ -340,7 +358,7 @@ const FunderDistributionChart = ({
               <Tooltip
                 content={({ payload }) => {
                   if (!payload || payload.length === 0) return null;
-                  
+
                   return (
                     <div className="rounded-medium bg-background text-tiny shadow-small p-2">
                       {payload.map((entry, index) => (
@@ -351,7 +369,7 @@ const FunderDistributionChart = ({
                           />
                           <span className="text-default-500">{entry.name}:</span>
                           <span className="text-default-700 font-medium">
-                            ${(entry.value as number / 1000000).toFixed(2)}M
+                            ${((entry.value as number) / 1000000).toFixed(2)}M
                           </span>
                         </div>
                       ))}
@@ -435,11 +453,11 @@ const FunderDistributionChart = ({
   );
 };
 
-const MonthlyFundingChart = ({ 
-  data, 
-  loading, 
-  title 
-}: { 
+const MonthlyFundingChart = ({
+  data,
+  loading,
+  title,
+}: {
   data: MonthlyFunding[];
   loading: boolean;
   title: string;
@@ -486,7 +504,7 @@ const MonthlyFundingChart = ({
             </DropdownMenu>
           </Dropdown>
         </div>
-        
+
         {data.length > 0 ? (
           <ResponsiveContainer
             className="[&_.recharts-surface]:outline-hidden"
@@ -522,11 +540,9 @@ const MonthlyFundingChart = ({
                       <div className="rounded-medium bg-background text-tiny shadow-small p-2">
                         <p className="font-medium">{label}</p>
                         <p className="text-default-500">
-                          Amount: ${(payload[0].value as number / 1000000).toFixed(2)}M
+                          Amount: ${((payload[0].value as number) / 1000000).toFixed(2)}M
                         </p>
-                        <p className="text-default-500">
-                          Deals: {payload[0].payload.count}
-                        </p>
+                        <p className="text-default-500">Deals: {payload[0].payload.count}</p>
                       </div>
                     );
                   }
@@ -555,12 +571,12 @@ const MonthlyFundingChart = ({
 };
 
 // Funder-specific stat card component
-const FunderStatCard = ({ 
-  funder, 
-  merchants, 
-  color, 
-  loading 
-}: { 
+const FunderStatCard = ({
+  funder,
+  merchants,
+  color,
+  loading,
+}: {
   funder: FunderDistribution;
   merchants: MerchantData[];
   color: "primary" | "secondary" | "success" | "warning" | "danger" | "default";
@@ -581,16 +597,20 @@ const FunderStatCard = ({
     );
   }
 
-  const avgBuyRate = merchants.length > 0
-    ? merchants.filter(m => m.buy_rate).reduce((sum, m) => sum + (m.buy_rate || 0), 0) / merchants.filter(m => m.buy_rate).length
-    : 0;
+  const avgBuyRate =
+    merchants.length > 0
+      ? merchants.filter((m) => m.buy_rate).reduce((sum, m) => sum + (m.buy_rate || 0), 0) /
+        merchants.filter((m) => m.buy_rate).length
+      : 0;
 
-  const avgCommission = merchants.length > 0
-    ? merchants.filter(m => m.commission).reduce((sum, m) => sum + (m.commission || 0), 0) / merchants.filter(m => m.commission).length
-    : 0;
+  const avgCommission =
+    merchants.length > 0
+      ? merchants.filter((m) => m.commission).reduce((sum, m) => sum + (m.commission || 0), 0) /
+        merchants.filter((m) => m.commission).length
+      : 0;
 
-  const states = [...new Set(merchants.filter(m => m.state).map(m => m.state!))];
-  const recentDeals = merchants.filter(m => {
+  const states = [...new Set(merchants.filter((m) => m.state).map((m) => m.state!))];
+  const recentDeals = merchants.filter((m) => {
     if (!m.date_funded) return false;
     const date = new Date(m.date_funded);
     const thirtyDaysAgo = new Date();
@@ -606,12 +626,7 @@ const FunderStatCard = ({
             <h3 className="text-medium font-semibold">{funder.name}</h3>
             <p className="text-small text-default-500">{merchants.length} merchants</p>
           </div>
-          <Chip
-            color={color}
-            size="sm"
-            variant="flat"
-            className="text-tiny"
-          >
+          <Chip color={color} size="sm" variant="flat" className="text-tiny">
             {(funder.percentage || 0).toFixed(1)}%
           </Chip>
         </div>
@@ -619,28 +634,30 @@ const FunderStatCard = ({
         <div className="space-y-3">
           <div className="flex justify-between items-center">
             <span className="text-small text-default-500">Total Funded</span>
-            <span className="text-small font-semibold">${(funder.value / 1000000).toFixed(2)}M</span>
+            <span className="text-small font-semibold">
+              ${(funder.value / 1000000).toFixed(2)}M
+            </span>
           </div>
-          
+
           <div className="flex justify-between items-center">
             <span className="text-small text-default-500">Avg Buy Rate</span>
             <span className="text-small font-semibold">{(avgBuyRate * 100).toFixed(2)}%</span>
           </div>
-          
+
           <div className="flex justify-between items-center">
             <span className="text-small text-default-500">Avg Commission</span>
             <span className="text-small font-semibold">{(avgCommission * 100).toFixed(2)}%</span>
           </div>
-          
+
           <div className="flex justify-between items-center">
             <span className="text-small text-default-500">Recent Deals (30d)</span>
             <span className="text-small font-semibold">{recentDeals}</span>
           </div>
-          
+
           <div className="pt-2 border-t border-default-100">
             <p className="text-tiny text-default-500 mb-1">Active States ({states.length})</p>
             <div className="flex flex-wrap gap-1">
-              {states.slice(0, 5).map(state => (
+              {states.slice(0, 5).map((state) => (
                 <Chip key={state} size="sm" variant="flat" className="text-tiny h-5">
                   {state}
                 </Chip>
@@ -659,29 +676,29 @@ const FunderStatCard = ({
 };
 
 // State Distribution Chart Component
-const StateDistributionChart = ({ 
-  merchants, 
-  loading 
-}: { 
+const StateDistributionChart = ({
+  merchants,
+  loading,
+}: {
   merchants: MerchantData[];
   loading: boolean;
 }) => {
   const stateData = useMemo(() => {
     const stateCounts: Record<string, number> = {};
     const stateAmounts: Record<string, number> = {};
-    
-    merchants.forEach(m => {
+
+    merchants.forEach((m) => {
       if (m.state) {
         stateCounts[m.state] = (stateCounts[m.state] || 0) + 1;
         stateAmounts[m.state] = (stateAmounts[m.state] || 0) + (m.total_amount_funded || 0);
       }
     });
-    
+
     return Object.entries(stateCounts)
       .map(([state, count]) => ({
         state,
         count,
-        amount: stateAmounts[state] || 0
+        amount: stateAmounts[state] || 0,
       }))
       .sort((a, b) => b.amount - a.amount)
       .slice(0, 10);
@@ -705,8 +722,10 @@ const StateDistributionChart = ({
   return (
     <Card className="dark:border-default-100 min-h-[340px] border border-transparent">
       <div className="flex flex-col gap-y-4 p-4">
-        <h3 className="text-small text-default-500 font-medium">Geographic Distribution (Top 10 States)</h3>
-        
+        <h3 className="text-small text-default-500 font-medium">
+          Geographic Distribution (Top 10 States)
+        </h3>
+
         {stateData.length > 0 ? (
           <ResponsiveContainer
             className="[&_.recharts-surface]:outline-hidden"
@@ -724,12 +743,12 @@ const StateDistributionChart = ({
                 bottom: 5,
               }}
             >
-              <XAxis 
+              <XAxis
                 type="number"
                 tickFormatter={(value) => `$${(value / 1000000).toFixed(1)}M`}
                 style={{ fontSize: "var(--heroui-font-size-tiny)" }}
               />
-              <YAxis 
+              <YAxis
                 type="category"
                 dataKey="state"
                 style={{ fontSize: "var(--heroui-font-size-tiny)" }}
@@ -741,11 +760,9 @@ const StateDistributionChart = ({
                       <div className="rounded-medium bg-background text-tiny shadow-small p-2">
                         <p className="font-medium">{label}</p>
                         <p className="text-default-500">
-                          Amount: ${(payload[0].value as number / 1000000).toFixed(2)}M
+                          Amount: ${((payload[0].value as number) / 1000000).toFixed(2)}M
                         </p>
-                        <p className="text-default-500">
-                          Deals: {payload[0].payload.count}
-                        </p>
+                        <p className="text-default-500">Deals: {payload[0].payload.count}</p>
                       </div>
                     );
                   }
@@ -773,36 +790,37 @@ const StateDistributionChart = ({
 };
 
 // Industry Breakdown Chart Component
-const IndustryBreakdownChart = ({ 
-  merchants, 
-  loading 
-}: { 
+const IndustryBreakdownChart = ({
+  merchants,
+  loading,
+}: {
   merchants: MerchantData[];
   loading: boolean;
 }) => {
   const industryData = useMemo(() => {
     const industryCounts: Record<string, number> = {};
     const industryAmounts: Record<string, number> = {};
-    
-    merchants.forEach(m => {
+
+    merchants.forEach((m) => {
       if (m.industry_naics_or_sic) {
         // Extract industry name (remove codes if present)
-        const industry = m.industry_naics_or_sic.replace(/^\d+:?\s*/, '').trim();
+        const industry = m.industry_naics_or_sic.replace(/^\d+:?\s*/, "").trim();
         if (industry) {
           industryCounts[industry] = (industryCounts[industry] || 0) + 1;
-          industryAmounts[industry] = (industryAmounts[industry] || 0) + (m.total_amount_funded || 0);
+          industryAmounts[industry] =
+            (industryAmounts[industry] || 0) + (m.total_amount_funded || 0);
         }
       }
     });
-    
+
     const totalAmount = Object.values(industryAmounts).reduce((sum, amt) => sum + amt, 0);
-    
+
     return Object.entries(industryCounts)
       .map(([industry, count]) => ({
-        name: industry.length > 20 ? industry.substring(0, 20) + '...' : industry,
+        name: industry.length > 20 ? industry.substring(0, 20) + "..." : industry,
         value: industryAmounts[industry] || 0,
         count,
-        percentage: totalAmount > 0 ? (industryAmounts[industry] / totalAmount) * 100 : 0
+        percentage: totalAmount > 0 ? (industryAmounts[industry] / totalAmount) * 100 : 0,
       }))
       .sort((a, b) => b.value - a.value)
       .slice(0, 6);
@@ -829,7 +847,7 @@ const IndustryBreakdownChart = ({
     <Card className="dark:border-default-100 min-h-[340px] border border-transparent">
       <div className="flex flex-col gap-y-2 p-4 pb-0">
         <h3 className="text-small text-default-500 font-medium">Industry Distribution (Top 6)</h3>
-        
+
         {industryData.length > 0 ? (
           <>
             <ResponsiveContainer
@@ -841,18 +859,16 @@ const IndustryBreakdownChart = ({
                 <Tooltip
                   content={({ payload }) => {
                     if (!payload || payload.length === 0) return null;
-                    
+
                     return (
                       <div className="rounded-medium bg-background text-tiny shadow-small p-2">
                         {payload.map((entry, index) => (
                           <div key={index}>
                             <p className="font-medium">{entry.name}</p>
                             <p className="text-default-500">
-                              Amount: ${(entry.value as number / 1000000).toFixed(2)}M
+                              Amount: ${((entry.value as number) / 1000000).toFixed(2)}M
                             </p>
-                            <p className="text-default-500">
-                              Deals: {entry.payload.count}
-                            </p>
+                            <p className="text-default-500">Deals: {entry.payload.count}</p>
                             <p className="text-default-500">
                               Share: {entry.payload.percentage.toFixed(1)}%
                             </p>
@@ -911,10 +927,10 @@ const IndustryBreakdownChart = ({
 };
 
 // Funder comparison table component
-const FunderComparisonTable = ({ 
-  merchants, 
-  loading 
-}: { 
+const FunderComparisonTable = ({
+  merchants,
+  loading,
+}: {
   merchants: MerchantData[];
   loading: boolean;
 }) => {
@@ -933,59 +949,70 @@ const FunderComparisonTable = ({
   // Group merchants by funder and calculate metrics
   const funderMetrics = useMemo(() => {
     const grouped: Record<string, MerchantData[]> = {};
-    merchants.forEach(m => {
+    merchants.forEach((m) => {
       if (!grouped[m.funder_name]) grouped[m.funder_name] = [];
       grouped[m.funder_name].push(m);
     });
 
-    return Object.entries(grouped).map(([name, funMerchants]) => {
-      const totalFunded = funMerchants.reduce((sum, m) => sum + (m.total_amount_funded || 0), 0);
-      const avgBuyRate = funMerchants.filter(m => m.buy_rate).length > 0
-        ? funMerchants.filter(m => m.buy_rate).reduce((sum, m) => sum + (m.buy_rate || 0), 0) / funMerchants.filter(m => m.buy_rate).length
-        : 0;
-      const avgCommission = funMerchants.filter(m => m.commission).length > 0
-        ? funMerchants.filter(m => m.commission).reduce((sum, m) => sum + (m.commission || 0), 0) / funMerchants.filter(m => m.commission).length
-        : 0;
-      
-      // Calculate average FICO score
-      const ficoScores = funMerchants
-        .filter(m => m.fico)
-        .map(m => parseInt(m.fico!))
-        .filter(score => !isNaN(score));
-      const avgFico = ficoScores.length > 0
-        ? Math.round(ficoScores.reduce((sum, score) => sum + score, 0) / ficoScores.length)
-        : 0;
+    return Object.entries(grouped)
+      .map(([name, funMerchants]) => {
+        const totalFunded = funMerchants.reduce((sum, m) => sum + (m.total_amount_funded || 0), 0);
+        const avgBuyRate =
+          funMerchants.filter((m) => m.buy_rate).length > 0
+            ? funMerchants
+                .filter((m) => m.buy_rate)
+                .reduce((sum, m) => sum + (m.buy_rate || 0), 0) /
+              funMerchants.filter((m) => m.buy_rate).length
+            : 0;
+        const avgCommission =
+          funMerchants.filter((m) => m.commission).length > 0
+            ? funMerchants
+                .filter((m) => m.commission)
+                .reduce((sum, m) => sum + (m.commission || 0), 0) /
+              funMerchants.filter((m) => m.commission).length
+            : 0;
 
-      // Count deals by time period
-      const now = new Date();
-      const lastWeek = funMerchants.filter(m => {
-        if (!m.date_funded) return false;
-        const date = new Date(m.date_funded);
-        const weekAgo = new Date(now);
-        weekAgo.setDate(weekAgo.getDate() - 7);
-        return date >= weekAgo;
-      }).length;
+        // Calculate average FICO score
+        const ficoScores = funMerchants
+          .filter((m) => m.fico)
+          .map((m) => parseInt(m.fico!))
+          .filter((score) => !isNaN(score));
+        const avgFico =
+          ficoScores.length > 0
+            ? Math.round(ficoScores.reduce((sum, score) => sum + score, 0) / ficoScores.length)
+            : 0;
 
-      const lastMonth = funMerchants.filter(m => {
-        if (!m.date_funded) return false;
-        const date = new Date(m.date_funded);
-        const monthAgo = new Date(now);
-        monthAgo.setDate(monthAgo.getDate() - 30);
-        return date >= monthAgo;
-      }).length;
+        // Count deals by time period
+        const now = new Date();
+        const lastWeek = funMerchants.filter((m) => {
+          if (!m.date_funded) return false;
+          const date = new Date(m.date_funded);
+          const weekAgo = new Date(now);
+          weekAgo.setDate(weekAgo.getDate() - 7);
+          return date >= weekAgo;
+        }).length;
 
-      return {
-        name,
-        merchantCount: funMerchants.length,
-        totalFunded,
-        avgBuyRate,
-        avgCommission,
-        avgFico,
-        lastWeek,
-        lastMonth,
-        avgDealSize: funMerchants.length > 0 ? totalFunded / funMerchants.length : 0
-      };
-    }).sort((a, b) => b.totalFunded - a.totalFunded);
+        const lastMonth = funMerchants.filter((m) => {
+          if (!m.date_funded) return false;
+          const date = new Date(m.date_funded);
+          const monthAgo = new Date(now);
+          monthAgo.setDate(monthAgo.getDate() - 30);
+          return date >= monthAgo;
+        }).length;
+
+        return {
+          name,
+          merchantCount: funMerchants.length,
+          totalFunded,
+          avgBuyRate,
+          avgCommission,
+          avgFico,
+          lastWeek,
+          lastMonth,
+          avgDealSize: funMerchants.length > 0 ? totalFunded / funMerchants.length : 0,
+        };
+      })
+      .sort((a, b) => b.totalFunded - a.totalFunded);
   }, [merchants]);
 
   return (
@@ -1009,7 +1036,10 @@ const FunderComparisonTable = ({
             </thead>
             <tbody>
               {funderMetrics.map((funder, index) => (
-                <tr key={funder.name} className={index !== funderMetrics.length - 1 ? "border-b border-default-50" : ""}>
+                <tr
+                  key={funder.name}
+                  className={index !== funderMetrics.length - 1 ? "border-b border-default-50" : ""}
+                >
                   <td className="py-2 pr-4 font-medium">{funder.name}</td>
                   <td className="py-2 px-2 text-right">{funder.merchantCount}</td>
                   <td className="py-2 px-2 text-right font-medium">
@@ -1019,8 +1049,10 @@ const FunderComparisonTable = ({
                     ${(funder.avgDealSize / 1000).toFixed(1)}K
                   </td>
                   <td className="py-2 px-2 text-right">{(funder.avgBuyRate * 100).toFixed(2)}%</td>
-                  <td className="py-2 px-2 text-right">{(funder.avgCommission * 100).toFixed(2)}%</td>
-                  <td className="py-2 px-2 text-right">{funder.avgFico || '-'}</td>
+                  <td className="py-2 px-2 text-right">
+                    {(funder.avgCommission * 100).toFixed(2)}%
+                  </td>
+                  <td className="py-2 px-2 text-right">{funder.avgFico || "-"}</td>
                   <td className="py-2 px-2 text-right">
                     <Chip size="sm" variant="flat" className="text-tiny">
                       {funder.lastWeek}
@@ -1044,78 +1076,90 @@ const FunderComparisonTable = ({
 // Comprehensive Funding Analytics Component (like graph-2)
 const FundingAnalyticsChart = ({
   merchants,
-  loading
+  loading,
 }: {
   merchants: MerchantData[];
   loading: boolean;
 }) => {
-  const [timeRange, setTimeRange] = useState<'6-months' | '3-months' | '30-days' | '7-days'>('6-months');
-  const [activeMetric, setActiveMetric] = useState<'total-funded' | 'deal-count' | 'avg-deal-size' | 'commission-rate'>('total-funded');
+  const [timeRange, setTimeRange] = useState<"6-months" | "3-months" | "30-days" | "7-days">(
+    "6-months"
+  );
+  const [activeMetric, setActiveMetric] = useState<
+    "total-funded" | "deal-count" | "avg-deal-size" | "commission-rate"
+  >("total-funded");
 
   // Calculate analytics data based on merchants
   const analyticsData = useMemo(() => {
     const now = new Date();
     const ranges = {
-      '6-months': 180,
-      '3-months': 90,
-      '30-days': 30,
-      '7-days': 7
+      "6-months": 180,
+      "3-months": 90,
+      "30-days": 30,
+      "7-days": 7,
     };
-    
+
     const daysBack = ranges[timeRange];
     const startDate = new Date(now);
     startDate.setDate(startDate.getDate() - daysBack);
-    
+
     // Group merchants by month
-    const monthlyData: Record<string, {
-      totalFunded: number;
-      dealCount: number;
-      totalCommission: number;
-      lastYearTotalFunded: number;
-      lastYearDealCount: number;
-    }> = {};
-    
-    merchants.forEach(m => {
+    const monthlyData: Record<
+      string,
+      {
+        totalFunded: number;
+        dealCount: number;
+        totalCommission: number;
+        lastYearTotalFunded: number;
+        lastYearDealCount: number;
+      }
+    > = {};
+
+    merchants.forEach((m) => {
       if (!m.date_funded) return;
-      
+
       const fundedDate = new Date(m.date_funded);
       if (fundedDate < startDate) return;
-      
-      const monthKey = fundedDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-      
+
+      const monthKey = fundedDate.toLocaleDateString("en-US", { month: "short", year: "numeric" });
+
       if (!monthlyData[monthKey]) {
         monthlyData[monthKey] = {
           totalFunded: 0,
           dealCount: 0,
           totalCommission: 0,
           lastYearTotalFunded: 0,
-          lastYearDealCount: 0
+          lastYearDealCount: 0,
         };
       }
-      
+
       monthlyData[monthKey].totalFunded += m.total_amount_funded || 0;
       monthlyData[monthKey].dealCount += 1;
       monthlyData[monthKey].totalCommission += (m.total_amount_funded || 0) * (m.commission || 0);
     });
-    
+
     // Generate last year comparison data (simulated)
     const lastYearMultiplier = 0.85; // Assume 15% growth year-over-year
-    
+
     // Convert to array format for chart
     const chartData = Object.entries(monthlyData)
       .sort((a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime())
       .map(([month, data]) => ({
-        month: month.split(' ')[0], // Just the month abbreviation
+        month: month.split(" ")[0], // Just the month abbreviation
         totalFunded: data.totalFunded,
         dealCount: data.dealCount,
         avgDealSize: data.dealCount > 0 ? data.totalFunded / data.dealCount : 0,
         avgCommission: data.dealCount > 0 ? (data.totalCommission / data.totalFunded) * 100 : 0,
         lastYearTotalFunded: data.totalFunded * lastYearMultiplier,
         lastYearDealCount: Math.floor(data.dealCount * lastYearMultiplier),
-        lastYearAvgDealSize: data.dealCount > 0 ? (data.totalFunded * lastYearMultiplier) / Math.floor(data.dealCount * lastYearMultiplier) : 0,
-        lastYearAvgCommission: data.dealCount > 0 ? ((data.totalCommission / data.totalFunded) * 100) * 0.95 : 0
+        lastYearAvgDealSize:
+          data.dealCount > 0
+            ? (data.totalFunded * lastYearMultiplier) /
+              Math.floor(data.dealCount * lastYearMultiplier)
+            : 0,
+        lastYearAvgCommission:
+          data.dealCount > 0 ? (data.totalCommission / data.totalFunded) * 100 * 0.95 : 0,
       }));
-    
+
     return chartData;
   }, [merchants, timeRange]);
 
@@ -1123,90 +1167,127 @@ const FundingAnalyticsChart = ({
   const metrics = useMemo(() => {
     const currentData = analyticsData[analyticsData.length - 1];
     const previousData = analyticsData[analyticsData.length - 2];
-    
+
     if (!currentData) {
       return [
-        { key: 'total-funded', title: 'Total Funded', value: 0, change: '0%', changeType: 'neutral' as const },
-        { key: 'deal-count', title: 'Deal Count', value: 0, change: '0%', changeType: 'neutral' as const },
-        { key: 'avg-deal-size', title: 'Avg Deal Size', value: 0, change: '0%', changeType: 'neutral' as const },
-        { key: 'commission-rate', title: 'Avg Commission', value: 0, change: '0%', changeType: 'neutral' as const }
+        {
+          key: "total-funded",
+          title: "Total Funded",
+          value: 0,
+          change: "0%",
+          changeType: "neutral" as const,
+        },
+        {
+          key: "deal-count",
+          title: "Deal Count",
+          value: 0,
+          change: "0%",
+          changeType: "neutral" as const,
+        },
+        {
+          key: "avg-deal-size",
+          title: "Avg Deal Size",
+          value: 0,
+          change: "0%",
+          changeType: "neutral" as const,
+        },
+        {
+          key: "commission-rate",
+          title: "Avg Commission",
+          value: 0,
+          change: "0%",
+          changeType: "neutral" as const,
+        },
       ];
     }
-    
+
     const calculateChange = (current: number, previous: number) => {
-      if (!previous || previous === 0) return { change: '0%', changeType: 'neutral' as const };
+      if (!previous || previous === 0) return { change: "0%", changeType: "neutral" as const };
       const pct = ((current - previous) / previous) * 100;
       return {
         change: `${Math.abs(pct).toFixed(1)}%`,
-        changeType: pct > 0 ? 'positive' as const : pct < 0 ? 'negative' as const : 'neutral' as const
+        changeType:
+          pct > 0 ? ("positive" as const) : pct < 0 ? ("negative" as const) : ("neutral" as const),
       };
     };
-    
+
     const totalFunded = analyticsData.reduce((sum, d) => sum + d.totalFunded, 0);
     const totalDeals = analyticsData.reduce((sum, d) => sum + d.dealCount, 0);
     const avgDealSize = totalDeals > 0 ? totalFunded / totalDeals : 0;
-    const avgCommission = analyticsData.length > 0 
-      ? analyticsData.reduce((sum, d) => sum + d.avgCommission, 0) / analyticsData.length
-      : 0;
-    
+    const avgCommission =
+      analyticsData.length > 0
+        ? analyticsData.reduce((sum, d) => sum + d.avgCommission, 0) / analyticsData.length
+        : 0;
+
     return [
       {
-        key: 'total-funded' as const,
-        title: 'Total Funded',
+        key: "total-funded" as const,
+        title: "Total Funded",
         value: totalFunded,
-        ...calculateChange(currentData?.totalFunded || 0, previousData?.totalFunded || 0)
+        ...calculateChange(currentData?.totalFunded || 0, previousData?.totalFunded || 0),
       },
       {
-        key: 'deal-count' as const,
-        title: 'Deal Count',
+        key: "deal-count" as const,
+        title: "Deal Count",
         value: totalDeals,
-        ...calculateChange(currentData?.dealCount || 0, previousData?.dealCount || 0)
+        ...calculateChange(currentData?.dealCount || 0, previousData?.dealCount || 0),
       },
       {
-        key: 'avg-deal-size' as const,
-        title: 'Avg Deal Size',
+        key: "avg-deal-size" as const,
+        title: "Avg Deal Size",
         value: avgDealSize,
-        ...calculateChange(currentData?.avgDealSize || 0, previousData?.avgDealSize || 0)
+        ...calculateChange(currentData?.avgDealSize || 0, previousData?.avgDealSize || 0),
       },
       {
-        key: 'commission-rate' as const,
-        title: 'Avg Commission',
+        key: "commission-rate" as const,
+        title: "Avg Commission",
         value: avgCommission,
-        ...calculateChange(currentData?.avgCommission || 0, previousData?.avgCommission || 0)
-      }
+        ...calculateChange(currentData?.avgCommission || 0, previousData?.avgCommission || 0),
+      },
     ];
   }, [analyticsData]);
 
   const activeChartData = useMemo(() => {
-    const metric = metrics.find(m => m.key === activeMetric);
-    const dataKey = activeMetric === 'total-funded' ? 'totalFunded' 
-                  : activeMetric === 'deal-count' ? 'dealCount'
-                  : activeMetric === 'avg-deal-size' ? 'avgDealSize'
-                  : 'avgCommission';
-    
-    const lastYearDataKey = activeMetric === 'total-funded' ? 'lastYearTotalFunded'
-                          : activeMetric === 'deal-count' ? 'lastYearDealCount'
-                          : activeMetric === 'avg-deal-size' ? 'lastYearAvgDealSize'
-                          : 'lastYearAvgCommission';
-    
+    const metric = metrics.find((m) => m.key === activeMetric);
+    const dataKey =
+      activeMetric === "total-funded"
+        ? "totalFunded"
+        : activeMetric === "deal-count"
+          ? "dealCount"
+          : activeMetric === "avg-deal-size"
+            ? "avgDealSize"
+            : "avgCommission";
+
+    const lastYearDataKey =
+      activeMetric === "total-funded"
+        ? "lastYearTotalFunded"
+        : activeMetric === "deal-count"
+          ? "lastYearDealCount"
+          : activeMetric === "avg-deal-size"
+            ? "lastYearAvgDealSize"
+            : "lastYearAvgCommission";
+
     return {
       data: analyticsData,
       dataKey,
       lastYearDataKey,
-      color: metric?.changeType === 'positive' ? 'success'
-           : metric?.changeType === 'negative' ? 'danger'
-           : 'default',
-      metric
+      color:
+        metric?.changeType === "positive"
+          ? "success"
+          : metric?.changeType === "negative"
+            ? "danger"
+            : "default",
+      metric,
     };
   }, [activeMetric, analyticsData, metrics]);
 
   const formatValue = (value: number, key: string) => {
-    if (key === 'total-funded' || key === 'avg-deal-size') {
+    if (key === "total-funded" || key === "avg-deal-size") {
       if (value >= 1000000) return `$${(value / 1000000).toFixed(1)}M`;
       if (value >= 1000) return `$${(value / 1000).toFixed(0)}K`;
       return `$${value.toFixed(0)}`;
     }
-    if (key === 'commission-rate') return `${value.toFixed(2)}%`;
+    if (key === "commission-rate") return `${value.toFixed(2)}%`;
     return value.toLocaleString();
   };
 
@@ -1254,10 +1335,10 @@ const FundingAnalyticsChart = ({
                 </DropdownMenu>
               </Dropdown>
             </div>
-            
+
             <Spacer y={2} />
-            
-            <Tabs 
+
+            <Tabs
               size="sm"
               selectedKey={timeRange}
               onSelectionChange={(key) => setTimeRange(key as any)}
@@ -1267,17 +1348,17 @@ const FundingAnalyticsChart = ({
               <Tab key="30-days" title="30 Days" />
               <Tab key="7-days" title="7 Days" />
             </Tabs>
-            
+
             <div className="mt-2 flex w-full items-center">
               <div className="-my-3 flex w-full max-w-[800px] items-center gap-x-3 overflow-x-auto py-3">
-                {metrics.map(({key, change, changeType, value, title}) => (
+                {metrics.map(({ key, change, changeType, value, title }) => (
                   <button
                     key={key}
                     className={cn(
                       "rounded-medium flex w-full min-w-[150px] flex-col gap-2 p-3 transition-colors",
                       {
                         "bg-default-100": activeMetric === key,
-                      },
+                      }
                     )}
                     onClick={() => setActiveMetric(key as any)}
                   >
@@ -1325,7 +1406,7 @@ const FundingAnalyticsChart = ({
             </div>
           </div>
         </div>
-        
+
         {analyticsData.length > 0 ? (
           <ResponsiveContainer
             className="min-h-[300px] [&_.recharts-surface]:outline-hidden"
@@ -1367,24 +1448,27 @@ const FundingAnalyticsChart = ({
               <XAxis
                 axisLine={false}
                 dataKey="month"
-                style={{fontSize: "var(--heroui-font-size-tiny)"}}
+                style={{ fontSize: "var(--heroui-font-size-tiny)" }}
                 tickLine={false}
               />
               <Tooltip
-                content={({label, payload}) => {
+                content={({ label, payload }) => {
                   if (!payload || payload.length === 0) return null;
-                  
+
                   return (
                     <div className="rounded-medium bg-foreground text-tiny shadow-small flex h-auto min-w-[120px] items-center gap-x-2 p-2">
                       <div className="flex w-full flex-col gap-y-0">
                         {payload.map((p, index) => {
                           const value = p.value;
                           const isLastYear = p.dataKey === activeChartData.lastYearDataKey;
-                          
+
                           return (
-                            <div key={`${index}-${p.dataKey}`} className="flex w-full items-center gap-x-2">
+                            <div
+                              key={`${index}-${p.dataKey}`}
+                              className="flex w-full items-center gap-x-2"
+                            >
                               <div className="text-small text-background flex w-full items-center gap-x-1">
-                                <span>{isLastYear ? 'Last Year:' : 'Current:'}</span>
+                                <span>{isLastYear ? "Last Year:" : "Current:"}</span>
                                 <span>{formatValue(value as number, activeMetric)}</span>
                               </div>
                             </div>

@@ -2,40 +2,23 @@ import React, { useState } from "react";
 import { DateValue } from "@internationalized/date";
 import { Button } from "@heroui/react";
 import { Icon } from "@iconify/react";
-import FridayDatePicker from "@components/date/friday-date-picker";
+import MonthlyDatePicker from "@components/date/monthly-date-picker";
 import FileUpload from "./file-upload";
 import FunderUploadSection, { FunderData } from "./funder-upload-section";
-import ClearViewDailyUpload from "./clearview-daily-upload";
 
 interface BasePortfolioProps {
   portfolioName: string;
   onDateChange?: (date: DateValue | null) => void;
   onFileUpload?: (file: File) => void;
   onClearMainFile?: () => void;
-  weeklyFunders?: FunderData[];
   monthlyFunders?: FunderData[];
-  dailyFunders?: FunderData[];
-  onWeeklyFunderUpload?: (funderName: string, file: File) => void;
   onMonthlyFunderUpload?: (funderName: string, file: File) => void;
-  onDailyFunderUpload?: (funderName: string, file: File) => void;
-  onWeeklyClearFile?: (funderName: string) => void;
   onMonthlyClearFile?: (funderName: string) => void;
-  onDailyClearFile?: (funderName: string) => void;
-  weeklyUploadedFiles?: Record<string, File>;
   monthlyUploadedFiles?: Record<string, File>;
-  dailyUploadedFiles?: Record<string, File>;
   existingWorkbookFile?: File | null;
   children?: React.ReactNode;
-  // Error states for file uploads
   workbookError?: { hasError: boolean; message?: string };
-  weeklyErrorStates?: Record<string, { hasError: boolean; message?: string }>;
   monthlyErrorStates?: Record<string, { hasError: boolean; message?: string }>;
-  dailyErrorStates?: Record<string, { hasError: boolean; message?: string }>;
-  // Clear View Daily specific props
-  showClearViewDaily?: boolean;
-  onClearViewDailyUpload?: (files: File[]) => void;
-  onClearViewDailyRemove?: (index: number) => void;
-  clearViewDailyFiles?: File[];
   onUpdateNetRtr?: () => void;
   canUpdateNetRtr?: boolean;
   isUpdatingNetRtr?: boolean;
@@ -46,28 +29,14 @@ const BasePortfolio: React.FC<BasePortfolioProps> = ({
   onDateChange,
   onFileUpload,
   onClearMainFile,
-  weeklyFunders,
   monthlyFunders,
-  dailyFunders,
-  onWeeklyFunderUpload,
   onMonthlyFunderUpload,
-  onDailyFunderUpload,
-  onWeeklyClearFile,
   onMonthlyClearFile,
-  onDailyClearFile,
-  weeklyUploadedFiles,
   monthlyUploadedFiles,
-  dailyUploadedFiles,
   existingWorkbookFile,
   children,
   workbookError,
-  weeklyErrorStates,
   monthlyErrorStates,
-  dailyErrorStates,
-  showClearViewDaily,
-  onClearViewDailyUpload,
-  onClearViewDailyRemove,
-  clearViewDailyFiles,
   onUpdateNetRtr,
   canUpdateNetRtr = false,
   isUpdatingNetRtr = false,
@@ -108,14 +77,14 @@ const BasePortfolio: React.FC<BasePortfolioProps> = ({
         <div className="space-y-8">
           {/* Date Picker and Excel Upload Side by Side */}
           <div className="flex flex-row gap-6">
-            {/* Friday Date Picker Section */}
+            {/* Monthly Date Picker Section */}
             <div className="flex-1 bg-default-50 rounded-lg p-2 border border-default-200">
               <h2 className="text-base sm:text-lg md:text-xl font-semibold text-foreground">
-                Select Report Date
+                Select Report Month
               </h2>
-              <FridayDatePicker
-                label="Report Date (Friday)"
-                description="Select the Friday date for this portfolio report"
+              <MonthlyDatePicker
+                label="Report Month"
+                description="Select the month for this portfolio report"
                 onDateChange={onDateChange}
               />
             </div>
@@ -146,57 +115,23 @@ const BasePortfolio: React.FC<BasePortfolioProps> = ({
             </div>
           </div>
 
-          {/* Clear View Daily Upload Section */}
-          {showClearViewDaily && (
-            <ClearViewDailyUpload
-              onFileUpload={onClearViewDailyUpload}
-              uploadedFiles={clearViewDailyFiles}
-              onRemoveFile={onClearViewDailyRemove}
-              maxUploads={5}
-            />
-          )}
-
           {/* Funder Upload Section */}
-          {(weeklyFunders?.length || monthlyFunders?.length || dailyFunders?.length) && (
+          {monthlyFunders?.length && (
             <div className="bg-default-50 rounded-lg p-6 border border-default-200">
               <h2 className="text-2xl font-semibold mb-6 text-foreground text-center">
                 Funder Upload
               </h2>
 
-              <div className="space-y-6">
-                {dailyFunders?.length && (
-                  <FunderUploadSection
-                    type="daily"
-                    funders={dailyFunders}
-                    onFileUpload={onDailyFunderUpload}
-                    uploadedFiles={dailyUploadedFiles}
-                    onClearFile={onDailyClearFile}
-                    errorStates={dailyErrorStates}
-                  />
-                )}
-
-                {weeklyFunders?.length && (
-                  <FunderUploadSection
-                    type="weekly"
-                    funders={weeklyFunders}
-                    onFileUpload={onWeeklyFunderUpload}
-                    uploadedFiles={weeklyUploadedFiles}
-                    onClearFile={onWeeklyClearFile}
-                    errorStates={weeklyErrorStates}
-                  />
-                )}
-
-                {monthlyFunders?.length && (
-                  <FunderUploadSection
-                    type="monthly"
-                    funders={monthlyFunders}
-                    onFileUpload={onMonthlyFunderUpload}
-                    uploadedFiles={monthlyUploadedFiles}
-                    onClearFile={onMonthlyClearFile}
-                    errorStates={monthlyErrorStates}
-                  />
-                )}
-              </div>
+              {monthlyFunders?.length && (
+                <FunderUploadSection
+                  type="monthly"
+                  funders={monthlyFunders}
+                  onFileUpload={onMonthlyFunderUpload}
+                  uploadedFiles={monthlyUploadedFiles}
+                  onClearFile={onMonthlyClearFile}
+                  errorStates={monthlyErrorStates}
+                />
+              )}
             </div>
           )}
 

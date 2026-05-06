@@ -29,3 +29,6 @@ dist-ssr
 
 backend/uv.lock
 /examples
+/scripts
+/supabase
+/monthlys
