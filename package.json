@@ -16,7 +16,7 @@
   },
   "dependencies": {
     "@heroui/react": "^2.8.4",
-    "@internationalized/date": "^3.9.0",
+    "@internationalized/date": "3.9.0",
     "@supabase/supabase-js": "^2.89.0",
     "@tauri-apps/api": "^2.4.0",
     "@tauri-apps/plugin-dialog": "^2.4.0",
@@ -33,6 +33,9 @@
     "react-spreadsheet": "^0.10.1",
     "recharts": "^2.15.1",
     "usehooks-ts": "^3.1.1"
+  },
+  "overrides": {
+    "@internationalized/date": "3.9.0"
   },
   "devDependencies": {
     "@iconify/react": "^5.2.0",
