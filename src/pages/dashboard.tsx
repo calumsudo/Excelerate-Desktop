@@ -934,18 +934,6 @@ const FunderComparisonTable = ({
   merchants: MerchantData[];
   loading: boolean;
 }) => {
-  if (loading) {
-    return (
-      <Card className="dark:border-default-100 border border-transparent">
-        <div className="p-4">
-          <Skeleton className="rounded-lg">
-            <div className="h-64 w-full bg-default-200"></div>
-          </Skeleton>
-        </div>
-      </Card>
-    );
-  }
-
   // Group merchants by funder and calculate metrics
   const funderMetrics = useMemo(() => {
     const grouped: Record<string, MerchantData[]> = {};
@@ -1014,6 +1002,18 @@ const FunderComparisonTable = ({
       })
       .sort((a, b) => b.totalFunded - a.totalFunded);
   }, [merchants]);
+
+  if (loading) {
+    return (
+      <Card className="dark:border-default-100 border border-transparent">
+        <div className="p-4">
+          <Skeleton className="rounded-lg">
+            <div className="h-64 w-full bg-default-200"></div>
+          </Skeleton>
+        </div>
+      </Card>
+    );
+  }
 
   return (
     <Card className="dark:border-default-100 border border-transparent">

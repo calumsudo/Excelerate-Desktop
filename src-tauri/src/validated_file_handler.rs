@@ -1,14 +1,15 @@
-use std::fs;
-use std::path::Path;
-use serde::{Serialize, Deserialize};
-use tauri::{AppHandle, Emitter};
 use crate::file_handler::{
     save_funder_upload as original_save_funder_upload,
-    save_portfolio_workbook_with_version as original_save_portfolio_workbook,
-    UploadResponse
+    save_portfolio_workbook_with_version as original_save_portfolio_workbook, UploadResponse,
 };
-use crate::parsers::{BaseParser, BhbParser, BigParser, BoomParser, EfinParser, InAdvParser, KingsParser};
 use crate::notification::{NotificationManager, ValidationResult};
+use crate::parsers::{
+    BaseParser, BhbParser, BigParser, BoomParser, EfinParser, InAdvParser, KingsParser,
+};
+use serde::{Deserialize, Serialize};
+use std::fs;
+use std::path::Path;
+use tauri::AppHandle;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ValidatedUploadResponse {
@@ -49,26 +50,26 @@ pub async fn save_funder_upload_validated(
     // First, save the file to a temporary location for validation
     let temp_dir = std::env::temp_dir();
     let temp_path = temp_dir.join(&file_name);
-    
+
     fs::write(&temp_path, &file_data)
         .map_err(|e| format!("Failed to write temporary file: {}", e))?;
-    
+
     // Validate based on funder type (skip Clear View for now as it has special handling)
     let validation_result = if funder_name == "Clear View" || funder_name == "ClearView" {
         ValidationResult::valid()
     } else {
         validate_funder_file(&funder_name, &temp_path)?
     };
-    
+
     // Clean up temp file
     let _ = fs::remove_file(&temp_path);
-    
+
     // Check if validation passed
     if !validation_result.is_valid {
         // Send error notification
         let notification = validation_result.to_notification(&file_name);
         let _ = NotificationManager::send(&app_handle, notification);
-        
+
         // Return error response
         return Ok(ValidatedUploadResponse {
             success: false,
@@ -76,19 +77,26 @@ pub async fn save_funder_upload_validated(
             file_path: None,
             version_id: None,
             backup_path: None,
-            validation_errors: validation_result.errors.iter()
-                .map(|e| format!("{}: Expected '{}', found '{}'", e.field, e.expected, e.found))
+            validation_errors: validation_result
+                .errors
+                .iter()
+                .map(|e| {
+                    format!(
+                        "{}: Expected '{}', found '{}'",
+                        e.field, e.expected, e.found
+                    )
+                })
                 .collect(),
             validation_warnings: validation_result.warnings,
         });
     }
-    
+
     // If validation passed but has warnings, send warning notification
     if !validation_result.warnings.is_empty() {
         let notification = validation_result.to_notification(&file_name);
         let _ = NotificationManager::send(&app_handle, notification);
     }
-    
+
     // Proceed with the original save function
     match original_save_funder_upload(
         &portfolio_name,
@@ -107,18 +115,14 @@ pub async fn save_funder_upload_validated(
                     Some(format!("{} - {}", funder_name, report_date)),
                 );
             }
-            
+
             let mut validated_response = ValidatedUploadResponse::from(response);
             validated_response.validation_warnings = validation_result.warnings;
             Ok(validated_response)
         }
         Err(e) => {
             // Send error notification
-            let _ = NotificationManager::error(
-                &app_handle,
-                "Upload failed",
-                Some(e.clone()),
-            );
+            let _ = NotificationManager::error(&app_handle, "Upload failed", Some(e.clone()));
             Err(e)
         }
     }
@@ -141,7 +145,7 @@ pub async fn save_portfolio_workbook_validated(
             "Invalid file format",
             Some("Portfolio workbooks must be Excel files (.xlsx or .xls)".to_string()),
         );
-        
+
         return Ok(ValidatedUploadResponse {
             success: false,
             message: "Invalid file format".to_string(),
@@ -152,14 +156,9 @@ pub async fn save_portfolio_workbook_validated(
             validation_warnings: Vec::new(),
         });
     }
-    
+
     // Proceed with the original save function
-    match original_save_portfolio_workbook(
-        &portfolio_name,
-        file_data,
-        &file_name,
-        &report_date,
-    ) {
+    match original_save_portfolio_workbook(&portfolio_name, file_data, &file_name, &report_date) {
         Ok(response) => {
             // Send success notification
             if response.success {
@@ -169,7 +168,7 @@ pub async fn save_portfolio_workbook_validated(
                     Some(format!("Report date: {}", report_date)),
                 );
             }
-            
+
             Ok(ValidatedUploadResponse::from(response))
         }
         Err(e) => {
@@ -216,6 +215,6 @@ fn validate_funder_file(funder_name: &str, file_path: &Path) -> Result<Validatio
             ValidationResult::valid()
         }
     };
-    
+
     Ok(validation_result)
 }

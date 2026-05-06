@@ -1,6 +1,13 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { DatePicker } from "@heroui/react";
-import { CalendarDate, getLocalTimeZone, today, DateValue } from "@internationalized/date";
+import {
+  CalendarDate,
+  getLocalTimeZone,
+  today,
+  DateValue,
+  ZonedDateTime,
+  toZoned,
+} from "@internationalized/date";
 
 interface FridayDatePickerProps {
   onDateChange?: (date: DateValue | null) => void;
@@ -33,8 +40,8 @@ const FridayDatePicker: React.FC<FridayDatePickerProps> = ({
   };
 
   // Initialize with most recent Friday
-  const initialFriday = getMostRecentFriday();
-  const [selectedDate, setSelectedDate] = useState<DateValue | null>(initialFriday);
+  const initialFriday = toZoned(getMostRecentFriday(), getLocalTimeZone());
+  const [selectedDate, setSelectedDate] = useState<ZonedDateTime | null>(initialFriday);
 
   // Notify parent of initial date on mount
   useEffect(() => {
@@ -56,7 +63,7 @@ const FridayDatePicker: React.FC<FridayDatePickerProps> = ({
   };
 
   // Handle date change
-  const handleDateChange = (date: DateValue | null) => {
+  const handleDateChange = (date: ZonedDateTime | null) => {
     if (date && isFriday(date)) {
       setSelectedDate(date);
       onDateChange?.(date);

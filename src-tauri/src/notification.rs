@@ -1,4 +1,4 @@
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter};
 
 /// Notification types that can be sent from backend to frontend
@@ -46,7 +46,7 @@ impl ValidationResult {
             warnings: Vec::new(),
         }
     }
-    
+
     pub fn invalid(errors: Vec<ValidationError>) -> Self {
         Self {
             is_valid: false,
@@ -54,21 +54,21 @@ impl ValidationResult {
             warnings: Vec::new(),
         }
     }
-    
+
     pub fn with_warnings(mut self, warnings: Vec<String>) -> Self {
         self.warnings = warnings;
         self
     }
-    
+
     pub fn add_error(&mut self, error: ValidationError) {
         self.is_valid = false;
         self.errors.push(error);
     }
-    
+
     pub fn add_warning(&mut self, warning: String) {
         self.warnings.push(warning);
     }
-    
+
     /// Convert validation result to notification payload
     pub fn to_notification(&self, file_name: &str) -> NotificationPayload {
         if self.is_valid {
@@ -89,45 +89,48 @@ impl ValidationResult {
             }
         } else {
             // Count missing columns
-            let missing_columns: Vec<&ValidationError> = self.errors.iter()
+            let missing_columns: Vec<&ValidationError> = self
+                .errors
+                .iter()
                 .filter(|e| e.field == "Column" && e.found == "Missing")
                 .collect();
-            
+
             let (title, description) = if missing_columns.len() >= 3 {
                 // If 3 or more columns are missing, it's probably the wrong file type
                 (
                     "Wrong file type".to_string(),
-                    format!("This doesn't appear to be the correct file format for this funder. Please check that you've selected the right file.")
+                    "This doesn't appear to be the correct file format for this funder. Please check that you've selected the right file.".to_string()
                 )
-            } else if missing_columns.len() > 0 {
+            } else if !missing_columns.is_empty() {
                 // If 1-2 columns are missing, list them specifically
-                let missing_names: Vec<String> = missing_columns.iter()
+                let missing_names: Vec<String> = missing_columns
+                    .iter()
                     .map(|e| format!("'{}'", e.expected))
                     .collect();
                 (
                     "Missing required columns".to_string(),
-                    format!("File is missing: {}", missing_names.join(", "))
+                    format!("File is missing: {}", missing_names.join(", ")),
                 )
             } else if self.errors.len() == 1 {
                 // Single non-column error
                 (
                     "Validation error".to_string(),
-                    format!("{}: Expected '{}', found '{}'", 
-                        self.errors[0].field,
-                        self.errors[0].expected,
-                        self.errors[0].found
-                    )
+                    format!(
+                        "{}: Expected '{}', found '{}'",
+                        self.errors[0].field, self.errors[0].expected, self.errors[0].found
+                    ),
                 )
             } else {
                 // Multiple misc errors
                 (
                     "File format issues".to_string(),
-                    format!("Found {} issues with the file structure. Please check the file format.", 
+                    format!(
+                        "Found {} issues with the file structure. Please check the file format.",
                         self.errors.len()
-                    )
+                    ),
                 )
             };
-            
+
             NotificationPayload {
                 notification_type: NotificationType::Error,
                 title,
@@ -148,49 +151,80 @@ impl NotificationManager {
             .emit("backend-notification", notification)
             .map_err(|e| format!("Failed to send notification: {}", e))
     }
-    
+
     /// Send a success notification
-    pub fn success(app_handle: &AppHandle, title: impl Into<String>, description: Option<String>) -> Result<(), String> {
-        Self::send(app_handle, NotificationPayload {
-            notification_type: NotificationType::Success,
-            title: title.into(),
-            description,
-            duration: Some(3000),
-        })
+    pub fn success(
+        app_handle: &AppHandle,
+        title: impl Into<String>,
+        description: Option<String>,
+    ) -> Result<(), String> {
+        Self::send(
+            app_handle,
+            NotificationPayload {
+                notification_type: NotificationType::Success,
+                title: title.into(),
+                description,
+                duration: Some(3000),
+            },
+        )
     }
-    
+
     /// Send an error notification
-    pub fn error(app_handle: &AppHandle, title: impl Into<String>, description: Option<String>) -> Result<(), String> {
-        Self::send(app_handle, NotificationPayload {
-            notification_type: NotificationType::Error,
-            title: title.into(),
-            description,
-            duration: None, // No duration for errors - require manual dismissal
-        })
+    pub fn error(
+        app_handle: &AppHandle,
+        title: impl Into<String>,
+        description: Option<String>,
+    ) -> Result<(), String> {
+        Self::send(
+            app_handle,
+            NotificationPayload {
+                notification_type: NotificationType::Error,
+                title: title.into(),
+                description,
+                duration: None, // No duration for errors - require manual dismissal
+            },
+        )
     }
-    
+
     /// Send a warning notification
-    pub fn warning(app_handle: &AppHandle, title: impl Into<String>, description: Option<String>) -> Result<(), String> {
-        Self::send(app_handle, NotificationPayload {
-            notification_type: NotificationType::Warning,
-            title: title.into(),
-            description,
-            duration: Some(5000),
-        })
+    #[allow(dead_code)]
+    pub fn warning(
+        app_handle: &AppHandle,
+        title: impl Into<String>,
+        description: Option<String>,
+    ) -> Result<(), String> {
+        Self::send(
+            app_handle,
+            NotificationPayload {
+                notification_type: NotificationType::Warning,
+                title: title.into(),
+                description,
+                duration: Some(5000),
+            },
+        )
     }
-    
+
     /// Send an info notification
-    pub fn info(app_handle: &AppHandle, title: impl Into<String>, description: Option<String>) -> Result<(), String> {
-        Self::send(app_handle, NotificationPayload {
-            notification_type: NotificationType::Info,
-            title: title.into(),
-            description,
-            duration: Some(4000),
-        })
+    #[allow(dead_code)]
+    pub fn info(
+        app_handle: &AppHandle,
+        title: impl Into<String>,
+        description: Option<String>,
+    ) -> Result<(), String> {
+        Self::send(
+            app_handle,
+            NotificationPayload {
+                notification_type: NotificationType::Info,
+                title: title.into(),
+                description,
+                duration: Some(4000),
+            },
+        )
     }
 }
 
 /// Trait for validating file structures
+#[allow(dead_code)]
 pub trait FileValidator {
     fn validate(&self, file_path: &std::path::Path) -> Result<ValidationResult, String>;
 }

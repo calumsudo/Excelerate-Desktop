@@ -33,6 +33,7 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: [];
       };
       portfolio_access: {
         Row: {
@@ -59,6 +60,7 @@ export interface Database {
           granted_at?: string;
           granted_by?: string | null;
         };
+        Relationships: [];
       };
       file_versions: {
         Row: {
@@ -97,6 +99,7 @@ export interface Database {
           is_active?: boolean;
           user_id?: string;
         };
+        Relationships: [];
       };
       funder_uploads: {
         Row: {
@@ -138,6 +141,7 @@ export interface Database {
           upload_timestamp?: string;
           user_id?: string;
         };
+        Relationships: [];
       };
       funder_pivot_tables: {
         Row: {
@@ -185,6 +189,7 @@ export interface Database {
           created_timestamp?: string;
           user_id?: string;
         };
+        Relationships: [];
       };
       merchants: {
         Row: {
@@ -244,6 +249,7 @@ export interface Database {
           updated_timestamp?: string;
           user_id?: string;
         };
+        Relationships: [];
       };
     };
     Views: {

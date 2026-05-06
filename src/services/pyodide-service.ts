@@ -57,7 +57,7 @@ export class PyodideService {
 
     // Start initialization
     isInitializing = true;
-    console.log("Initializing Pyodide...");
+    console.warn("Initializing Pyodide...");
 
     initPromise = (async () => {
       try {
@@ -66,16 +66,16 @@ export class PyodideService {
           indexURL: "https://cdn.jsdelivr.net/pyodide/v0.28.3/full/",
         });
 
-        console.log("Pyodide loaded, installing packages...");
+        console.warn("Pyodide loaded, installing packages...");
 
         // Load micropip to install pure Python packages
         await pyodide.loadPackage(["micropip"]);
         const micropip = pyodide.pyimport("micropip");
 
         // Install openpyxl and its dependencies
-        console.log("Installing openpyxl via micropip...");
+        console.warn("Installing openpyxl via micropip...");
         await micropip.install(["openpyxl", "et-xmlfile"]);
-        console.log("openpyxl package installed successfully");
+        console.warn("openpyxl package installed successfully");
 
         // Store the instance
         pyodideInstance = pyodide;
@@ -102,7 +102,7 @@ export class PyodideService {
     reportDate: string
   ): Promise<UpdateWorkbookResult> {
     try {
-      console.log(`Starting Pyodide-based Excel update for ${portfolioName} on ${reportDate}`);
+      console.warn(`Starting Pyodide-based Excel update for ${portfolioName} on ${reportDate}`);
 
       // Initialize Pyodide if not already done
       const pyodide = await this.initialize();
@@ -112,7 +112,7 @@ export class PyodideService {
         portfolioName,
       });
 
-      console.log(`Loading workbook from: ${workbookPath}`);
+      console.warn(`Loading workbook from: ${workbookPath}`);
 
       // Get pivot table data from backend
       const pivotTables = await invoke<FunderPivotData[]>("get_pivot_tables_for_update", {
@@ -124,10 +124,10 @@ export class PyodideService {
         throw new Error("No pivot tables found for the specified date");
       }
 
-      console.log(`Found ${pivotTables.length} pivot tables to process`);
+      console.warn(`Found ${pivotTables.length} pivot tables to process`);
 
       // Read the workbook file
-      console.log(`Reading workbook file from: ${workbookPath}`);
+      console.warn(`Reading workbook file from: ${workbookPath}`);
       const fileData = await readFile(workbookPath);
 
       // Convert to Uint8Array if needed
@@ -135,7 +135,7 @@ export class PyodideService {
 
       // Verify the input file is a valid Excel file
       if (uint8Array[0] === 0x50 && uint8Array[1] === 0x4b) {
-        console.log("Input file header verified: Valid Excel/ZIP format");
+        console.warn("Input file header verified: Valid Excel/ZIP format");
       } else {
         console.error(
           "Warning: Input file may not be a valid Excel file. Header bytes:",
@@ -144,7 +144,7 @@ export class PyodideService {
         );
       }
 
-      console.log(`Input file size: ${uint8Array.byteLength} bytes`);
+      console.warn(`Input file size: ${uint8Array.byteLength} bytes`);
 
       // Pass the Uint8Array directly to Python globals
       pyodide.globals.set("workbook_array", uint8Array);
@@ -479,26 +479,26 @@ import json
 json.dumps(debug_info)
 `;
 
-      console.log("Running Python code to update workbook...");
+      console.warn("Running Python code to update workbook...");
       const resultJson = await pyodide.runPythonAsync(pythonCode);
 
       // Parse the JSON response
       const result = JSON.parse(resultJson);
-      console.log("Updated workbook size:", result.updated_size);
-      console.log("Test workbook size:", result.test_size);
-      console.log("Unmatched deals found:", result.unmatched_count);
+      console.warn("Updated workbook size:", result.updated_size);
+      console.warn("Test workbook size:", result.test_size);
+      console.warn("Unmatched deals found:", result.unmatched_count);
 
       const unmatchedDeals: UnmatchedDealFromUpdate[] = result.unmatched_deals || [];
 
       // Convert base64 string to Uint8Array for the updated workbook
       const binaryString = atob(result.updated);
-      console.log("Binary string length:", binaryString.length);
+      console.warn("Binary string length:", binaryString.length);
 
       const updatedArray = new Uint8Array(binaryString.length);
       for (let i = 0; i < binaryString.length; i++) {
         updatedArray[i] = binaryString.charCodeAt(i);
       }
-      console.log("Workbook updated, size:", updatedArray.byteLength);
+      console.warn("Workbook updated, size:", updatedArray.byteLength);
 
       // Also decode the test workbook for comparison
       const testBinaryString = atob(result.test);
@@ -506,12 +506,12 @@ json.dumps(debug_info)
       for (let i = 0; i < testBinaryString.length; i++) {
         testArray[i] = testBinaryString.charCodeAt(i);
       }
-      console.log("Test workbook (resaved original), size:", testArray.byteLength);
+      console.warn("Test workbook (resaved original), size:", testArray.byteLength);
 
       // Verify the file starts with the correct Excel ZIP header (PK)
       if (updatedArray[0] === 0x50 && updatedArray[1] === 0x4b) {
-        console.log("File header verified: Valid Excel/ZIP format");
-        console.log(
+        console.warn("File header verified: Valid Excel/ZIP format");
+        console.warn(
           "First 10 bytes:",
           Array.from(updatedArray.slice(0, 10))
             .map((b) => b.toString(16).padStart(2, "0"))
@@ -534,7 +534,7 @@ json.dumps(debug_info)
       // Create filename with date
       const dateStr = reportDate.replace(/\//g, "-");
       const defaultFilename = `${portfolioName}_Portfolio_Updated_${dateStr}.xlsx`;
-      console.log("Default filename:", defaultFilename);
+      console.warn("Default filename:", defaultFilename);
 
       // Get the downloads directory path
       const downloadsPath = await downloadDir();
@@ -552,27 +552,27 @@ json.dumps(debug_info)
 
       if (filePath) {
         // Write the file to the chosen location
-        console.log("Saving file to:", filePath);
-        console.log("Array type:", updatedArray.constructor.name);
-        console.log("Array length:", updatedArray.length);
+        console.warn("Saving file to:", filePath);
+        console.warn("Array type:", updatedArray.constructor.name);
+        console.warn("Array length:", updatedArray.length);
 
         // Write the Uint8Array directly - this is what Tauri expects for binary files
         await writeFile(filePath, updatedArray);
-        console.log(`Successfully saved workbook to: ${filePath}`);
+        console.warn(`Successfully saved workbook to: ${filePath}`);
 
         // Verify the file was written correctly by reading it back
         try {
           const verifyData = await readFile(filePath);
           const verifyArray = new Uint8Array(verifyData);
-          console.log("Verification - File size after writing:", verifyArray.byteLength);
-          console.log(
+          console.warn("Verification - File size after writing:", verifyArray.byteLength);
+          console.warn(
             "Verification - First 10 bytes:",
             Array.from(verifyArray.slice(0, 10))
               .map((b) => b.toString(16).padStart(2, "0"))
               .join(" ")
           );
           if (verifyArray[0] === 0x50 && verifyArray[1] === 0x4b) {
-            console.log("Verification - File written correctly with valid Excel header");
+            console.warn("Verification - File written correctly with valid Excel header");
           } else {
             console.error("Verification - File may be corrupted after writing");
             console.error(
@@ -590,7 +590,7 @@ json.dumps(debug_info)
           unmatchedDeals,
         };
       } else {
-        console.log("User cancelled save dialog");
+        console.warn("User cancelled save dialog");
         throw new Error("Save cancelled by user");
       }
     } catch (error) {
@@ -606,7 +606,7 @@ json.dumps(debug_info)
   static async preload(): Promise<void> {
     try {
       await this.initialize();
-      console.log("Pyodide preloaded successfully");
+      console.warn("Pyodide preloaded successfully");
     } catch (error) {
       console.error("Failed to preload Pyodide:", error);
     }

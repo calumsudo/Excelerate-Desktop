@@ -30,11 +30,11 @@ function App() {
 
     const preloadPyodide = async () => {
       try {
-        console.log("Preloading Pyodide in background...");
+        console.warn("Preloading Pyodide in background...");
         // Dynamically import to avoid blocking initial render
         const { PyodideService } = await import("./services/pyodide-service");
         await PyodideService.preload();
-        console.log("Pyodide preloaded and ready");
+        console.warn("Pyodide preloaded and ready");
       } catch (error) {
         console.error("Failed to preload Pyodide (non-critical):", error);
       }

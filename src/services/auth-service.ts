@@ -1,5 +1,7 @@
 import { supabase } from "./supabase";
 import type { User, Session, AuthError } from "@supabase/supabase-js";
+import type { Database } from "./supabase.types";
+type UserProfileUpdate = Database["public"]["Tables"]["user_profiles"]["Update"];
 
 export interface SignUpCredentials {
   email: string;
@@ -142,14 +144,11 @@ export class AuthService {
     userId: string,
     updates: { full_name?: string; role?: "admin" | "member" }
   ): Promise<{ error: Error | null }> {
-    const { error } = await supabase
-      .from("user_profiles")
-      .update({
-        ...updates,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", userId);
-
+    const payload: UserProfileUpdate = {
+      ...updates,
+      updated_at: new Date().toISOString(),
+    };
+    const { error } = await supabase.from("user_profiles").update(payload).eq("id", userId);
     return { error };
   }
 

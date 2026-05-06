@@ -196,12 +196,8 @@ export function InviteUser() {
             variant="bordered"
             isRequired
           >
-            <SelectItem key="member" value="member">
-              Member - Can access assigned portfolios
-            </SelectItem>
-            <SelectItem key="admin" value="admin">
-              Admin - Full access and can invite users
-            </SelectItem>
+            <SelectItem key="member">Member - Can access assigned portfolios</SelectItem>
+            <SelectItem key="admin">Admin - Full access and can invite users</SelectItem>
           </Select>
 
           <Button type="submit" color="primary" isLoading={loading} className="w-full">
