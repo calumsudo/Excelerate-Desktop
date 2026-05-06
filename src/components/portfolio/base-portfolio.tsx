@@ -5,7 +5,6 @@ import { Icon } from "@iconify/react";
 import MonthlyDatePicker from "@components/date/monthly-date-picker";
 import FileUpload from "./file-upload";
 import FunderUploadSection, { FunderData } from "./funder-upload-section";
-import BigWeeklyUpload from "./big-weekly-upload";
 
 interface BasePortfolioProps {
   portfolioName: string;
@@ -20,10 +19,6 @@ interface BasePortfolioProps {
   children?: React.ReactNode;
   workbookError?: { hasError: boolean; message?: string };
   monthlyErrorStates?: Record<string, { hasError: boolean; message?: string }>;
-  showBigWeekly?: boolean;
-  bigWeeklyFiles?: File[];
-  onBigWeeklyUpload?: (file: File) => void;
-  onBigWeeklyRemove?: (index: number) => void;
   onUpdateNetRtr?: () => void;
   canUpdateNetRtr?: boolean;
   isUpdatingNetRtr?: boolean;
@@ -42,10 +37,6 @@ const BasePortfolio: React.FC<BasePortfolioProps> = ({
   children,
   workbookError,
   monthlyErrorStates,
-  showBigWeekly = false,
-  bigWeeklyFiles = [],
-  onBigWeeklyUpload,
-  onBigWeeklyRemove,
   onUpdateNetRtr,
   canUpdateNetRtr = false,
   isUpdatingNetRtr = false,
@@ -125,21 +116,11 @@ const BasePortfolio: React.FC<BasePortfolioProps> = ({
           </div>
 
           {/* Funder Upload Section */}
-          {(monthlyFunders?.length || showBigWeekly) && (
+          {monthlyFunders?.length && (
             <div className="bg-default-50 rounded-lg p-6 border border-default-200">
               <h2 className="text-2xl font-semibold mb-6 text-foreground text-center">
                 Funder Upload
               </h2>
-
-              {showBigWeekly && onBigWeeklyUpload && onBigWeeklyRemove && (
-                <div className="mb-6">
-                  <BigWeeklyUpload
-                    files={bigWeeklyFiles}
-                    onFileUpload={onBigWeeklyUpload}
-                    onRemoveFile={onBigWeeklyRemove}
-                  />
-                </div>
-              )}
 
               {monthlyFunders?.length && (
                 <FunderUploadSection

@@ -28,10 +28,10 @@ impl ClearViewMonthlyParser {
 
     fn sheet_names(&self) -> (&'static str, &'static str) {
         if self.portfolio_name == "White Rabbit" {
-            ("WR LendSaaS", "WR Centrex")
+            ("WHITE RABBIT LENDSAAS", "WHITE RABBIT CENTREX")
         } else {
             // Default to Alder / R&H
-            ("R&H LendSaaS", "R&H Centrex")
+            ("R&H LENDSAAS", "R&H CENTREX")
         }
     }
 
@@ -41,7 +41,7 @@ impl ClearViewMonthlyParser {
             Err(_) => return false,
         };
         let names = workbook.sheet_names();
-        let required = ["R&H LendSaaS", "WR LendSaaS", "R&H Centrex", "WR Centrex"];
+        let required = ["R&H LENDSAAS", "WHITE RABBIT LENDSAAS", "R&H CENTREX", "WHITE RABBIT CENTREX"];
         required.iter().all(|r| names.iter().any(|n| n == r))
     }
 

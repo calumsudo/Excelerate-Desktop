@@ -8,14 +8,18 @@ import { UnmatchedDealsResultModal } from "@components/portfolio/unmatched-deals
 
 const PORTFOLIO = "White Rabbit";
 
-const BIG_SLOT_NAMES = ["BIG W1", "BIG W2", "BIG W3", "BIG W4"];
-
 const monthlyFunderList: FunderData[] = [
   {
     name: "BHB",
     acceptedTypes: ["text/csv"],
     acceptedExtensions: [".csv"],
     maxSizeKB: 5120,
+  },
+  {
+    name: "BIG",
+    acceptedTypes: ["application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"],
+    acceptedExtensions: [".xlsx"],
+    maxSizeKB: 10240,
   },
   {
     name: "Clear View",
@@ -57,7 +61,6 @@ const monthlyFunderList: FunderData[] = [
 
 function WhiteRabbitPortfolio() {
   const [monthlyFiles, setMonthlyFiles] = useState<Record<string, File>>({});
-  const [bigWeeklyFiles, setBigWeeklyFiles] = useState<File[]>([]);
   const [existingWorkbook, setExistingWorkbook] = useState<File | null>(null);
   const [selectedDate, setSelectedDate] = useState<DateValue | null>(null);
   const [versions, setVersions] = useState<VersionInfo[]>([]);
@@ -107,7 +110,6 @@ function WhiteRabbitPortfolio() {
       if (!selectedDate) {
         setFunderUploads([]);
         setMonthlyFiles({});
-        setBigWeeklyFiles([]);
         return;
       }
       const reportDate = selectedDate.toString();
@@ -128,19 +130,6 @@ function WhiteRabbitPortfolio() {
           filesMap[upload.funder_name] = file;
         });
       setMonthlyFiles(filesMap);
-
-      // Load BIG weekly files (stored as "BIG W1", "BIG W2", etc.)
-      const bigUploads = uploads.filter(
-        (u) => u.funder_name.startsWith("BIG W") && u.upload_type === "monthly"
-      );
-      const bigFiles = bigUploads.map((upload) => {
-        const file = new File([], upload.original_filename, {
-          type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        });
-        Object.defineProperty(file, "size", { value: upload.file_size, writable: false });
-        return file;
-      });
-      setBigWeeklyFiles(bigFiles);
     };
     loadFunderUploads();
   }, [selectedDate]);
@@ -211,53 +200,6 @@ function WhiteRabbitPortfolio() {
     setMonthlyFiles((prev) => { const u = { ...prev }; delete u[funderName]; return u; });
   };
 
-  // BIG weekly upload — assigns file to the next available slot (BIG W1, BIG W2, etc.)
-  const handleBigWeeklyUpload = async (file: File) => {
-    if (!selectedDate) return;
-    const reportDate = selectedDate.toString();
-    const nextSlotIndex = bigWeeklyFiles.length;
-    if (nextSlotIndex >= BIG_SLOT_NAMES.length) return;
-
-    const slotName = BIG_SLOT_NAMES[nextSlotIndex];
-    try {
-      const exists = await FileService.checkFunderUploadExists(PORTFOLIO, slotName, reportDate, "monthly");
-      if (exists) {
-        if (!window.confirm(`A file already exists for ${slotName} on ${reportDate}. Overwrite?`)) return;
-      }
-      const response = await FileService.saveFunderUploadValidated(PORTFOLIO, slotName, file, reportDate, "monthly");
-      if (response.success) {
-        setBigWeeklyFiles((prev) => [...prev, file]);
-        setFunderUploads(await FileService.getFunderUploadsForDate(PORTFOLIO, reportDate));
-      } else {
-        console.error(`Failed to upload BIG weekly file: ${response.message}`);
-      }
-    } catch (error) {
-      console.error(`Error uploading BIG weekly file:`, error);
-    }
-  };
-
-  // BIG weekly remove — deletes the file at the given index
-  const handleBigWeeklyRemove = async (index: number) => {
-    if (!selectedDate) return;
-    const reportDate = selectedDate.toString();
-
-    const slotName = BIG_SLOT_NAMES[index];
-    const upload = funderUploads.find(
-      (u) => u.funder_name === slotName && u.upload_type === "monthly"
-    );
-
-    if (upload) {
-      try {
-        await FileService.deleteFunderUpload(upload.id);
-      } catch (error) {
-        console.error(`Error deleting ${slotName} upload:`, error);
-      }
-    }
-
-    setBigWeeklyFiles((prev) => prev.filter((_, i) => i !== index));
-    setFunderUploads(await FileService.getFunderUploadsForDate(PORTFOLIO, reportDate));
-  };
-
   const handleUpdateNetRtr = async () => {
     if (!selectedDate || isUpdatingNetRtr) return;
     try {
@@ -286,7 +228,7 @@ function WhiteRabbitPortfolio() {
   const canUpdateNetRtr = !!(
     selectedDate &&
     existingWorkbook &&
-    (Object.keys(monthlyFiles).length > 0 || bigWeeklyFiles.length > 0)
+    Object.keys(monthlyFiles).length > 0
   );
 
   return (
@@ -303,77 +245,40 @@ function WhiteRabbitPortfolio() {
         existingWorkbookFile={existingWorkbook}
         workbookError={workbookError}
         monthlyErrorStates={monthlyErrorStates}
-        showBigWeekly
-        bigWeeklyFiles={bigWeeklyFiles}
-        onBigWeeklyUpload={handleBigWeeklyUpload}
-        onBigWeeklyRemove={handleBigWeeklyRemove}
         onUpdateNetRtr={handleUpdateNetRtr}
         canUpdateNetRtr={canUpdateNetRtr}
         isUpdatingNetRtr={isUpdatingNetRtr}
       />
 
       {/* Uploaded Files Summary */}
-      {selectedDate && (funderUploads.length > 0 || bigWeeklyFiles.length > 0) && (
+      {selectedDate && funderUploads.length > 0 && (
         <div className="max-w-6xl mx-auto mt-6 p-6 bg-default-50 rounded-lg border border-default-200">
           <h3 className="text-xl font-semibold mb-4">
             Uploaded Files for {selectedDate.toString()}
           </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* BIG Weekly Files */}
-            <div>
-              <h4 className="font-medium text-sm text-default-600 mb-2">BIG Weekly Reports</h4>
-              <div className="space-y-2">
-                {BIG_SLOT_NAMES.map((slotName, index) => {
-                  const uploaded = funderUploads.find(
-                    (u) => u.funder_name === slotName && u.upload_type === "monthly"
-                  );
-                  return (
-                    <div
-                      key={slotName}
-                      className="flex items-center justify-between p-2 bg-default-100 rounded"
-                    >
-                      <span className="text-sm">Week {index + 1}</span>
-                      {uploaded ? (
-                        <span className="text-xs text-success-600">
-                          ✓ {uploaded.original_filename}
-                        </span>
-                      ) : (
-                        <span className="text-xs text-default-400">Not uploaded</span>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Monthly Funders */}
-            <div>
-              <h4 className="font-medium text-sm text-default-600 mb-2">Monthly Funders</h4>
-              <div className="space-y-2">
-                {monthlyFunderList
-                  .filter((f) => !f.disabled)
-                  .map((funder) => {
-                    const uploaded = funderUploads.find(
-                      (u) => u.funder_name === funder.name && u.upload_type === "monthly"
-                    );
-                    return (
-                      <div
-                        key={funder.name}
-                        className="flex items-center justify-between p-2 bg-default-100 rounded"
-                      >
-                        <span className="text-sm">{funder.name}</span>
-                        {uploaded ? (
-                          <span className="text-xs text-success-600">
-                            ✓ {uploaded.original_filename}
-                          </span>
-                        ) : (
-                          <span className="text-xs text-default-400">Not uploaded</span>
-                        )}
-                      </div>
-                    );
-                  })}
-              </div>
-            </div>
+          <div className="space-y-2">
+            {monthlyFunderList
+              .filter((f) => !f.disabled)
+              .map((funder) => {
+                const uploaded = funderUploads.find(
+                  (u) => u.funder_name === funder.name && u.upload_type === "monthly"
+                );
+                return (
+                  <div
+                    key={funder.name}
+                    className="flex items-center justify-between p-2 bg-default-100 rounded"
+                  >
+                    <span className="text-sm">{funder.name}</span>
+                    {uploaded ? (
+                      <span className="text-xs text-success-600">
+                        {uploaded.original_filename}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-default-400">Not uploaded</span>
+                    )}
+                  </div>
+                );
+              })}
           </div>
         </div>
       )}

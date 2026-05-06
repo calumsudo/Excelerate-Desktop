@@ -45,7 +45,6 @@ pub fn run() {
             file_handler::get_all_database_files,
             file_handler::read_csv_file,
             file_handler::read_excel_file,
-            file_handler::aggregate_big_monthly,
             file_handler::extract_merchants_from_portfolio,
             file_handler::get_merchants_by_portfolio,
             file_handler::get_merchants_by_funder,

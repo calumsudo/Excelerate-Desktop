@@ -160,21 +160,6 @@ export class FileService {
     }
   }
 
-  static async aggregateBigMonthly(
-    portfolioName: string,
-    reportDate: string
-  ): Promise<UploadResponse> {
-    try {
-      return await invoke<UploadResponse>("aggregate_big_monthly", {
-        portfolioName,
-        reportDate,
-      });
-    } catch (error) {
-      console.error("Error aggregating BIG monthly pivot:", error);
-      throw error;
-    }
-  }
-
   static async getPortfolioWorkbookPath(portfolioName: string): Promise<string> {
     try {
       return await invoke<string>("get_portfolio_workbook_path", {

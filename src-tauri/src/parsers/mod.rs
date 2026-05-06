@@ -1,7 +1,6 @@
 pub mod base_parser;
 pub mod bhb_parser;
 pub mod big_parser;
-pub mod big_aggregator;
 pub mod boom_parser;
 pub mod clearview_daily_parser;
 pub mod clearview_weekly_parser;
@@ -14,7 +13,6 @@ pub mod portfolio_parser;
 pub use base_parser::{BaseParser, PivotTable};
 pub use bhb_parser::BhbParser;
 pub use big_parser::BigParser;
-pub use big_aggregator::BigAggregator;
 pub use boom_parser::BoomParser;
 pub use clearview_daily_parser::ClearViewDailyParser;
 pub use clearview_weekly_parser::ClearViewWeeklyParser;
