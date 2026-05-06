@@ -1,7 +1,7 @@
+use super::base_parser::*;
+use calamine::{open_workbook, Data, Reader, Xlsx};
 use std::collections::HashMap;
 use std::path::Path;
-use super::base_parser::*;
-use calamine::{Reader, Xlsx, open_workbook, Data};
 
 pub struct BigParser {
     funder_name: String,
@@ -28,7 +28,7 @@ impl BigParser {
         }
 
         Err(ParserError::ProcessingError(
-            "Could not find portfolio sheet (R&H or White Rabbit)".to_string()
+            "Could not find portfolio sheet (R&H or White Rabbit)".to_string(),
         ))
     }
 
@@ -42,7 +42,7 @@ impl BigParser {
                 } else {
                     Some(trimmed.to_string())
                 }
-            },
+            }
             Data::Float(f) => {
                 // Convert float to integer string if it's a whole number
                 if f.fract() == 0.0 {
@@ -50,24 +50,36 @@ impl BigParser {
                 } else {
                     Some(f.to_string())
                 }
-            },
+            }
             Data::Int(i) => Some(i.to_string()),
             _ => Some(value.to_string()),
         }
     }
 
-    fn process_sheet_data(&self, file_path: &Path, sheet_name: &str) -> ParserResult<Vec<ProcessedData>> {
+    fn process_sheet_data(
+        &self,
+        file_path: &Path,
+        sheet_name: &str,
+    ) -> ParserResult<Vec<ProcessedData>> {
         let mut workbook: Xlsx<_> = open_workbook(file_path)
             .map_err(|_| ParserError::ProcessingError("Failed to open workbook".to_string()))?;
 
-        let range = workbook.worksheet_range(sheet_name)
-            .map_err(|e| ParserError::ProcessingError(format!("Failed to read sheet '{}': {:?}", sheet_name, e)))?;
+        let range = workbook.worksheet_range(sheet_name).map_err(|e| {
+            ParserError::ProcessingError(format!("Failed to read sheet '{}': {:?}", sheet_name, e))
+        })?;
 
         let mut processed_data = Vec::new();
 
         // Find the header row (look for "Funding ID" or similar in column A)
         let mut header_row_idx = 2; // Default header row
-        let header_values = vec!["funding id", "fundingid", "funding_id", "id", "advance id", "advanceid"];
+        let header_values = vec![
+            "funding id",
+            "fundingid",
+            "funding_id",
+            "id",
+            "advance id",
+            "advanceid",
+        ];
 
         for (row_idx, row) in range.rows().enumerate().take(10) {
             if let Some(first_cell) = row.get(0) {
@@ -80,10 +92,14 @@ impl BigParser {
         }
 
         // Parse headers to find all "Total Paid" column indices
-        let header_row = range.rows().nth(header_row_idx)
+        let header_row = range
+            .rows()
+            .nth(header_row_idx)
             .ok_or_else(|| ParserError::ProcessingError("Header row not found".to_string()))?;
 
-        let total_paid_columns: Vec<usize> = header_row.iter().enumerate()
+        let total_paid_columns: Vec<usize> = header_row
+            .iter()
+            .enumerate()
             .filter(|(_, cell)| {
                 let text = cell.to_string();
                 text.trim().to_lowercase().starts_with("total paid")
@@ -93,7 +109,7 @@ impl BigParser {
 
         if total_paid_columns.is_empty() {
             return Err(ParserError::ProcessingError(
-                "No 'Total Paid' columns found in headers".to_string()
+                "No 'Total Paid' columns found in headers".to_string(),
             ));
         }
 
@@ -102,20 +118,18 @@ impl BigParser {
         // Process data rows
         for (_row_idx, row) in range.rows().enumerate().skip(data_start_row) {
             // Column A (0): Funding ID / Advance ID
-            let advance_id = row.get(0)
-                .and_then(|cell| self.clean_advance_id(cell));
+            let advance_id = row.get(0).and_then(|cell| self.clean_advance_id(cell));
 
             if advance_id.is_none() {
                 continue; // Skip rows without valid advance ID
             }
 
             // Column D (3): Business Name / Merchant Name
-            let merchant_name = row.get(3)
-                .map(|cell| cell.to_string())
-                .unwrap_or_default();
+            let merchant_name = row.get(3).map(|cell| cell.to_string()).unwrap_or_default();
 
             // Column Q (16): Management Fee %
-            let management_fee_pct = row.get(16)
+            let management_fee_pct = row
+                .get(16)
                 .and_then(|cell| match cell {
                     Data::Float(f) => Some(*f),
                     Data::Int(i) => Some(*i as f64),
@@ -123,7 +137,7 @@ impl BigParser {
                         // Handle percentage strings like "3%" or "0.03"
                         let cleaned = s.trim().replace('%', "");
                         cleaned.parse::<f64>().ok()
-                    },
+                    }
                     _ => None,
                 })
                 .unwrap_or(3.0); // Default to 3% if not found
@@ -184,7 +198,7 @@ impl BaseParser for BigParser {
         // For BIG parser, we'll override the process method directly
         // since the format is too different from standard CSV parsers
         Err(ParserError::ProcessingError(
-            "BIG parser uses custom processing, call process() directly".to_string()
+            "BIG parser uses custom processing, call process() directly".to_string(),
         ))
     }
 
@@ -196,7 +210,7 @@ impl BaseParser for BigParser {
     fn process_row(&self, _row: &HashMap<String, String>) -> ParserResult<Option<ProcessedData>> {
         // Not used for BIG parser
         Err(ParserError::ProcessingError(
-            "BIG parser uses custom row processing".to_string()
+            "BIG parser uses custom row processing".to_string(),
         ))
     }
 
@@ -216,18 +230,12 @@ impl BaseParser for BigParser {
 
         // Sort by Advance ID
         let mut sorted_entries: Vec<_> = grouped_data.into_iter().collect();
-        sorted_entries.sort_by(|a, b| a.0.0.cmp(&b.0.0));
+        sorted_entries.sort_by(|a, b| a.0 .0.cmp(&b.0 .0));
 
         // Add data rows (skip any entries with zero net amount)
         for ((advance_id, merchant_name), (gross, fee, net)) in sorted_entries {
             if net != 0.0 {
-                pivot.add_row(
-                    advance_id,
-                    merchant_name,
-                    gross,
-                    fee,
-                    net,
-                );
+                pivot.add_row(advance_id, merchant_name, gross, fee, net);
             }
         }
 
@@ -239,7 +247,8 @@ impl BaseParser for BigParser {
 
     fn process(&self, file_path: &Path) -> ParserResult<PivotTable> {
         // Check file extension
-        let extension = file_path.extension()
+        let extension = file_path
+            .extension()
             .and_then(|e| e.to_str())
             .ok_or(ParserError::UnsupportedFormat)?;
 
@@ -254,7 +263,9 @@ impl BaseParser for BigParser {
         let processed_data = self.process_sheet_data(file_path, &sheet_name)?;
 
         if processed_data.is_empty() {
-            return Err(ParserError::ProcessingError("No valid data found".to_string()));
+            return Err(ParserError::ProcessingError(
+                "No valid data found".to_string(),
+            ));
         }
 
         // Create pivot table

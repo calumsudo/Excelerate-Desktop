@@ -1,8 +1,8 @@
 mod database;
 mod file_handler;
 mod notification;
-mod validated_file_handler;
 pub mod parsers;
+mod validated_file_handler;
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
@@ -16,7 +16,7 @@ pub fn run() {
     if let Err(e) = file_handler::ensure_directories() {
         eprintln!("Failed to create Excelerate directories: {}", e);
     }
-    
+
     // Initialize database on app startup
     if let Err(e) = file_handler::init_database() {
         eprintln!("Failed to initialize database: {}", e);

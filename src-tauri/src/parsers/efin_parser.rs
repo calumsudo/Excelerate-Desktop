@@ -1,9 +1,9 @@
+use crate::parsers::base_parser::{
+    read_csv_file, read_excel_file, BaseParser, ParserError, ParserResult, PivotTable,
+    ProcessedData,
+};
 use std::collections::HashMap;
 use std::path::Path;
-use crate::parsers::base_parser::{
-    BaseParser, ParserError, ParserResult, ProcessedData, PivotTable,
-    read_csv_file, read_excel_file
-};
 
 pub struct EfinParser;
 
@@ -32,7 +32,8 @@ impl BaseParser for EfinParser {
     }
 
     fn parse_file(&self, file_path: &Path) -> ParserResult<Vec<HashMap<String, String>>> {
-        let extension = file_path.extension()
+        let extension = file_path
+            .extension()
             .and_then(|e| e.to_str())
             .unwrap_or("")
             .to_lowercase();
@@ -40,12 +41,12 @@ impl BaseParser for EfinParser {
             "xlsx" | "xls" => {
                 // eFin monthly XLSX uses the first sheet
                 use calamine::{open_workbook, Reader, Xlsx};
-                let workbook: Xlsx<_> = open_workbook(file_path)
-                    .map_err(|_| ParserError::ProcessingError("Failed to open eFin Excel file".to_string()))?;
-                let sheet_name = workbook.sheet_names()
-                    .first()
-                    .cloned()
-                    .ok_or_else(|| ParserError::ProcessingError("No sheets in eFin Excel file".to_string()))?;
+                let workbook: Xlsx<_> = open_workbook(file_path).map_err(|_| {
+                    ParserError::ProcessingError("Failed to open eFin Excel file".to_string())
+                })?;
+                let sheet_name = workbook.sheet_names().first().cloned().ok_or_else(|| {
+                    ParserError::ProcessingError("No sheets in eFin Excel file".to_string())
+                })?;
                 read_excel_file(file_path, &sheet_name)
             }
             _ => read_csv_file(file_path),
@@ -69,32 +70,37 @@ impl BaseParser for EfinParser {
 
     fn process_row(&self, row: &HashMap<String, String>) -> ParserResult<Option<ProcessedData>> {
         // Get advance ID - skip if empty
-        let advance_id = row.get("Advance ID")
+        let advance_id = row
+            .get("Advance ID")
             .ok_or_else(|| ParserError::ProcessingError("Missing Advance ID".to_string()))?
             .trim()
             .to_string();
-        
+
         if advance_id.is_empty() {
             return Ok(None);
         }
 
         // Get merchant name
-        let merchant_name = row.get("Business Name")
+        let merchant_name = row
+            .get("Business Name")
             .unwrap_or(&String::new())
             .trim()
             .to_string();
 
         // Parse amounts
-        let gross_payment = row.get("Payable Amt (Gross)")
+        let gross_payment = row
+            .get("Payable Amt (Gross)")
             .and_then(|v| self.currency_to_float(v).ok())
             .unwrap_or(0.0);
 
-        let fees = row.get("Servicing Fee $")
+        let fees = row
+            .get("Servicing Fee $")
             .and_then(|v| self.currency_to_float(v).ok())
             .unwrap_or(0.0)
             .abs(); // Ensure fees are positive
 
-        let net = row.get("Payable Amt (Net)")
+        let net = row
+            .get("Payable Amt (Net)")
             .and_then(|v| self.currency_to_float(v).ok())
             .unwrap_or(0.0);
 
@@ -109,10 +115,10 @@ impl BaseParser for EfinParser {
 
     fn create_pivot_table(&self, data: Vec<ProcessedData>) -> ParserResult<PivotTable> {
         let mut pivot = PivotTable::new();
-        
+
         // Group by Advance ID (aggregate multiple rows with same ID)
         let mut grouped: HashMap<String, (String, f64, f64, f64)> = HashMap::new();
-        
+
         for item in data {
             let entry = grouped.entry(item.advance_id.clone()).or_insert((
                 item.merchant_name.clone(),
@@ -124,15 +130,15 @@ impl BaseParser for EfinParser {
             entry.2 += item.fees;
             entry.3 += item.net;
         }
-        
+
         // Add rows to pivot table
         for (advance_id, (merchant_name, gross, fee, net)) in grouped {
             pivot.add_row(advance_id, merchant_name, gross, fee, net);
         }
-        
+
         // Add totals row
         pivot.add_totals_row();
-        
+
         Ok(pivot)
     }
 }
@@ -155,16 +161,16 @@ mod tests {
                     println!("Total Net: {:.2}", pivot_table.total_net);
                     println!("Number of rows: {}", pivot_table.rows.len());
                     assert!(pivot_table.rows.len() > 0);
-                    
+
                     // Verify totals match what's expected
                     assert!(pivot_table.total_gross > 0.0);
                     assert!(pivot_table.total_fee > 0.0);
                     assert!(pivot_table.total_net > 0.0);
-                    
+
                     // Verify the relationship: gross = net + fee (with small tolerance for rounding)
                     let calculated_gross = pivot_table.total_net + pivot_table.total_fee;
                     assert!((pivot_table.total_gross - calculated_gross).abs() < 0.01);
-                },
+                }
                 Err(e) => {
                     panic!("Failed to process eFin file: {:?}", e);
                 }
@@ -177,7 +183,7 @@ mod tests {
     #[test]
     fn test_currency_parsing() {
         let parser = EfinParser::new();
-        
+
         assert_eq!(parser.currency_to_float("$100.50").unwrap(), 100.50);
         assert_eq!(parser.currency_to_float("1,234.56").unwrap(), 1234.56);
         assert_eq!(parser.currency_to_float("(50.00)").unwrap(), -50.00);

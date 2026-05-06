@@ -1,11 +1,16 @@
+use crate::database::{
+    Database, FileVersion, FunderPivotTable, FunderUpload, Merchant, UnmatchedDeal,
+};
+use crate::parsers::{
+    BaseParser, BhbParser, BigParser, BoomParser, ClearViewMonthlyParser, ClearViewPivotProcessor,
+    EfinParser, InAdvParser, KingsParser, PortfolioParser,
+};
+use chrono::{Datelike, Utc};
+use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
-use serde::{Serialize, Deserialize};
-use chrono::{Utc, Datelike};
 use uuid::Uuid;
-use crate::database::{Database, FileVersion, FunderUpload, FunderPivotTable, Merchant, UnmatchedDeal};
-use crate::parsers::{BaseParser, BhbParser, BigParser, BoomParser, EfinParser, InAdvParser, KingsParser, ClearViewMonthlyParser, ClearViewPivotProcessor, PortfolioParser};
 
 lazy_static::lazy_static! {
     static ref DB: Mutex<Option<Database>> = Mutex::new(None);
@@ -44,9 +49,8 @@ impl From<FileVersion> for VersionInfo {
 }
 
 pub fn get_excelerate_dir() -> Result<PathBuf, String> {
-    let home_dir = dirs::home_dir()
-        .ok_or_else(|| "Could not find home directory".to_string())?;
-    
+    let home_dir = dirs::home_dir().ok_or_else(|| "Could not find home directory".to_string())?;
+
     let excelerate_dir = home_dir.join("Excelerate");
     Ok(excelerate_dir)
 }
@@ -54,19 +58,19 @@ pub fn get_excelerate_dir() -> Result<PathBuf, String> {
 pub fn init_database() -> Result<(), String> {
     let base_dir = get_excelerate_dir()?;
     let db_path = base_dir.join("excelerate.db");
-    
-    let db = Database::new(&db_path)
-        .map_err(|e| format!("Failed to initialize database: {}", e))?;
-    
+
+    let db =
+        Database::new(&db_path).map_err(|e| format!("Failed to initialize database: {}", e))?;
+
     let mut db_lock = DB.lock().unwrap();
     *db_lock = Some(db);
-    
+
     Ok(())
 }
 
 pub fn ensure_directories() -> Result<(), String> {
     let base_dir = get_excelerate_dir()?;
-    
+
     let mut directories = vec![
         base_dir.clone(),
         base_dir.join("Alder"),
@@ -74,44 +78,92 @@ pub fn ensure_directories() -> Result<(), String> {
         base_dir.join("Alder").join("Workbook").join("versions"),
         base_dir.join("Alder").join("Funder Uploads"),
         base_dir.join("Alder").join("Funder Uploads").join("Weekly"),
-        base_dir.join("Alder").join("Funder Uploads").join("Monthly"),
+        base_dir
+            .join("Alder")
+            .join("Funder Uploads")
+            .join("Monthly"),
         base_dir.join("Alder").join("Funder Pivot Tables"),
-        base_dir.join("Alder").join("Funder Pivot Tables").join("Weekly"),
-        base_dir.join("Alder").join("Funder Pivot Tables").join("Monthly"),
+        base_dir
+            .join("Alder")
+            .join("Funder Pivot Tables")
+            .join("Weekly"),
+        base_dir
+            .join("Alder")
+            .join("Funder Pivot Tables")
+            .join("Monthly"),
         base_dir.join("White Rabbit"),
         base_dir.join("White Rabbit").join("Workbook"),
-        base_dir.join("White Rabbit").join("Workbook").join("versions"),
+        base_dir
+            .join("White Rabbit")
+            .join("Workbook")
+            .join("versions"),
         base_dir.join("White Rabbit").join("Funder Uploads"),
-        base_dir.join("White Rabbit").join("Funder Uploads").join("Weekly"),
-        base_dir.join("White Rabbit").join("Funder Uploads").join("Monthly"),
+        base_dir
+            .join("White Rabbit")
+            .join("Funder Uploads")
+            .join("Weekly"),
+        base_dir
+            .join("White Rabbit")
+            .join("Funder Uploads")
+            .join("Monthly"),
         base_dir.join("White Rabbit").join("Funder Pivot Tables"),
-        base_dir.join("White Rabbit").join("Funder Pivot Tables").join("Weekly"),
-        base_dir.join("White Rabbit").join("Funder Pivot Tables").join("Monthly"),
+        base_dir
+            .join("White Rabbit")
+            .join("Funder Pivot Tables")
+            .join("Weekly"),
+        base_dir
+            .join("White Rabbit")
+            .join("Funder Pivot Tables")
+            .join("Monthly"),
     ];
-    
+
     // Monthly funder directories for both portfolios
     let monthly_funders = vec!["BHB", "BIG", "Clear View", "eFin", "Kings", "Boom", "Payva"];
     for portfolio in &["Alder", "White Rabbit"] {
         for funder in &monthly_funders {
-            directories.push(base_dir.join(portfolio).join("Funder Uploads").join("Monthly").join(funder));
-            directories.push(base_dir.join(portfolio).join("Funder Pivot Tables").join("Monthly").join(funder));
+            directories.push(
+                base_dir
+                    .join(portfolio)
+                    .join("Funder Uploads")
+                    .join("Monthly")
+                    .join(funder),
+            );
+            directories.push(
+                base_dir
+                    .join(portfolio)
+                    .join("Funder Pivot Tables")
+                    .join("Monthly")
+                    .join(funder),
+            );
         }
         // InAdvance is Alder-only but add for both to keep it simple
-        directories.push(base_dir.join(portfolio).join("Funder Uploads").join("Monthly").join("InAdvance"));
-        directories.push(base_dir.join(portfolio).join("Funder Pivot Tables").join("Monthly").join("InAdvance"));
+        directories.push(
+            base_dir
+                .join(portfolio)
+                .join("Funder Uploads")
+                .join("Monthly")
+                .join("InAdvance"),
+        );
+        directories.push(
+            base_dir
+                .join(portfolio)
+                .join("Funder Pivot Tables")
+                .join("Monthly")
+                .join("InAdvance"),
+        );
     }
-    
+
     for dir in directories {
         fs::create_dir_all(&dir)
             .map_err(|e| format!("Failed to create directory {:?}: {}", dir, e))?;
     }
-    
+
     Ok(())
 }
 
 fn get_portfolio_dir(portfolio_name: &str) -> Result<PathBuf, String> {
     let base_dir = get_excelerate_dir()?;
-    
+
     match portfolio_name.to_lowercase().replace(" ", "_").as_str() {
         "alder" => Ok(base_dir.join("Alder")),
         "white_rabbit" | "whiterabbit" => Ok(base_dir.join("White Rabbit")),
@@ -123,7 +175,10 @@ fn get_main_workbook_filename(portfolio_name: &str) -> String {
     match portfolio_name.to_lowercase().replace(" ", "_").as_str() {
         "alder" => "alder_portfolio_workbook.xlsx".to_string(),
         "white_rabbit" | "whiterabbit" => "white_rabbit_portfolio_workbook.xlsx".to_string(),
-        _ => format!("{}_workbook.xlsx", portfolio_name.to_lowercase().replace(" ", "_")),
+        _ => format!(
+            "{}_workbook.xlsx",
+            portfolio_name.to_lowercase().replace(" ", "_")
+        ),
     }
 }
 
@@ -135,38 +190,39 @@ pub fn save_portfolio_workbook_with_version(
     report_date: &str,
 ) -> Result<UploadResponse, String> {
     ensure_directories()?;
-    
+
     if DB.lock().unwrap().is_none() {
         init_database()?;
     }
-    
+
     let portfolio_dir = get_portfolio_dir(portfolio_name)?;
     let workbook_dir = portfolio_dir.join("Workbook");
     let versions_dir = workbook_dir.join("versions");
-    
+
     let version_id = Uuid::new_v4().to_string();
     let file_extension = Path::new(file_name)
         .extension()
         .and_then(|ext| ext.to_str())
         .unwrap_or("xlsx");
-    let version_filename = format!("{}_{}.{}", 
-        report_date.replace("-", ""), 
-        version_id, 
+    let version_filename = format!(
+        "{}_{}.{}",
+        report_date.replace("-", ""),
+        version_id,
         file_extension
     );
     let version_path = versions_dir.join(&version_filename);
-    
+
     fs::write(&version_path, &file_data)
         .map_err(|e| format!("Failed to save version file: {}", e))?;
-    
+
     let main_filename = get_main_workbook_filename(portfolio_name);
     let main_path = workbook_dir.join(&main_filename);
-    
+
     fs::write(&main_path, &file_data)
         .map_err(|e| format!("Failed to save main workbook: {}", e))?;
-    
+
     let file_size = file_data.len() as i64;
-    
+
     let version = FileVersion {
         id: version_id.clone(),
         portfolio_name: portfolio_name.to_string(),
@@ -178,17 +234,20 @@ pub fn save_portfolio_workbook_with_version(
         upload_timestamp: Utc::now(),
         is_active: true,
     };
-    
+
     let db_lock = DB.lock().unwrap();
     if let Some(db) = db_lock.as_ref() {
         db.insert_file_version(&version)
             .map_err(|e| format!("Failed to save version to database: {}", e))?;
-        
+
         // Extract merchants from the workbook
         let parser = PortfolioParser::new(portfolio_name.to_string());
         match parser.parse_portfolio_workbook(&main_path, db) {
             Ok(merchant_count) => {
-                println!("Extracted {} merchants from portfolio workbook", merchant_count);
+                println!(
+                    "Extracted {} merchants from portfolio workbook",
+                    merchant_count
+                );
             }
             Err(e) => {
                 eprintln!("Failed to extract merchants: {}", e);
@@ -196,7 +255,7 @@ pub fn save_portfolio_workbook_with_version(
             }
         }
     }
-    
+
     Ok(UploadResponse {
         success: true,
         message: format!("Workbook saved successfully with version tracking"),
@@ -211,12 +270,13 @@ pub fn get_portfolio_versions(portfolio_name: &str) -> Result<Vec<VersionInfo>, 
     if DB.lock().unwrap().is_none() {
         init_database()?;
     }
-    
+
     let db_lock = DB.lock().unwrap();
     if let Some(db) = db_lock.as_ref() {
-        let versions = db.get_versions_by_portfolio(portfolio_name)
+        let versions = db
+            .get_versions_by_portfolio(portfolio_name)
             .map_err(|e| format!("Failed to get versions: {}", e))?;
-        
+
         Ok(versions.into_iter().map(VersionInfo::from).collect())
     } else {
         Err("Database not initialized".to_string())
@@ -228,12 +288,13 @@ pub fn get_versions_by_date(report_date: &str) -> Result<Vec<VersionInfo>, Strin
     if DB.lock().unwrap().is_none() {
         init_database()?;
     }
-    
+
     let db_lock = DB.lock().unwrap();
     if let Some(db) = db_lock.as_ref() {
-        let versions = db.get_versions_by_date(report_date)
+        let versions = db
+            .get_versions_by_date(report_date)
             .map_err(|e| format!("Failed to get versions: {}", e))?;
-        
+
         Ok(versions.into_iter().map(VersionInfo::from).collect())
     } else {
         Err("Database not initialized".to_string())
@@ -245,31 +306,32 @@ pub fn restore_version(version_id: &str) -> Result<UploadResponse, String> {
     if DB.lock().unwrap().is_none() {
         init_database()?;
     }
-    
+
     let db_lock = DB.lock().unwrap();
     if let Some(db) = db_lock.as_ref() {
-        let version = db.get_version_by_id(version_id)
+        let version = db
+            .get_version_by_id(version_id)
             .map_err(|e| format!("Failed to get version: {}", e))?
             .ok_or_else(|| "Version not found".to_string())?;
-        
+
         let version_path = Path::new(&version.file_path);
         if !version_path.exists() {
             return Err("Version file not found".to_string());
         }
-        
-        let file_data = fs::read(version_path)
-            .map_err(|e| format!("Failed to read version file: {}", e))?;
-        
+
+        let file_data =
+            fs::read(version_path).map_err(|e| format!("Failed to read version file: {}", e))?;
+
         let portfolio_dir = get_portfolio_dir(&version.portfolio_name)?;
         let main_filename = get_main_workbook_filename(&version.portfolio_name);
         let main_path = portfolio_dir.join("Workbook").join(&main_filename);
-        
+
         fs::write(&main_path, file_data)
             .map_err(|e| format!("Failed to restore workbook: {}", e))?;
-        
+
         db.set_active_version(version_id)
             .map_err(|e| format!("Failed to update active version: {}", e))?;
-        
+
         Ok(UploadResponse {
             success: true,
             message: format!("Version restored successfully"),
@@ -287,12 +349,13 @@ pub fn get_active_version(portfolio_name: &str) -> Result<Option<VersionInfo>, S
     if DB.lock().unwrap().is_none() {
         init_database()?;
     }
-    
+
     let db_lock = DB.lock().unwrap();
     if let Some(db) = db_lock.as_ref() {
-        let version = db.get_active_version(portfolio_name)
+        let version = db
+            .get_active_version(portfolio_name)
             .map_err(|e| format!("Failed to get active version: {}", e))?;
-        
+
         Ok(version.map(VersionInfo::from))
     } else {
         Err("Database not initialized".to_string())
@@ -304,12 +367,13 @@ pub fn check_version_exists(portfolio_name: &str, report_date: &str) -> Result<b
     if DB.lock().unwrap().is_none() {
         init_database()?;
     }
-    
+
     let db_lock = DB.lock().unwrap();
     if let Some(db) = db_lock.as_ref() {
-        let version = db.get_version_by_portfolio_and_date(portfolio_name, report_date)
+        let version = db
+            .get_version_by_portfolio_and_date(portfolio_name, report_date)
             .map_err(|e| format!("Failed to check version: {}", e))?;
-        
+
         Ok(version.is_some())
     } else {
         Err("Database not initialized".to_string())
@@ -321,19 +385,20 @@ pub fn delete_version(version_id: &str) -> Result<bool, String> {
     if DB.lock().unwrap().is_none() {
         init_database()?;
     }
-    
+
     let db_lock = DB.lock().unwrap();
     if let Some(db) = db_lock.as_ref() {
-        let version = db.get_version_by_id(version_id)
+        let version = db
+            .get_version_by_id(version_id)
             .map_err(|e| format!("Failed to get version: {}", e))?
             .ok_or_else(|| "Version not found".to_string())?;
-        
+
         let version_path = Path::new(&version.file_path);
         if version_path.exists() {
             fs::remove_file(version_path)
                 .map_err(|e| format!("Failed to delete version file: {}", e))?;
         }
-        
+
         db.delete_version(version_id)
             .map_err(|e| format!("Failed to delete version from database: {}", e))
     } else {
@@ -346,7 +411,7 @@ pub fn get_portfolio_workbook_path(portfolio_name: &str) -> Result<String, Strin
     let portfolio_dir = get_portfolio_dir(portfolio_name)?;
     let main_filename = get_main_workbook_filename(portfolio_name);
     let file_path = portfolio_dir.join("Workbook").join(&main_filename);
-    
+
     if file_path.exists() {
         Ok(file_path.to_string_lossy().to_string())
     } else {
@@ -379,10 +444,12 @@ fn process_clearview_monthly_file(
     let portfolios = ["Alder", "White Rabbit"];
     for &pf in &portfolios {
         let parser = ClearViewMonthlyParser::new(pf);
-        let pivot = parser.process(file_path)
+        let pivot = parser
+            .process(file_path)
             .map_err(|e| format!("Failed to parse ClearView monthly file for {}: {:?}", pf, e))?;
 
-        let csv_content = pivot.to_csv_string()
+        let csv_content = pivot
+            .to_csv_string()
             .map_err(|e| format!("Failed to generate CSV for {}: {}", pf, e))?;
 
         let portfolio_dir = get_portfolio_dir(pf)?;
@@ -492,64 +559,78 @@ fn process_funder_file(
     if funder_name == "Payva" {
         return Ok(());
     }
-    
+
     // Select the appropriate parser based on funder name
     let pivot_table = match funder_name {
         "BHB" => {
             let parser = BhbParser::new();
-            parser.process(file_path)
+            parser
+                .process(file_path)
                 .map_err(|e| format!("Failed to parse BHB file: {}", e))?
-        },
+        }
         "BIG" => {
             let parser = BigParser::new();
-            parser.process(file_path)
+            parser
+                .process(file_path)
                 .map_err(|e| format!("Failed to parse BIG file: {}", e))?
-        },
+        }
         "eFin" => {
             let parser = EfinParser::new();
-            parser.process(file_path)
+            parser
+                .process(file_path)
                 .map_err(|e| format!("Failed to parse eFin file: {}", e))?
-        },
+        }
         "InAdvance" => {
             let parser = InAdvParser::new();
-            parser.process(file_path)
+            parser
+                .process(file_path)
                 .map_err(|e| format!("Failed to parse InAdvance file: {}", e))?
-        },
+        }
         "Kings" => {
             let parser = KingsParser::new();
-            parser.process(file_path)
+            parser
+                .process(file_path)
                 .map_err(|e| format!("Failed to parse Kings file: {}", e))?
-        },
+        }
         "Boom" => {
             let parser = BoomParser::new();
-            parser.process(file_path)
+            parser
+                .process(file_path)
                 .map_err(|e| format!("Failed to parse Boom file: {}", e))?
-        },
+        }
         _ => {
-            return Err(format!("Parser not yet implemented for funder: {}", funder_name));
+            return Err(format!(
+                "Parser not yet implemented for funder: {}",
+                funder_name
+            ));
         }
     };
-    
+
     // Generate pivot table CSV
-    let csv_content = pivot_table.to_csv_string()
+    let csv_content = pivot_table
+        .to_csv_string()
         .map_err(|e| format!("Failed to generate CSV: {}", e))?;
-    
+
     // Create pivot table directory and save file
     let portfolio_dir = get_portfolio_dir(portfolio_name)?;
     let pivot_dir = portfolio_dir
         .join("Funder Pivot Tables")
-        .join(if upload_type == "weekly" { "Weekly" } else { "Monthly" })
+        .join(if upload_type == "weekly" {
+            "Weekly"
+        } else {
+            "Monthly"
+        })
         .join(funder_name);
-    
+
     fs::create_dir_all(&pivot_dir)
         .map_err(|e| format!("Failed to create pivot directory: {}", e))?;
-    
+
     let pivot_filename = format!("{}.csv", report_date);
     let pivot_path = pivot_dir.join(&pivot_filename);
-    
+
     fs::write(&pivot_path, csv_content.as_bytes())
         .map_err(|e| format!("Failed to save pivot table: {}", e))?;
-    
+
     // Save pivot table metadata to database
     let pivot_id = Uuid::new_v4().to_string();
     let pivot_record = FunderPivotTable {
@@ -566,7 +647,7 @@ fn process_funder_file(
         row_count: (pivot_table.rows.len() - 1) as i32, // Subtract 1 for totals row
         created_timestamp: Utc::now(),
     };
-    
+
     // Save to database and immediately release the lock
     {
         let db_lock = DB.lock().unwrap();
@@ -574,8 +655,8 @@ fn process_funder_file(
             db.insert_funder_pivot_table(&pivot_record)
                 .map_err(|e| format!("Failed to save pivot table to database: {}", e))?;
         }
-    }  // db_lock is dropped here
-    
+    } // db_lock is dropped here
+
     Ok(())
 }
 
@@ -614,17 +695,17 @@ pub fn save_funder_upload(
     upload_type: &str, // "weekly" or "monthly"
 ) -> Result<UploadResponse, String> {
     ensure_directories()?;
-    
+
     if DB.lock().unwrap().is_none() {
         init_database()?;
     }
-    
+
     let portfolio_dir = get_portfolio_dir(portfolio_name)?;
-    
+
     // Debug logging commented out to avoid issues with frontend
-    // println!("Processing upload - Portfolio: {}, Funder: {}, File: {}, Date: {}, Type: {}", 
+    // println!("Processing upload - Portfolio: {}, Funder: {}, File: {}, Date: {}, Type: {}",
     //     portfolio_name, funder_name, file_name, report_date, upload_type);
-    
+
     // Standard funder directory structure - all funders now use Monthly
     let funder_dir = portfolio_dir
         .join("Funder Uploads")
@@ -637,24 +718,23 @@ pub fn save_funder_upload(
         .unwrap_or("csv");
     let stored_filename = format!("{}.{}", report_date, file_extension);
     let final_funder_name = funder_name.to_string();
-    
+
     // Create funder directory if it doesn't exist
     // println!("Creating directory: {:?}", funder_dir);
     fs::create_dir_all(&funder_dir)
         .map_err(|e| format!("Failed to create funder directory: {}", e))?;
-    
+
     let file_path = funder_dir.join(&stored_filename);
     // println!("Saving file to: {:?}", file_path);
-    
+
     // Write the file
-    fs::write(&file_path, &file_data)
-        .map_err(|e| format!("Failed to save funder file: {}", e))?;
-    
+    fs::write(&file_path, &file_data).map_err(|e| format!("Failed to save funder file: {}", e))?;
+
     // println!("File saved successfully");
-    
+
     let file_size = file_data.len() as i64;
     let upload_id = Uuid::new_v4().to_string();
-    
+
     // Save to database with normalized funder name
     let funder_upload = FunderUpload {
         id: upload_id.clone(),
@@ -668,7 +748,7 @@ pub fn save_funder_upload(
         file_size,
         upload_timestamp: Utc::now(),
     };
-    
+
     // Insert funder upload to database and immediately release the lock
     {
         let db_lock = DB.lock().unwrap();
@@ -676,8 +756,8 @@ pub fn save_funder_upload(
             db.insert_funder_upload(&funder_upload)
                 .map_err(|e| format!("Failed to save funder upload to database: {}", e))?;
         }
-    }  // db_lock is dropped here
-    
+    } // db_lock is dropped here
+
     let pivot_result = process_funder_file(
         &file_path,
         portfolio_name,
@@ -690,10 +770,16 @@ pub fn save_funder_upload(
     );
 
     let (success, message) = match pivot_result {
-        Ok(_) => (true, format!("Funder file saved and pivot table created successfully for {} - {}", final_funder_name, report_date)),
+        Ok(_) => (
+            true,
+            format!(
+                "Funder file saved and pivot table created successfully for {} - {}",
+                final_funder_name, report_date
+            ),
+        ),
         Err(e) => (true, format!("Funder file saved. Note: {}", e)),
     };
-    
+
     Ok(UploadResponse {
         success,
         message,
@@ -713,12 +799,13 @@ pub fn get_funder_upload_info(
     if DB.lock().unwrap().is_none() {
         init_database()?;
     }
-    
+
     let db_lock = DB.lock().unwrap();
     if let Some(db) = db_lock.as_ref() {
-        let upload = db.get_funder_upload(portfolio_name, funder_name, report_date, upload_type)
+        let upload = db
+            .get_funder_upload(portfolio_name, funder_name, report_date, upload_type)
             .map_err(|e| format!("Failed to get funder upload: {}", e))?;
-        
+
         Ok(upload.map(FunderUploadInfo::from))
     } else {
         Err("Database not initialized".to_string())
@@ -733,12 +820,13 @@ pub fn get_funder_uploads_for_date(
     if DB.lock().unwrap().is_none() {
         init_database()?;
     }
-    
+
     let db_lock = DB.lock().unwrap();
     if let Some(db) = db_lock.as_ref() {
-        let uploads = db.get_funder_uploads_by_portfolio_and_date(portfolio_name, report_date)
+        let uploads = db
+            .get_funder_uploads_by_portfolio_and_date(portfolio_name, report_date)
             .map_err(|e| format!("Failed to get funder uploads: {}", e))?;
-        
+
         Ok(uploads.into_iter().map(FunderUploadInfo::from).collect())
     } else {
         Err("Database not initialized".to_string())
@@ -755,12 +843,13 @@ pub fn check_funder_upload_exists(
     if DB.lock().unwrap().is_none() {
         init_database()?;
     }
-    
+
     let db_lock = DB.lock().unwrap();
     if let Some(db) = db_lock.as_ref() {
-        let upload = db.get_funder_upload(portfolio_name, funder_name, report_date, upload_type)
+        let upload = db
+            .get_funder_upload(portfolio_name, funder_name, report_date, upload_type)
             .map_err(|e| format!("Failed to check funder upload: {}", e))?;
-        
+
         Ok(upload.is_some())
     } else {
         Err("Database not initialized".to_string())
@@ -772,27 +861,31 @@ pub fn delete_funder_upload(upload_id: &str) -> Result<bool, String> {
     if DB.lock().unwrap().is_none() {
         init_database()?;
     }
-    
+
     let db_lock = DB.lock().unwrap();
     if let Some(db) = db_lock.as_ref() {
         // First, get the upload details to find the file paths
-        let uploads = db.get_all_funder_uploads()
+        let uploads = db
+            .get_all_funder_uploads()
             .map_err(|e| format!("Failed to get funder uploads: {}", e))?;
-        
-        let upload = uploads.iter().find(|u| u.id == upload_id)
+
+        let upload = uploads
+            .iter()
+            .find(|u| u.id == upload_id)
             .ok_or_else(|| "Upload not found".to_string())?;
-        
+
         // Get the associated pivot table to delete its file too
-        let pivot = db.get_pivot_table_by_upload_id(upload_id)
+        let pivot = db
+            .get_pivot_table_by_upload_id(upload_id)
             .map_err(|e| format!("Failed to get pivot table: {}", e))?;
-        
+
         // Delete the upload file from filesystem
         let upload_path = Path::new(&upload.file_path);
         if upload_path.exists() {
             fs::remove_file(upload_path)
                 .map_err(|e| format!("Failed to delete upload file: {}", e))?;
         }
-        
+
         // Delete the pivot table file from filesystem if it exists
         if let Some(pivot_table) = pivot {
             let pivot_path = Path::new(&pivot_table.pivot_file_path);
@@ -800,12 +893,12 @@ pub fn delete_funder_upload(upload_id: &str) -> Result<bool, String> {
                 fs::remove_file(pivot_path)
                     .map_err(|e| format!("Failed to delete pivot table file: {}", e))?;
             }
-            
+
             // Delete the pivot table from database
             db.delete_pivot_table_by_upload_id(upload_id)
                 .map_err(|e| format!("Failed to delete pivot table from database: {}", e))?;
         }
-        
+
         // Delete the upload from database
         db.delete_funder_upload(upload_id)
             .map_err(|e| format!("Failed to delete upload from database: {}", e))
@@ -838,15 +931,16 @@ pub fn get_all_database_files() -> Result<Vec<DatabaseFileEntry>, String> {
     if DB.lock().unwrap().is_none() {
         init_database()?;
     }
-    
+
     let mut all_files = Vec::new();
-    
+
     let db_lock = DB.lock().unwrap();
     if let Some(db) = db_lock.as_ref() {
         // Get all portfolio workbook versions
-        let versions = db.get_all_versions()
+        let versions = db
+            .get_all_versions()
             .map_err(|e| format!("Failed to get versions: {}", e))?;
-        
+
         for version in versions {
             all_files.push(DatabaseFileEntry {
                 id: version.id.clone(),
@@ -866,11 +960,12 @@ pub fn get_all_database_files() -> Result<Vec<DatabaseFileEntry>, String> {
                 row_count: None,
             });
         }
-        
+
         // Get all funder uploads
-        let funder_uploads = db.get_all_funder_uploads()
+        let funder_uploads = db
+            .get_all_funder_uploads()
             .map_err(|e| format!("Failed to get funder uploads: {}", e))?;
-        
+
         for upload in funder_uploads {
             all_files.push(DatabaseFileEntry {
                 id: upload.id.clone(),
@@ -890,16 +985,20 @@ pub fn get_all_database_files() -> Result<Vec<DatabaseFileEntry>, String> {
                 row_count: None,
             });
         }
-        
+
         // Get all pivot tables
-        let pivot_tables = db.get_all_pivot_tables()
+        let pivot_tables = db
+            .get_all_pivot_tables()
             .map_err(|e| format!("Failed to get pivot tables: {}", e))?;
-        
+
         for pivot in pivot_tables {
-            let file_name = pivot.pivot_file_path.split('/').last()
+            let file_name = pivot
+                .pivot_file_path
+                .split('/')
+                .last()
                 .unwrap_or("pivot_table.csv")
                 .to_string();
-            
+
             all_files.push(DatabaseFileEntry {
                 id: pivot.id.clone(),
                 file_type: "pivot_table".to_string(),
@@ -918,7 +1017,7 @@ pub fn get_all_database_files() -> Result<Vec<DatabaseFileEntry>, String> {
                 row_count: Some(pivot.row_count),
             });
         }
-        
+
         Ok(all_files)
     } else {
         Err("Database not initialized".to_string())
@@ -928,35 +1027,30 @@ pub fn get_all_database_files() -> Result<Vec<DatabaseFileEntry>, String> {
 #[tauri::command]
 pub fn read_csv_file(file_path: &str) -> Result<(Vec<String>, Vec<Vec<String>>), String> {
     use csv::ReaderBuilder;
-    
+
     let path = Path::new(file_path);
     if !path.exists() {
         return Err("File not found".to_string());
     }
-    
-    let file = fs::File::open(path)
-        .map_err(|e| format!("Failed to open file: {}", e))?;
-    
-    let mut reader = ReaderBuilder::new()
-        .has_headers(true)
-        .from_reader(file);
-    
+
+    let file = fs::File::open(path).map_err(|e| format!("Failed to open file: {}", e))?;
+
+    let mut reader = ReaderBuilder::new().has_headers(true).from_reader(file);
+
     // Get headers
-    let headers = reader.headers()
+    let headers = reader
+        .headers()
         .map_err(|e| format!("Failed to read CSV headers: {}", e))?
         .iter()
         .map(|s| s.to_string())
         .collect::<Vec<String>>();
-    
+
     // Get rows
     let mut rows = Vec::new();
     for result in reader.records() {
-        let record = result
-            .map_err(|e| format!("Failed to read CSV record: {}", e))?;
-        let row: Vec<String> = record.iter()
-            .map(|s| s.to_string())
-            .collect();
-        
+        let record = result.map_err(|e| format!("Failed to read CSV record: {}", e))?;
+        let row: Vec<String> = record.iter().map(|s| s.to_string()).collect();
+
         // Ensure the row has the same number of columns as headers
         // Pad with empty strings if necessary
         let mut padded_row = row.clone();
@@ -965,45 +1059,47 @@ pub fn read_csv_file(file_path: &str) -> Result<(Vec<String>, Vec<Vec<String>>),
         }
         // Truncate if too many columns
         padded_row.truncate(headers.len());
-        
+
         rows.push(padded_row);
     }
-    
+
     Ok((headers, rows))
 }
 
 #[tauri::command]
 pub fn read_excel_file(file_path: &str) -> Result<serde_json::Value, String> {
-    use calamine::{Reader, open_workbook, Xlsx};
-    
+    use calamine::{open_workbook, Reader, Xlsx};
+
     let path = Path::new(file_path);
     if !path.exists() {
         return Err("File not found".to_string());
     }
-    
-    let mut workbook: Xlsx<_> = open_workbook(path)
-        .map_err(|e| format!("Failed to open Excel file: {}", e))?;
-    
+
+    let mut workbook: Xlsx<_> =
+        open_workbook(path).map_err(|e| format!("Failed to open Excel file: {}", e))?;
+
     let mut sheets_data = Vec::new();
-    
+
     for sheet_name in workbook.sheet_names() {
         if let Ok(range) = workbook.worksheet_range(&sheet_name) {
             let mut sheet_rows = Vec::new();
-            
+
             for row in range.rows() {
                 let mut row_data = Vec::new();
                 for cell in row {
                     let value = match cell {
                         calamine::Data::Empty => serde_json::Value::Null,
                         calamine::Data::String(s) => serde_json::Value::String(s.clone()),
-                        calamine::Data::Float(f) => {
-                            serde_json::Value::Number(serde_json::Number::from_f64(*f).unwrap_or(serde_json::Number::from(0)))
-                        },
+                        calamine::Data::Float(f) => serde_json::Value::Number(
+                            serde_json::Number::from_f64(*f).unwrap_or(serde_json::Number::from(0)),
+                        ),
                         calamine::Data::DateTime(dt) => {
                             // Convert Excel datetime to string
                             serde_json::Value::String(dt.to_string())
-                        },
-                        calamine::Data::Int(i) => serde_json::Value::Number(serde_json::Number::from(*i)),
+                        }
+                        calamine::Data::Int(i) => {
+                            serde_json::Value::Number(serde_json::Number::from(*i))
+                        }
                         calamine::Data::Bool(b) => serde_json::Value::Bool(*b),
                         calamine::Data::Error(_) => serde_json::Value::String("ERROR".to_string()),
                         calamine::Data::DateTimeIso(s) => serde_json::Value::String(s.clone()),
@@ -1013,14 +1109,14 @@ pub fn read_excel_file(file_path: &str) -> Result<serde_json::Value, String> {
                 }
                 sheet_rows.push(row_data);
             }
-            
+
             sheets_data.push(serde_json::json!({
                 "name": sheet_name,
                 "data": sheet_rows
             }));
         }
     }
-    
+
     Ok(serde_json::json!({
         "sheets": sheets_data,
         "activeSheet": 0
@@ -1052,12 +1148,10 @@ pub fn process_clearview_pivots(
     if DB.lock().unwrap().is_none() {
         init_database()?;
     }
-    
-    let processor = ClearViewPivotProcessor::new(
-        portfolio_name.to_string(),
-        report_date.to_string(),
-    );
-    
+
+    let processor =
+        ClearViewPivotProcessor::new(portfolio_name.to_string(), report_date.to_string());
+
     let mut response = ClearViewPivotResponse {
         success: false,
         message: String::new(),
@@ -1071,61 +1165,62 @@ pub fn process_clearview_pivots(
         combined_total_gross: None,
         combined_total_net: None,
     };
-    
+
     let db_lock = DB.lock().unwrap();
     let db = db_lock.as_ref().ok_or("Database not initialized")?;
-    
+
     // Process daily files if provided
-    let daily_pivot = if !daily_file_paths.is_empty() {
-        let paths: Vec<PathBuf> = daily_file_paths.iter()
-            .map(|p| PathBuf::from(p))
-            .collect();
-        
-        match processor.create_daily_aggregated_pivot(paths) {
-            Ok((pivot, path)) => {
-                // Store pivot metadata in database
-                let upload_id = Uuid::new_v4().to_string();
-                processor.store_pivot_metadata(
+    let daily_pivot =
+        if !daily_file_paths.is_empty() {
+            let paths: Vec<PathBuf> = daily_file_paths.iter().map(|p| PathBuf::from(p)).collect();
+
+            match processor.create_daily_aggregated_pivot(paths) {
+                Ok((pivot, path)) => {
+                    // Store pivot metadata in database
+                    let upload_id = Uuid::new_v4().to_string();
+                    processor.store_pivot_metadata(
                     db,
                     &upload_id,
                     &path,
                     &pivot,
                     crate::parsers::clearview_pivot_processor::PivotTableType::DailyAggregated,
                 ).map_err(|e| format!("Failed to store daily pivot metadata: {}", e))?;
-                
-                response.daily_pivot_path = Some(path);
-                response.daily_total_gross = Some(pivot.total_gross);
-                response.daily_total_net = Some(pivot.total_net);
-                Some(pivot)
-            },
-            Err(e) => {
-                response.message = format!("Failed to create daily pivot: {:?}", e);
-                None
+
+                    response.daily_pivot_path = Some(path);
+                    response.daily_total_gross = Some(pivot.total_gross);
+                    response.daily_total_net = Some(pivot.total_net);
+                    Some(pivot)
+                }
+                Err(e) => {
+                    response.message = format!("Failed to create daily pivot: {:?}", e);
+                    None
+                }
             }
-        }
-    } else {
-        None
-    };
-    
+        } else {
+            None
+        };
+
     // Process weekly file if provided
     let weekly_pivot = if let Some(weekly_path) = weekly_file_path {
         match processor.create_weekly_report_pivot(Path::new(&weekly_path)) {
             Ok((pivot, path)) => {
                 // Store pivot metadata in database
                 let upload_id = Uuid::new_v4().to_string();
-                processor.store_pivot_metadata(
-                    db,
-                    &upload_id,
-                    &path,
-                    &pivot,
-                    crate::parsers::clearview_pivot_processor::PivotTableType::WeeklyReport,
-                ).map_err(|e| format!("Failed to store weekly pivot metadata: {}", e))?;
-                
+                processor
+                    .store_pivot_metadata(
+                        db,
+                        &upload_id,
+                        &path,
+                        &pivot,
+                        crate::parsers::clearview_pivot_processor::PivotTableType::WeeklyReport,
+                    )
+                    .map_err(|e| format!("Failed to store weekly pivot metadata: {}", e))?;
+
                 response.weekly_pivot_path = Some(path);
                 response.weekly_total_gross = Some(pivot.total_gross);
                 response.weekly_total_net = Some(pivot.total_net);
                 Some(pivot)
-            },
+            }
             Err(e) => {
                 response.message = format!("Failed to create weekly pivot: {:?}", e);
                 None
@@ -1134,36 +1229,38 @@ pub fn process_clearview_pivots(
     } else {
         None
     };
-    
+
     // Create combined pivot if we have both daily and weekly
     if let (Some(daily), Some(weekly)) = (daily_pivot.as_ref(), weekly_pivot.as_ref()) {
         match processor.create_combined_pivot(daily, weekly) {
             Ok((pivot, path)) => {
                 // Store pivot metadata in database
                 let upload_id = Uuid::new_v4().to_string();
-                processor.store_pivot_metadata(
-                    db,
-                    &upload_id,
-                    &path,
-                    &pivot,
-                    crate::parsers::clearview_pivot_processor::PivotTableType::Combined,
-                ).map_err(|e| format!("Failed to store combined pivot metadata: {}", e))?;
-                
+                processor
+                    .store_pivot_metadata(
+                        db,
+                        &upload_id,
+                        &path,
+                        &pivot,
+                        crate::parsers::clearview_pivot_processor::PivotTableType::Combined,
+                    )
+                    .map_err(|e| format!("Failed to store combined pivot metadata: {}", e))?;
+
                 response.combined_pivot_path = Some(path);
                 response.combined_total_gross = Some(pivot.total_gross);
                 response.combined_total_net = Some(pivot.total_net);
-            },
+            }
             Err(e) => {
                 response.message = format!("Failed to create combined pivot: {:?}", e);
             }
         }
     }
-    
+
     response.success = true;
     if response.message.is_empty() {
         response.message = "Pivot tables created successfully".to_string();
     }
-    
+
     Ok(response)
 }
 
@@ -1173,44 +1270,49 @@ pub fn process_clearview_daily_pivot(
     report_date: &str,
 ) -> Result<UploadResponse, String> {
     use crate::parsers::clearview_pivot_processor::ClearViewPivotProcessor;
-    
+
     if DB.lock().unwrap().is_none() {
         init_database()?;
     }
-    
-    let processor = ClearViewPivotProcessor::new(
-        portfolio_name.to_string(),
-        report_date.to_string(),
-    );
-    
+
+    let processor =
+        ClearViewPivotProcessor::new(portfolio_name.to_string(), report_date.to_string());
+
     // Process all daily files in the folder
-    let (pivot, pivot_path) = processor.process_all_daily_files()
+    let (pivot, pivot_path) = processor
+        .process_all_daily_files()
         .map_err(|e| format!("Failed to process Clear View daily files: {:?}", e))?;
-    
+
     // Store pivot metadata
     let db_lock = DB.lock().unwrap();
     if let Some(db) = db_lock.as_ref() {
         let upload_id = uuid::Uuid::new_v4().to_string();
-        processor.store_pivot_metadata(
-            db,
-            &upload_id,
-            &pivot_path,
-            &pivot,
-            crate::parsers::clearview_pivot_processor::PivotTableType::DailyAggregated,
-        ).map_err(|e| format!("Failed to store pivot metadata: {}", e))?;
-        
-        // Check if we need to update the combined pivot
-        if let Ok(Some((combined_pivot, combined_path))) = processor.update_combined_pivot_if_needed() {
-            processor.store_pivot_metadata(
+        processor
+            .store_pivot_metadata(
                 db,
                 &upload_id,
-                &combined_path,
-                &combined_pivot,
-                crate::parsers::clearview_pivot_processor::PivotTableType::Combined,
-            ).map_err(|e| format!("Failed to store combined pivot metadata: {}", e))?;
+                &pivot_path,
+                &pivot,
+                crate::parsers::clearview_pivot_processor::PivotTableType::DailyAggregated,
+            )
+            .map_err(|e| format!("Failed to store pivot metadata: {}", e))?;
+
+        // Check if we need to update the combined pivot
+        if let Ok(Some((combined_pivot, combined_path))) =
+            processor.update_combined_pivot_if_needed()
+        {
+            processor
+                .store_pivot_metadata(
+                    db,
+                    &upload_id,
+                    &combined_path,
+                    &combined_pivot,
+                    crate::parsers::clearview_pivot_processor::PivotTableType::Combined,
+                )
+                .map_err(|e| format!("Failed to store combined pivot metadata: {}", e))?;
         }
     }
-    
+
     Ok(UploadResponse {
         success: true,
         message: format!("Clear View daily pivot table created successfully. Total gross: ${:.2}, Total net: ${:.2}", 
@@ -1231,50 +1333,56 @@ pub fn delete_clearview_file(
     if DB.lock().unwrap().is_none() {
         init_database()?;
     }
-    
+
     // First delete the file using the standard deletion
     delete_funder_upload(upload_id)?;
-    
+
     if is_daily {
         // After deleting a daily file, regenerate the daily aggregated pivot
         // if there are remaining daily files
-        let processor = ClearViewPivotProcessor::new(
-            portfolio_name.to_string(),
-            report_date.to_string(),
-        );
-        
-        let remaining_files = processor.get_daily_files_for_week("")
+        let processor =
+            ClearViewPivotProcessor::new(portfolio_name.to_string(), report_date.to_string());
+
+        let remaining_files = processor
+            .get_daily_files_for_week("")
             .map_err(|e| format!("Failed to get remaining daily files: {}", e))?;
-        
+
         if !remaining_files.is_empty() {
             // Regenerate the daily aggregated pivot
-            let (pivot, pivot_path) = processor.process_all_daily_files()
+            let (pivot, pivot_path) = processor
+                .process_all_daily_files()
                 .map_err(|e| format!("Failed to regenerate daily pivot: {:?}", e))?;
-            
+
             // Store updated pivot metadata
             let db_lock = DB.lock().unwrap();
             if let Some(db) = db_lock.as_ref() {
                 let new_upload_id = uuid::Uuid::new_v4().to_string();
-                processor.store_pivot_metadata(
-                    db,
-                    &new_upload_id,
-                    &pivot_path,
-                    &pivot,
-                    crate::parsers::clearview_pivot_processor::PivotTableType::DailyAggregated,
-                ).map_err(|e| format!("Failed to store pivot metadata: {}", e))?;
-                
-                // Check if we need to update the combined pivot
-                if let Ok(Some((combined_pivot, combined_path))) = processor.update_combined_pivot_if_needed() {
-                    processor.store_pivot_metadata(
+                processor
+                    .store_pivot_metadata(
                         db,
                         &new_upload_id,
-                        &combined_path,
-                        &combined_pivot,
-                        crate::parsers::clearview_pivot_processor::PivotTableType::Combined,
-                    ).map_err(|e| format!("Failed to store combined pivot metadata: {}", e))?;
+                        &pivot_path,
+                        &pivot,
+                        crate::parsers::clearview_pivot_processor::PivotTableType::DailyAggregated,
+                    )
+                    .map_err(|e| format!("Failed to store pivot metadata: {}", e))?;
+
+                // Check if we need to update the combined pivot
+                if let Ok(Some((combined_pivot, combined_path))) =
+                    processor.update_combined_pivot_if_needed()
+                {
+                    processor
+                        .store_pivot_metadata(
+                            db,
+                            &new_upload_id,
+                            &combined_path,
+                            &combined_pivot,
+                            crate::parsers::clearview_pivot_processor::PivotTableType::Combined,
+                        )
+                        .map_err(|e| format!("Failed to store combined pivot metadata: {}", e))?;
                 }
             }
-            
+
             return Ok(UploadResponse {
                 success: true,
                 message: "Clear View daily file deleted and pivots updated".to_string(),
@@ -1292,11 +1400,11 @@ pub fn delete_clearview_file(
                 .join("Clear View")
                 .join("Daily")
                 .join(format!("{}.csv", report_date.replace('/', "-")));
-            
+
             if daily_pivot_path.exists() {
                 fs::remove_file(&daily_pivot_path).ok();
             }
-            
+
             let combined_pivot_path = base_dir
                 .join(portfolio_name)
                 .join("Funder Pivot Tables")
@@ -1304,7 +1412,7 @@ pub fn delete_clearview_file(
                 .join("Clear View")
                 .join("Combined")
                 .join(format!("{}.csv", report_date.replace('/', "-")));
-            
+
             if combined_pivot_path.exists() {
                 fs::remove_file(&combined_pivot_path).ok();
             }
@@ -1319,12 +1427,12 @@ pub fn delete_clearview_file(
             .join("Clear View")
             .join("Combined")
             .join(format!("{}.csv", report_date.replace('/', "-")));
-        
+
         if combined_pivot_path.exists() {
             fs::remove_file(&combined_pivot_path).ok();
         }
     }
-    
+
     Ok(UploadResponse {
         success: true,
         message: "Clear View file deleted successfully".to_string(),
@@ -1339,46 +1447,51 @@ pub fn get_clearview_daily_files_for_week(
     portfolio_name: &str,
     report_date: &str,
 ) -> Result<Vec<String>, String> {
-    let processor = ClearViewPivotProcessor::new(
-        portfolio_name.to_string(),
-        report_date.to_string(),
-    );
-    
+    let processor =
+        ClearViewPivotProcessor::new(portfolio_name.to_string(), report_date.to_string());
+
     // Get the week start date
     let week_start = ClearViewPivotProcessor::get_week_start(report_date)?;
-    
+
     // Get all daily files for the week
     let files = processor.get_daily_files_for_week(&week_start)?;
-    
-    Ok(files.iter()
+
+    Ok(files
+        .iter()
         .map(|p| p.to_string_lossy().to_string())
         .collect())
 }
 
 #[tauri::command]
-pub fn extract_merchants_from_portfolio(portfolio_name: &str) -> Result<ExtractMerchantsResponse, String> {
+pub fn extract_merchants_from_portfolio(
+    portfolio_name: &str,
+) -> Result<ExtractMerchantsResponse, String> {
     if DB.lock().unwrap().is_none() {
         init_database()?;
     }
-    
+
     let portfolio_path = get_portfolio_workbook_path(portfolio_name)?;
     let file_path = Path::new(&portfolio_path);
-    
+
     if !file_path.exists() {
         return Err(format!("Portfolio workbook not found: {}", portfolio_path));
     }
-    
+
     let db_lock = DB.lock().unwrap();
     let db = db_lock.as_ref().ok_or("Database not initialized")?;
-    
+
     // Create parser and extract merchants
     let parser = PortfolioParser::new(portfolio_name.to_string());
-    let merchant_count = parser.parse_portfolio_workbook(file_path, db)
+    let merchant_count = parser
+        .parse_portfolio_workbook(file_path, db)
         .map_err(|e| format!("Failed to extract merchants: {}", e))?;
-    
+
     Ok(ExtractMerchantsResponse {
         success: true,
-        message: format!("Successfully extracted {} merchants from portfolio", merchant_count),
+        message: format!(
+            "Successfully extracted {} merchants from portfolio",
+            merchant_count
+        ),
         merchant_count,
     })
 }
@@ -1388,28 +1501,33 @@ pub fn get_merchants_by_portfolio(portfolio_name: &str) -> Result<Vec<MerchantIn
     if DB.lock().unwrap().is_none() {
         init_database()?;
     }
-    
+
     let db_lock = DB.lock().unwrap();
     let db = db_lock.as_ref().ok_or("Database not initialized")?;
-    
-    let merchants = db.get_merchants_by_portfolio(portfolio_name)
+
+    let merchants = db
+        .get_merchants_by_portfolio(portfolio_name)
         .map_err(|e| format!("Failed to get merchants: {}", e))?;
-    
+
     Ok(merchants.into_iter().map(MerchantInfo::from).collect())
 }
 
 #[tauri::command]
-pub fn get_merchants_by_funder(portfolio_name: &str, funder_name: &str) -> Result<Vec<MerchantInfo>, String> {
+pub fn get_merchants_by_funder(
+    portfolio_name: &str,
+    funder_name: &str,
+) -> Result<Vec<MerchantInfo>, String> {
     if DB.lock().unwrap().is_none() {
         init_database()?;
     }
-    
+
     let db_lock = DB.lock().unwrap();
     let db = db_lock.as_ref().ok_or("Database not initialized")?;
-    
-    let merchants = db.get_merchants_by_funder(portfolio_name, funder_name)
+
+    let merchants = db
+        .get_merchants_by_funder(portfolio_name, funder_name)
         .map_err(|e| format!("Failed to get merchants: {}", e))?;
-    
+
     Ok(merchants.into_iter().map(MerchantInfo::from).collect())
 }
 
@@ -1418,10 +1536,10 @@ pub fn clear_merchants_for_portfolio(portfolio_name: &str) -> Result<usize, Stri
     if DB.lock().unwrap().is_none() {
         init_database()?;
     }
-    
+
     let db_lock = DB.lock().unwrap();
     let db = db_lock.as_ref().ok_or("Database not initialized")?;
-    
+
     db.delete_merchants_by_portfolio(portfolio_name)
         .map_err(|e| format!("Failed to delete merchants: {}", e))
 }
@@ -1499,23 +1617,23 @@ pub fn get_pivot_tables_for_update(
     report_date: &str,
 ) -> Result<Vec<FunderPivotData>, String> {
     let base_dir = get_excelerate_dir()?;
-    
+
     // Convert date format for file naming (MM/DD/YYYY -> MM-DD-YYYY)
     let file_date = report_date.replace('/', "-");
-    
+
     // List of funders to check with their sheet names
     let funders = vec![
         ("BHB", "BHB", "Monthly"),
         ("BIG", "BIG", "Monthly"),
-        ("Clear View", "CV", "Monthly"),  // Special case - will use Combined subdirectory
+        ("Clear View", "CV", "Monthly"), // Special case - will use Combined subdirectory
         ("eFin", "EFin", "Monthly"),
         ("InAdvance", "InAd", "Monthly"),
         ("Boom", "Boom", "Monthly"),
         ("Kings", "Kings", "Monthly"),
     ];
-    
+
     let mut all_pivot_data = Vec::new();
-    
+
     for (folder_name, sheet_name, funder_type) in funders {
         let pivot_path = base_dir
             .join(portfolio_name)
@@ -1523,40 +1641,34 @@ pub fn get_pivot_tables_for_update(
             .join(funder_type)
             .join(folder_name)
             .join(format!("{}.csv", file_date));
-        
+
         // Check if the pivot table file exists
         if pivot_path.exists() {
             println!("Loading pivot table from: {}", pivot_path.display());
-            
+
             // Read the CSV file
             let csv_content = fs::read_to_string(&pivot_path)
                 .map_err(|e| format!("Failed to read CSV file: {}", e))?;
-            
+
             let mut reader = csv::Reader::from_reader(csv_content.as_bytes());
             let mut pivot_data = Vec::new();
-            
+
             for result in reader.records() {
                 let record = result.map_err(|e| format!("Failed to parse CSV: {}", e))?;
-                
+
                 if record.len() >= 5 {
                     let advance_id = record.get(0).unwrap_or("").to_string();
-                    
+
                     // Skip the totals row
                     if advance_id == "Totals" {
                         continue;
                     }
-                    
+
                     let merchant_name = record.get(1).unwrap_or("").to_string();
-                    let gross_amount = record.get(2).unwrap_or("0")
-                        .parse::<f64>()
-                        .unwrap_or(0.0);
-                    let management_fee = record.get(3).unwrap_or("0")
-                        .parse::<f64>()
-                        .unwrap_or(0.0);
-                    let net_amount = record.get(4).unwrap_or("0")
-                        .parse::<f64>()
-                        .unwrap_or(0.0);
-                    
+                    let gross_amount = record.get(2).unwrap_or("0").parse::<f64>().unwrap_or(0.0);
+                    let management_fee = record.get(3).unwrap_or("0").parse::<f64>().unwrap_or(0.0);
+                    let net_amount = record.get(4).unwrap_or("0").parse::<f64>().unwrap_or(0.0);
+
                     pivot_data.push(PivotTableData {
                         advance_id,
                         merchant_name,
@@ -1566,7 +1678,7 @@ pub fn get_pivot_tables_for_update(
                     });
                 }
             }
-            
+
             if !pivot_data.is_empty() {
                 all_pivot_data.push(FunderPivotData {
                     funder_name: folder_name.to_string(),
@@ -1577,35 +1689,37 @@ pub fn get_pivot_tables_for_update(
             }
         }
     }
-    
+
     Ok(all_pivot_data)
 }
 
 #[tauri::command]
-pub fn get_active_workbook_path(
-    portfolio_name: &str,
-) -> Result<String, String> {
+pub fn get_active_workbook_path(portfolio_name: &str) -> Result<String, String> {
     let base_dir = get_excelerate_dir()?;
     let workbook_dir = base_dir.join(portfolio_name).join("Workbook");
-    
+
     // Initialize DB if needed
     if DB.lock().unwrap().is_none() {
         init_database()?;
     }
-    
+
     let db_lock = DB.lock().unwrap();
     let db = db_lock.as_ref().ok_or("Database not initialized")?;
-    
-    let active_version = db.get_active_version(portfolio_name)
+
+    let active_version = db
+        .get_active_version(portfolio_name)
         .map_err(|e| format!("Failed to get active version: {}", e))?;
-    
+
     if let Some(version) = active_version {
         Ok(version.file_path)
     } else {
         // If no active version, look for the original workbook
         let original_path = workbook_dir.join(format!("{} Portfolio.xlsx", portfolio_name));
         if !original_path.exists() {
-            return Err(format!("No portfolio workbook found for {}", portfolio_name));
+            return Err(format!(
+                "No portfolio workbook found for {}",
+                portfolio_name
+            ));
         }
         Ok(original_path.to_string_lossy().to_string())
     }
@@ -1641,64 +1755,63 @@ pub fn get_dashboard_stats(portfolio_name: Option<String>) -> Result<DashboardSt
     if DB.lock().unwrap().is_none() {
         init_database()?;
     }
-    
+
     let db_lock = DB.lock().unwrap();
     let db = db_lock.as_ref().ok_or("Database not initialized")?;
-    
+
     let merchants = if let Some(portfolio) = portfolio_name {
         db.get_merchants_by_portfolio(&portfolio)
             .map_err(|e| format!("Failed to get merchants: {}", e))?
     } else {
         // Get merchants from both portfolios
-        let alder = db.get_merchants_by_portfolio("Alder")
+        let alder = db
+            .get_merchants_by_portfolio("Alder")
             .map_err(|e| format!("Failed to get Alder merchants: {}", e))?;
-        let white_rabbit = db.get_merchants_by_portfolio("White Rabbit")
+        let white_rabbit = db
+            .get_merchants_by_portfolio("White Rabbit")
             .map_err(|e| format!("Failed to get White Rabbit merchants: {}", e))?;
-        
+
         let mut all_merchants = alder;
         all_merchants.extend(white_rabbit);
         all_merchants
     };
-    
+
     let total_merchants = merchants.len() as i32;
-    let total_funded: f64 = merchants.iter()
-        .filter_map(|m| m.total_amount_funded)
-        .sum();
-    
-    let buy_rates: Vec<f64> = merchants.iter()
-        .filter_map(|m| m.buy_rate)
-        .collect();
+    let total_funded: f64 = merchants.iter().filter_map(|m| m.total_amount_funded).sum();
+
+    let buy_rates: Vec<f64> = merchants.iter().filter_map(|m| m.buy_rate).collect();
     let avg_buy_rate = if !buy_rates.is_empty() {
         buy_rates.iter().sum::<f64>() / buy_rates.len() as f64
     } else {
         0.0
     };
-    
-    let commissions: Vec<f64> = merchants.iter()
-        .filter_map(|m| m.commission)
-        .collect();
+
+    let commissions: Vec<f64> = merchants.iter().filter_map(|m| m.commission).collect();
     let avg_commission = if !commissions.is_empty() {
         commissions.iter().sum::<f64>() / commissions.len() as f64
     } else {
         0.0
     };
-    
+
     let mut unique_funders = std::collections::HashSet::new();
     for merchant in &merchants {
         unique_funders.insert(&merchant.funder_name);
     }
     let active_funders = unique_funders.len() as i32;
-    
+
     // Count recent fundings (last 30 days)
     let thirty_days_ago = chrono::Utc::now() - chrono::Duration::days(30);
-    let recent_fundings = merchants.iter()
+    let recent_fundings = merchants
+        .iter()
         .filter(|m| {
             if let Some(date_str) = &m.date_funded {
                 if let Ok(date) = chrono::NaiveDate::parse_from_str(date_str, "%m/%d/%y")
                     .or_else(|_| chrono::NaiveDate::parse_from_str(date_str, "%m/%d/%Y"))
-                    .or_else(|_| chrono::NaiveDate::parse_from_str(date_str, "%Y-%m-%d")) {
-                    let datetime = date.and_hms_opt(0, 0, 0)
-                        .map(|dt| chrono::DateTime::<chrono::Utc>::from_naive_utc_and_offset(dt, chrono::Utc));
+                    .or_else(|_| chrono::NaiveDate::parse_from_str(date_str, "%Y-%m-%d"))
+                {
+                    let datetime = date.and_hms_opt(0, 0, 0).map(|dt| {
+                        chrono::DateTime::<chrono::Utc>::from_naive_utc_and_offset(dt, chrono::Utc)
+                    });
                     if let Some(dt) = datetime {
                         return dt > thirty_days_ago;
                     }
@@ -1707,7 +1820,7 @@ pub fn get_dashboard_stats(portfolio_name: Option<String>) -> Result<DashboardSt
             false
         })
         .count() as i32;
-    
+
     Ok(DashboardStats {
         total_merchants,
         total_funded,
@@ -1719,118 +1832,135 @@ pub fn get_dashboard_stats(portfolio_name: Option<String>) -> Result<DashboardSt
 }
 
 #[tauri::command]
-pub fn get_funder_distribution(portfolio_name: Option<String>) -> Result<Vec<FunderDistribution>, String> {
+pub fn get_funder_distribution(
+    portfolio_name: Option<String>,
+) -> Result<Vec<FunderDistribution>, String> {
     if DB.lock().unwrap().is_none() {
         init_database()?;
     }
-    
+
     let db_lock = DB.lock().unwrap();
     let db = db_lock.as_ref().ok_or("Database not initialized")?;
-    
+
     let merchants = if let Some(portfolio) = portfolio_name {
         db.get_merchants_by_portfolio(&portfolio)
             .map_err(|e| format!("Failed to get merchants: {}", e))?
     } else {
-        let alder = db.get_merchants_by_portfolio("Alder")
+        let alder = db
+            .get_merchants_by_portfolio("Alder")
             .map_err(|e| format!("Failed to get Alder merchants: {}", e))?;
-        let white_rabbit = db.get_merchants_by_portfolio("White Rabbit")
+        let white_rabbit = db
+            .get_merchants_by_portfolio("White Rabbit")
             .map_err(|e| format!("Failed to get White Rabbit merchants: {}", e))?;
-        
+
         let mut all_merchants = alder;
         all_merchants.extend(white_rabbit);
         all_merchants
     };
-    
+
     // Group by funder and sum amounts
-    let mut funder_totals: std::collections::HashMap<String, f64> = std::collections::HashMap::new();
+    let mut funder_totals: std::collections::HashMap<String, f64> =
+        std::collections::HashMap::new();
     for merchant in merchants {
         let amount = merchant.total_amount_funded.unwrap_or(0.0);
-        *funder_totals.entry(merchant.funder_name.clone()).or_insert(0.0) += amount;
+        *funder_totals
+            .entry(merchant.funder_name.clone())
+            .or_insert(0.0) += amount;
     }
-    
+
     let total_amount: f64 = funder_totals.values().sum();
-    
-    let mut distribution: Vec<FunderDistribution> = funder_totals.into_iter()
+
+    let mut distribution: Vec<FunderDistribution> = funder_totals
+        .into_iter()
         .map(|(name, value)| {
             let percentage = if total_amount > 0.0 {
                 (value / total_amount) * 100.0
             } else {
                 0.0
             };
-            FunderDistribution { name, value, percentage }
+            FunderDistribution {
+                name,
+                value,
+                percentage,
+            }
         })
         .collect();
-    
+
     // Sort by value descending
     distribution.sort_by(|a, b| b.value.partial_cmp(&a.value).unwrap());
-    
+
     // Return top 10 funders
     distribution.truncate(10);
-    
+
     Ok(distribution)
 }
 
 #[tauri::command]
-pub fn get_monthly_funding_trends(portfolio_name: Option<String>) -> Result<Vec<MonthlyFunding>, String> {
+pub fn get_monthly_funding_trends(
+    portfolio_name: Option<String>,
+) -> Result<Vec<MonthlyFunding>, String> {
     if DB.lock().unwrap().is_none() {
         init_database()?;
     }
-    
+
     let db_lock = DB.lock().unwrap();
     let db = db_lock.as_ref().ok_or("Database not initialized")?;
-    
+
     let merchants = if let Some(portfolio) = portfolio_name {
         db.get_merchants_by_portfolio(&portfolio)
             .map_err(|e| format!("Failed to get merchants: {}", e))?
     } else {
-        let alder = db.get_merchants_by_portfolio("Alder")
+        let alder = db
+            .get_merchants_by_portfolio("Alder")
             .map_err(|e| format!("Failed to get Alder merchants: {}", e))?;
-        let white_rabbit = db.get_merchants_by_portfolio("White Rabbit")
+        let white_rabbit = db
+            .get_merchants_by_portfolio("White Rabbit")
             .map_err(|e| format!("Failed to get White Rabbit merchants: {}", e))?;
-        
+
         let mut all_merchants = alder;
         all_merchants.extend(white_rabbit);
         all_merchants
     };
-    
+
     // Group by month
-    let mut monthly_data: std::collections::HashMap<String, (f64, i32)> = std::collections::HashMap::new();
-    
+    let mut monthly_data: std::collections::HashMap<String, (f64, i32)> =
+        std::collections::HashMap::new();
+
     for merchant in merchants {
         if let Some(date_str) = merchant.date_funded {
             // Try different date formats
             if let Ok(date) = chrono::NaiveDate::parse_from_str(&date_str, "%m/%d/%y")
                 .or_else(|_| chrono::NaiveDate::parse_from_str(&date_str, "%m/%d/%Y"))
-                .or_else(|_| chrono::NaiveDate::parse_from_str(&date_str, "%Y-%m-%d")) {
-                
+                .or_else(|_| chrono::NaiveDate::parse_from_str(&date_str, "%Y-%m-%d"))
+            {
                 let month_key = format!("{}-{:02}", date.year(), date.month());
                 let amount = merchant.total_amount_funded.unwrap_or(0.0);
-                
+
                 let entry = monthly_data.entry(month_key).or_insert((0.0, 0));
                 entry.0 += amount;
                 entry.1 += 1;
             }
         }
     }
-    
+
     // Get last 6 months
     let mut months = Vec::new();
     let now = chrono::Utc::now();
-    
+
     for i in 0..6 {
         let date = now - chrono::Duration::days(i * 30);
         let month_key = format!("{}-{:02}", date.year(), date.month());
         let month_name = date.format("%b").to_string();
-        
+
         let (amount, count) = monthly_data.get(&month_key).copied().unwrap_or((0.0, 0));
-        
+
         months.push(MonthlyFunding {
             month: month_name,
             amount,
             count,
         });
     }
-    
+
     // Reverse to get chronological order
     months.reverse();
 
@@ -1851,7 +1981,9 @@ pub fn find_unmatched_deals() -> Result<Vec<UnmatchedDeal>, String> {
 }
 
 #[tauri::command]
-pub fn find_unmatched_deals_by_portfolio(portfolio_name: String) -> Result<Vec<UnmatchedDeal>, String> {
+pub fn find_unmatched_deals_by_portfolio(
+    portfolio_name: String,
+) -> Result<Vec<UnmatchedDeal>, String> {
     if DB.lock().unwrap().is_none() {
         init_database()?;
     }

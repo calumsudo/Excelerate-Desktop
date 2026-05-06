@@ -1,7 +1,7 @@
+use crate::parsers::base_parser::{ParserError, ParserResult, PivotTable};
+use calamine::{open_workbook, Reader, Xlsx};
 use std::collections::HashMap;
 use std::path::Path;
-use calamine::{open_workbook, Reader, Xlsx};
-use crate::parsers::base_parser::{ParserError, ParserResult, PivotTable};
 
 /// Monthly ClearView XLSX parser.
 ///
@@ -41,7 +41,12 @@ impl ClearViewMonthlyParser {
             Err(_) => return false,
         };
         let names = workbook.sheet_names();
-        let required = ["R&H LENDSAAS", "WHITE RABBIT LENDSAAS", "R&H CENTREX", "WHITE RABBIT CENTREX"];
+        let required = [
+            "R&H LENDSAAS",
+            "WHITE RABBIT LENDSAAS",
+            "R&H CENTREX",
+            "WHITE RABBIT CENTREX",
+        ];
         required.iter().all(|r| names.iter().any(|n| n == r))
     }
 
@@ -50,9 +55,9 @@ impl ClearViewMonthlyParser {
         workbook: &mut Xlsx<std::io::BufReader<std::fs::File>>,
         sheet_name: &str,
     ) -> ParserResult<Vec<(String, f64, f64, f64)>> {
-        let range = workbook
-            .worksheet_range(sheet_name)
-            .map_err(|e| ParserError::ProcessingError(format!("Failed to read sheet '{}': {:?}", sheet_name, e)))?;
+        let range = workbook.worksheet_range(sheet_name).map_err(|e| {
+            ParserError::ProcessingError(format!("Failed to read sheet '{}': {:?}", sheet_name, e))
+        })?;
 
         let mut rows_iter = range.rows();
         let headers: Vec<String> = match rows_iter.next() {
@@ -61,9 +66,12 @@ impl ClearViewMonthlyParser {
         };
 
         let col = |name: &str| -> ParserResult<usize> {
-            headers.iter().position(|h| h == name).ok_or_else(|| {
-                ParserError::MissingColumns { columns: vec![name.to_string()] }
-            })
+            headers
+                .iter()
+                .position(|h| h == name)
+                .ok_or_else(|| ParserError::MissingColumns {
+                    columns: vec![name.to_string()],
+                })
         };
 
         let id_col = col("Deal ID")?;
@@ -94,9 +102,9 @@ impl ClearViewMonthlyParser {
         workbook: &mut Xlsx<std::io::BufReader<std::fs::File>>,
         sheet_name: &str,
     ) -> ParserResult<Vec<(String, f64, f64, f64)>> {
-        let range = workbook
-            .worksheet_range(sheet_name)
-            .map_err(|e| ParserError::ProcessingError(format!("Failed to read sheet '{}': {:?}", sheet_name, e)))?;
+        let range = workbook.worksheet_range(sheet_name).map_err(|e| {
+            ParserError::ProcessingError(format!("Failed to read sheet '{}': {:?}", sheet_name, e))
+        })?;
 
         let mut rows_iter = range.rows();
         let headers: Vec<String> = match rows_iter.next() {
@@ -105,9 +113,12 @@ impl ClearViewMonthlyParser {
         };
 
         let col = |name: &str| -> ParserResult<usize> {
-            headers.iter().position(|h| h == name).ok_or_else(|| {
-                ParserError::MissingColumns { columns: vec![name.to_string()] }
-            })
+            headers
+                .iter()
+                .position(|h| h == name)
+                .ok_or_else(|| ParserError::MissingColumns {
+                    columns: vec![name.to_string()],
+                })
         };
 
         let id_col = col("Advance ID")?;
@@ -136,8 +147,9 @@ impl ClearViewMonthlyParser {
     pub fn process(&self, file_path: &Path) -> ParserResult<PivotTable> {
         let (lendsaas_sheet, centrex_sheet) = self.sheet_names();
 
-        let mut workbook: Xlsx<_> = open_workbook(file_path)
-            .map_err(|_| ParserError::ProcessingError("Failed to open ClearView monthly Excel file".to_string()))?;
+        let mut workbook: Xlsx<_> = open_workbook(file_path).map_err(|_| {
+            ParserError::ProcessingError("Failed to open ClearView monthly Excel file".to_string())
+        })?;
 
         let mut all_rows: Vec<(String, f64, f64, f64)> = Vec::new();
         all_rows.extend(self.parse_lendsaas_sheet(&mut workbook, lendsaas_sheet)?);
