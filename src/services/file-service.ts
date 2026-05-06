@@ -267,7 +267,7 @@ export class FileService {
     reportDate: string
   ): Promise<UpdateWithNetRtrResponse> {
     try {
-      console.log(`Updating ${portfolioName} portfolio with Net RTR for ${reportDate}`);
+      console.warn(`Updating ${portfolioName} portfolio with Net RTR for ${reportDate}`);
 
       // Import and use the Pyodide service with openpyxl
       const { PyodideService } = await import("./pyodide-service");

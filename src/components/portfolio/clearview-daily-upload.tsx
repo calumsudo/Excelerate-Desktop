@@ -86,7 +86,7 @@ const ClearViewDailyUpload: React.FC<ClearViewDailyUploadProps> = ({
           type: "text/csv",
         });
 
-        console.log("File created from Tauri drop:", file.name, "Size:", file.size);
+        console.warn("File created from Tauri drop:", file.name, "Size:", file.size);
         newFiles.push(file);
       }
 
@@ -149,7 +149,7 @@ const ClearViewDailyUpload: React.FC<ClearViewDailyUploadProps> = ({
           } else if (event.payload.type === "drop") {
             // Only process drop if it's over this specific drop zone
             if ((isHoveredRef.current || isOverDropZone) && files.length < maxUploads) {
-              console.log("Files dropped on ClearView daily upload:", event.payload.paths);
+              console.warn("Files dropped on ClearView daily upload:", event.payload.paths);
 
               // Process all CSV files
               if (event.payload.paths && event.payload.paths.length > 0) {

@@ -71,12 +71,8 @@ function AlderPortfolio() {
   const [selectedDate, setSelectedDate] = useState<DateValue | null>(null);
   const [versions, setVersions] = useState<VersionInfo[]>([]);
   const [funderUploads, setFunderUploads] = useState<FunderUploadInfo[]>([]);
-  const {
-    workbookError,
-    monthlyErrorStates,
-    setWorkbookErrorState,
-    setFunderErrorState,
-  } = useFileErrorState();
+  const { workbookError, monthlyErrorStates, setWorkbookErrorState, setFunderErrorState } =
+    useFileErrorState();
 
   const [isUploading, setIsUploading] = useState(false);
   const [isUpdatingNetRtr, setIsUpdatingNetRtr] = useState(false);
@@ -151,7 +147,11 @@ function AlderPortfolio() {
       if (versionExists) {
         if (!window.confirm(`A version already exists for ${reportDate}. Overwrite?`)) return;
       }
-      const response = await FileService.savePortfolioWorkbookValidated(PORTFOLIO, file, reportDate);
+      const response = await FileService.savePortfolioWorkbookValidated(
+        PORTFOLIO,
+        file,
+        reportDate
+      );
       if (response.success) {
         setExistingWorkbook(file);
         setWorkbookErrorState(false);
@@ -172,17 +172,34 @@ function AlderPortfolio() {
     if (!selectedDate) return;
     const reportDate = selectedDate.toString();
     try {
-      const exists = await FileService.checkFunderUploadExists(PORTFOLIO, funderName, reportDate, "monthly");
+      const exists = await FileService.checkFunderUploadExists(
+        PORTFOLIO,
+        funderName,
+        reportDate,
+        "monthly"
+      );
       if (exists) {
-        if (!window.confirm(`A file already exists for ${funderName} on ${reportDate}. Overwrite?`)) return;
+        if (!window.confirm(`A file already exists for ${funderName} on ${reportDate}. Overwrite?`))
+          return;
       }
-      const response = await FileService.saveFunderUploadValidated(PORTFOLIO, funderName, file, reportDate, "monthly");
+      const response = await FileService.saveFunderUploadValidated(
+        PORTFOLIO,
+        funderName,
+        file,
+        reportDate,
+        "monthly"
+      );
       if (response.success) {
         setMonthlyFiles((prev) => ({ ...prev, [funderName]: file }));
         setFunderErrorState("monthly", funderName, false);
         setFunderUploads(await FileService.getFunderUploadsForDate(PORTFOLIO, reportDate));
       } else {
-        setFunderErrorState("monthly", funderName, true, response.validation_errors?.join(", ") || response.message);
+        setFunderErrorState(
+          "monthly",
+          funderName,
+          true,
+          response.validation_errors?.join(", ") || response.message
+        );
       }
     } catch (error) {
       console.error(`Error uploading funder file for ${funderName}:`, error);
@@ -193,7 +210,9 @@ function AlderPortfolio() {
   const handleMonthlyClearFile = async (funderName: string) => {
     if (selectedDate) {
       const reportDate = selectedDate.toString();
-      const upload = funderUploads.find((u) => u.funder_name === funderName && u.upload_type === "monthly");
+      const upload = funderUploads.find(
+        (u) => u.funder_name === funderName && u.upload_type === "monthly"
+      );
       if (upload) {
         try {
           await FileService.deleteFunderUpload(upload.id);
@@ -203,19 +222,28 @@ function AlderPortfolio() {
         }
       }
     }
-    setMonthlyFiles((prev) => { const u = { ...prev }; delete u[funderName]; return u; });
+    setMonthlyFiles((prev) => {
+      const u = { ...prev };
+      delete u[funderName];
+      return u;
+    });
   };
 
   const handleUpdateNetRtr = async () => {
     if (!selectedDate || isUpdatingNetRtr) return;
     try {
       setIsUpdatingNetRtr(true);
-      const response = await FileService.updatePortfolioWithNetRtr(PORTFOLIO, selectedDate.toString());
+      const response = await FileService.updatePortfolioWithNetRtr(
+        PORTFOLIO,
+        selectedDate.toString()
+      );
       if (response.success) {
         if (response.unmatched_deals && response.unmatched_deals.length > 0) {
           setUnmatchedDeals(response.unmatched_deals);
           setUnmatchedDealsModalOpen(true);
-          alert(`Portfolio updated! ${response.unmatched_count} unmatched deals found. Please review.`);
+          alert(
+            `Portfolio updated! ${response.unmatched_count} unmatched deals found. Please review.`
+          );
         } else {
           alert("Portfolio updated successfully with Net RTR values! All deals matched.");
         }
@@ -276,9 +304,7 @@ function AlderPortfolio() {
                   >
                     <span className="text-sm">{funder.name}</span>
                     {uploaded ? (
-                      <span className="text-xs text-success-600">
-                        {uploaded.original_filename}
-                      </span>
+                      <span className="text-xs text-success-600">{uploaded.original_filename}</span>
                     ) : (
                       <span className="text-xs text-default-400">Not uploaded</span>
                     )}
@@ -301,7 +327,10 @@ function AlderPortfolio() {
               >
                 <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 min-w-0">
                   <span className="font-medium whitespace-nowrap">{version.report_date}</span>
-                  <span className="text-sm text-default-500 truncate" title={version.original_filename}>
+                  <span
+                    className="text-sm text-default-500 truncate"
+                    title={version.original_filename}
+                  >
                     {version.original_filename}
                   </span>
                   {version.is_active && (

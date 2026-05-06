@@ -112,7 +112,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = AuthService.onAuthStateChange((event, session) => {
-      console.log("Auth state changed:", event);
+      console.warn("Auth state changed:", event);
       setSession(session);
       setUser(session?.user ?? null);
 

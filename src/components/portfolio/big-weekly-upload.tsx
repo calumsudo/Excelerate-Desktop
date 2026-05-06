@@ -11,19 +11,13 @@ interface BigWeeklyUploadProps {
   onRemoveFile: (index: number) => void;
 }
 
-const BigWeeklyUpload: React.FC<BigWeeklyUploadProps> = ({
-  files,
-  onFileUpload,
-  onRemoveFile,
-}) => {
+const BigWeeklyUpload: React.FC<BigWeeklyUploadProps> = ({ files, onFileUpload, onRemoveFile }) => {
   const uploadedCount = files.length;
   const canUploadMore = uploadedCount < MAX_FILES;
 
   return (
     <div className="bg-default rounded-lg p-6 border border-default-200">
-      <h3 className="text-lg font-semibold mb-4 text-foreground text-center">
-        BIG Weekly Reports
-      </h3>
+      <h3 className="text-lg font-semibold mb-4 text-foreground text-center">BIG Weekly Reports</h3>
 
       <Progress
         label={`${uploadedCount} of ${MAX_FILES} weekly reports uploaded`}
@@ -73,9 +67,7 @@ const BigWeeklyUpload: React.FC<BigWeeklyUploadProps> = ({
           onFileUpload={onFileUpload}
           label={`Upload weekly report (${uploadedCount + 1} of ${MAX_FILES})`}
           description=".xlsx files only"
-          acceptedTypes={[
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-          ]}
+          acceptedTypes={["application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"]}
           acceptedExtensions={[".xlsx"]}
           maxSizeKB={5120}
           uploadId="funder-weekly-BIG"
