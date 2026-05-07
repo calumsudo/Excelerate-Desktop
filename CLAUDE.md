@@ -98,6 +98,12 @@ Supabase client: `src/services/supabase.ts`. Auth service: `src/services/auth-se
 - **Modules**: `parsers/`, `file_handler`, `database`, `notification`, `validated_file_handler`
 - **Plugins**: tauri-plugin-opener, tauri-plugin-fs, tauri-plugin-dialog
 
+## Detail Docs
+
+- [`docs/parsers.md`](docs/parsers.md) — column mappings per funder, source format, output fields
+- [`docs/database.md`](docs/database.md) — SQLite vs Supabase split, table schemas, legacy Excel workbook
+- [`docs/tauri-commands.md`](docs/tauri-commands.md) — every command in `lib.rs`, what it does, which TS service wraps it
+
 ## Do NOT Touch
 - `dist/`, `node_modules/`, `target/` — build artifacts
 - `src/services/supabase.types.ts` — manually maintained, not auto-generated; edit intentionally
