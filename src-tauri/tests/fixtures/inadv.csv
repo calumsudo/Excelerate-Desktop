@@ -1,0 +1,4 @@
+Status,Mgmt Fee,Advance Id,Amount,Gross Amount,Contact ID
+Cleared,30.00,12345,970.00,1000.00,MERCHANT_A
+Cleared,15.00,67890,485.00,500.00,MERCHANT_B
+Pending,10.00,99999,490.00,500.00,MERCHANT_C
