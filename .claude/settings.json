@@ -1,0 +1,45 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run lint)",
+      "Bash(npm run lint:fix)",
+      "Bash(npm run format)",
+      "Bash(npm run format:check)",
+      "Bash(npm run build)",
+      "Bash(cargo *)",
+      "Bash(git status)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git branch *)",
+      "Bash(git show *)",
+      "Bash(ls *)",
+      "Bash(ls)",
+      "Bash(find *)",
+      "Bash(grep *)",
+      "Bash(cat *)",
+      "Bash(supabase status)",
+      "Bash(supabase db diff *)",
+      "Bash(supabase migration list)"
+    ],
+    "deny": []
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path' | grep -q '\\.rs$' && (cd /Users/calum/Developer/Excelerate-Desktop/src-tauri && cargo fmt) 2>/dev/null || true",
+            "statusMessage": "Running cargo fmt..."
+          },
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path' | { read -r f; echo \"$f\" | grep -qE '\\.(ts|tsx|css)$' && npx --prefix /Users/calum/Developer/Excelerate-Desktop prettier --write \"$f\" || true; } 2>/dev/null || true",
+            "statusMessage": "Running prettier..."
+          }
+        ]
+      }
+    ]
+  }
+}
