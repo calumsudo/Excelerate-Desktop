@@ -5,6 +5,9 @@ use std::path::Path;
 
 pub struct BigParser {
     funder_name: String,
+    /// Report month in YYYY-MM-DD format. When set, only weekly "Total Paid"
+    /// columns whose end-date falls within this month are summed.
+    report_date: Option<String>,
 }
 
 impl Default for BigParser {
@@ -17,7 +20,41 @@ impl BigParser {
     pub fn new() -> Self {
         BigParser {
             funder_name: "BIG".to_string(),
+            report_date: None,
         }
+    }
+
+    pub fn with_report_date(report_date: &str) -> Self {
+        BigParser {
+            funder_name: "BIG".to_string(),
+            report_date: Some(report_date.to_string()),
+        }
+    }
+
+    /// Extract (year, month) from the report_date string ("YYYY-MM-DD").
+    fn report_year_month(&self) -> Option<(i32, u32)> {
+        let date = self.report_date.as_deref()?;
+        let mut parts = date.split('-');
+        let year = parts.next()?.parse::<i32>().ok()?;
+        let month = parts.next()?.parse::<u32>().ok()?;
+        Some((year, month))
+    }
+
+    /// Parse the end-date out of a "Total Paid m/d/yy - m/d/yy" header.
+    /// Returns (year, month) of the end date. Two-digit years are mapped to 2000+yy.
+    fn parse_total_paid_end_date(header: &str) -> Option<(i32, u32)> {
+        let after_prefix = header.trim().strip_prefix("Total Paid")?.trim();
+        let end_str = after_prefix.split('-').next_back()?.trim();
+        let mut parts = end_str.split('/');
+        let month = parts.next()?.trim().parse::<u32>().ok()?;
+        let _day = parts.next()?.trim().parse::<u32>().ok()?;
+        let year_raw = parts.next()?.trim().parse::<i32>().ok()?;
+        let year = if year_raw < 100 {
+            2000 + year_raw
+        } else {
+            year_raw
+        };
+        Some((year, month))
     }
 
     fn detect_portfolio_sheet(&self, file_path: &Path) -> ParserResult<(String, String)> {
@@ -103,21 +140,47 @@ impl BigParser {
             .nth(header_row_idx)
             .ok_or_else(|| ParserError::ProcessingError("Header row not found".to_string()))?;
 
+        // Collect all "Total Paid" weekly columns. When a report month is set,
+        // restrict to columns whose end-date falls within that month so we don't
+        // sum every historical week in the workbook.
+        let target_year_month = self.report_year_month();
         let total_paid_columns: Vec<usize> = header_row
             .iter()
             .enumerate()
             .filter(|(_, cell)| {
                 let text = cell.to_string();
-                text.trim().to_lowercase().starts_with("total paid")
+                if !text.trim().to_lowercase().starts_with("total paid") {
+                    return false;
+                }
+                match (target_year_month, Self::parse_total_paid_end_date(&text)) {
+                    (Some(target), Some(end)) => end == target,
+                    (Some(_), None) => false,
+                    (None, _) => true,
+                }
             })
             .map(|(idx, _)| idx)
             .collect();
 
         if total_paid_columns.is_empty() {
-            return Err(ParserError::ProcessingError(
-                "No 'Total Paid' columns found in headers".to_string(),
-            ));
+            let msg = match target_year_month {
+                Some((y, m)) => format!(
+                    "No 'Total Paid' columns found for report month {:04}-{:02}",
+                    y, m
+                ),
+                None => "No 'Total Paid' columns found in headers".to_string(),
+            };
+            return Err(ParserError::ProcessingError(msg));
         }
+
+        // Locate the "Management Fee %" column dynamically by header name.
+        // Older parser code hardcoded index 16 which is "Installment" in the
+        // current BIG schema, so the lookup silently fell back to a 3% default.
+        let management_fee_col = header_row.iter().position(|cell| {
+            cell.to_string()
+                .trim()
+                .to_lowercase()
+                .contains("management fee")
+        });
 
         let data_start_row = header_row_idx + 1;
 
@@ -133,20 +196,18 @@ impl BigParser {
             // Column D (3): Business Name / Merchant Name
             let merchant_name = row.get(3).map(|cell| cell.to_string()).unwrap_or_default();
 
-            // Column Q (16): Management Fee %
-            let management_fee_pct = row
-                .get(16)
+            let management_fee_pct = management_fee_col
+                .and_then(|idx| row.get(idx))
                 .and_then(|cell| match cell {
                     Data::Float(f) => Some(*f),
                     Data::Int(i) => Some(*i as f64),
                     Data::String(s) => {
-                        // Handle percentage strings like "3%" or "0.03"
                         let cleaned = s.trim().replace('%', "");
                         cleaned.parse::<f64>().ok()
                     }
                     _ => None,
                 })
-                .unwrap_or(3.0); // Default to 3% if not found
+                .unwrap_or(3.0); // Default to 3% if column missing or unparseable
 
             // Convert to decimal if it's a whole number percentage (e.g., 3 -> 0.03)
             let fee_rate = if management_fee_pct > 1.0 {
@@ -276,5 +337,46 @@ impl BaseParser for BigParser {
 
         // Create pivot table
         self.create_pivot_table(processed_data)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_two_digit_year_end_date() {
+        assert_eq!(
+            BigParser::parse_total_paid_end_date("Total Paid 4/18/26 - 4/24/26"),
+            Some((2026, 4))
+        );
+    }
+
+    #[test]
+    fn parses_end_date_spanning_month_boundary() {
+        assert_eq!(
+            BigParser::parse_total_paid_end_date("Total Paid 3/28/26 - 4/3/26"),
+            Some((2026, 4))
+        );
+    }
+
+    #[test]
+    fn rejects_non_total_paid_header() {
+        assert_eq!(
+            BigParser::parse_total_paid_end_date("Payments 5/1/26 :"),
+            None
+        );
+    }
+
+    #[test]
+    fn report_year_month_parses_iso_date() {
+        let p = BigParser::with_report_date("2026-04-30");
+        assert_eq!(p.report_year_month(), Some((2026, 4)));
+    }
+
+    #[test]
+    fn report_year_month_none_when_unset() {
+        let p = BigParser::new();
+        assert_eq!(p.report_year_month(), None);
     }
 }

@@ -570,7 +570,7 @@ fn process_funder_file(
                 .map_err(|e| format!("Failed to parse BHB file: {}", e))?
         }
         "BIG" => {
-            let parser = BigParser::new();
+            let parser = BigParser::with_report_date(report_date);
             parser
                 .process(file_path)
                 .map_err(|e| format!("Failed to parse BIG file: {}", e))?

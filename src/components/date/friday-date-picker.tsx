@@ -7,6 +7,7 @@ import {
   DateValue,
   ZonedDateTime,
   toZoned,
+  toCalendarDate,
 } from "@internationalized/date";
 
 interface FridayDatePickerProps {
@@ -46,7 +47,7 @@ const FridayDatePicker: React.FC<FridayDatePickerProps> = ({
   // Notify parent of initial date on mount
   useEffect(() => {
     if (initialFriday && onDateChange) {
-      onDateChange(initialFriday);
+      onDateChange(toCalendarDate(initialFriday));
     }
   }, []);
 
@@ -66,7 +67,7 @@ const FridayDatePicker: React.FC<FridayDatePickerProps> = ({
   const handleDateChange = (date: ZonedDateTime | null) => {
     if (date && isFriday(date)) {
       setSelectedDate(date);
-      onDateChange?.(date);
+      onDateChange?.(toCalendarDate(date));
     }
   };
 
