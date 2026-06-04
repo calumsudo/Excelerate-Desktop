@@ -7,6 +7,7 @@ import {
   DateValue,
   ZonedDateTime,
   toZoned,
+  toCalendarDate,
 } from "@internationalized/date";
 
 interface MonthlyDatePickerProps {
@@ -37,7 +38,7 @@ const MonthlyDatePicker: React.FC<MonthlyDatePickerProps> = ({
 
   useEffect(() => {
     if (initialDate && onDateChange) {
-      onDateChange(initialDate);
+      onDateChange(toCalendarDate(initialDate));
     }
   }, []);
 
@@ -52,7 +53,7 @@ const MonthlyDatePicker: React.FC<MonthlyDatePickerProps> = ({
   const handleDateChange = (date: ZonedDateTime | null) => {
     if (date && !isDateUnavailable(date)) {
       setSelectedDate(date);
-      onDateChange?.(date);
+      onDateChange?.(toCalendarDate(date));
     }
   };
 

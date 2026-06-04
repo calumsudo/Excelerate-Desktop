@@ -28,7 +28,7 @@ impl ClearViewMonthlyParser {
 
     fn sheet_names(&self) -> (&'static str, &'static str) {
         if self.portfolio_name == "White Rabbit" {
-            ("WHITE RABBIT LENDSAAS", "WHITE RABBIT CENTREX")
+            ("WR LENDSAAS", "WR CENTREX")
         } else {
             // Default to Alder / R&H
             ("R&H LENDSAAS", "R&H CENTREX")
@@ -41,13 +41,10 @@ impl ClearViewMonthlyParser {
             Err(_) => return false,
         };
         let names = workbook.sheet_names();
-        let required = [
-            "R&H LENDSAAS",
-            "WHITE RABBIT LENDSAAS",
-            "R&H CENTREX",
-            "WHITE RABBIT CENTREX",
-        ];
-        required.iter().all(|r| names.iter().any(|n| n == r))
+        let required = ["R&H LENDSAAS", "WR LENDSAAS", "R&H CENTREX", "WR CENTREX"];
+        required
+            .iter()
+            .all(|r| names.iter().any(|n| n.eq_ignore_ascii_case(r)))
     }
 
     fn parse_lendsaas_sheet(
@@ -151,9 +148,25 @@ impl ClearViewMonthlyParser {
             ParserError::ProcessingError("Failed to open ClearView monthly Excel file".to_string())
         })?;
 
+        let resolve = |wanted: &str| -> ParserResult<String> {
+            workbook
+                .sheet_names()
+                .iter()
+                .find(|n| n.eq_ignore_ascii_case(wanted))
+                .cloned()
+                .ok_or_else(|| {
+                    ParserError::ProcessingError(format!(
+                        "Sheet '{}' not found in ClearView monthly file",
+                        wanted
+                    ))
+                })
+        };
+        let lendsaas_actual = resolve(lendsaas_sheet)?;
+        let centrex_actual = resolve(centrex_sheet)?;
+
         let mut all_rows: Vec<(String, f64, f64, f64)> = Vec::new();
-        all_rows.extend(self.parse_lendsaas_sheet(&mut workbook, lendsaas_sheet)?);
-        all_rows.extend(self.parse_centrex_sheet(&mut workbook, centrex_sheet)?);
+        all_rows.extend(self.parse_lendsaas_sheet(&mut workbook, &lendsaas_actual)?);
+        all_rows.extend(self.parse_centrex_sheet(&mut workbook, &centrex_actual)?);
 
         // Aggregate by advance_id
         let mut grouped: HashMap<String, (f64, f64, f64)> = HashMap::new();
