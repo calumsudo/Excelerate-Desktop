@@ -183,20 +183,18 @@ Verified by tracing every frontend `invoke()` against `generate_handler![]` in `
 - [x] Delete dead code (list above); removed broken `getPortfolioSummaries`; extra find: unregistered `get_clearview_daily_files_for_week` also removed
 - [x] Fix TODO.md ClearView double-upload bug — fixed in the SQLite layer: upload-id reuse + pivot replace keyed on `(portfolio, funder, report_date, upload_type)`, per-portfolio independent processing; the DB-row unique constraint version still lands in Phase 2
 
-### Phase 1 — Schema completion (CLI migrations)
+### Phase 1 — Schema completion (CLI migrations) ✅ Completed 2026-07-09
 
-- [ ] New tables: `net_rtr_payments` (unique on `(deal_id, payment_date)` — weekly-grained historical rows, monthly going forward), `funder_uploads`, `funder_pivot_tables`, `funder_pivot_rows` — with FKs to `portfolios`/`funders`, Storage paths, unique constraint on `(portfolio_id, funder_id, report_date, upload_type)`
-- [ ] Alter `funders`: add `management_fee_rate`, `sheet_name`; seed the 6 missing funders; seed `portfolio_funders`
-- [ ] Alter `portfolios`: add `profit_share_rate`, `dividend_rate`
-- [ ] Seed `industries` from the workbook's `Industries` sheet
-- [ ] Decide on `portfolio_access` vs. keeping permissive authenticated-only RLS (see Schema Assessment)
-- [ ] Views encoding the workbook formulas:
-  - `deal_computed` — sell rate, cost basis, net RTR, factor, term, balances
-  - `monthly_vintage_stats` — the `-P` sheets
-  - `portfolio_monthly` — the `ALDER Portfolio` sheet
-  - `weekly_rtr_matrix` — the `RTR` sheet
-  - `funder_allocation_current` — the `R&H-ALDER-P` snapshot
-- [ ] RLS on all tables via `portfolio_access`
+Five migrations (`20260710_phase1_*`), pushed to the live DB and verified (seeds queried back; view math smoke-tested against BHB row 3 inside a rolled-back transaction; RLS tested as anon and as an authenticated JWT).
+
+- [x] New tables: `net_rtr_payments` (unique on `(deal_id, payment_date)`), `funder_uploads` (unique on `(portfolio_id, funder_id, report_date, upload_type)`, `storage_path`), `funder_pivot_tables` (one per upload), `funder_pivot_rows` (with `matched_deal_id` for the unmatched-deals flow)
+- [x] `funders.sheet_name` added; **`management_fee_rate` went on `portfolio_funders`, not `funders`** — the workbooks show the same funder charging portfolios differently (BIG `B1` = 0.04 in Alder, 0.03 in White Rabbit). Also found: InAd is 3.5% and PayVa 5% (the "3% most, 4% Boom/BIG" summary above was incomplete). All 6 missing funders seeded; 18 `portfolio_funders` rows seeded with fees read from both workbooks' `B1` cells
+- [x] `portfolios.profit_share_rate` (0.20) + `dividend_rate` (0.03)
+- [x] `deals.date_closed` added (workbook column AH was an input the table lacked; expected-payment math needs open/closed status)
+- [x] `industries` seeded from the workbook's curated Keep=YES column (171 distinct names)
+- [x] Decided: created `portfolio_access` (the plan's own RLS bullet presumed it). Helper fns `has_portfolio_access()` / `is_admin()`; existing user seeded with both portfolios (already `admin` role)
+- [x] Views (formulas transcribed from a live dump of the deal-sheet/`-P`/portfolio-sheet formulas, not from the prose above): `deal_computed`, `monthly_vintage_stats`, `portfolio_monthly`, `weekly_rtr_matrix`, `funder_allocation_current` — all `security_invoker`. Deviation: portfolio-level weighted term uses cost-basis weighting instead of the sheet's plain `AVERAGE()` across funders
+- [x] RLS via `portfolio_access` on all portfolio-scoped tables (`net_rtr_payments` scopes through `deals`, `funder_pivot_rows` through `funder_pivot_tables`); lookups stay authenticated-read; anon sees nothing
 
 ### Phase 2 — Move saves to the cloud (monthly flow)
 
