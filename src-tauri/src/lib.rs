@@ -40,6 +40,7 @@ pub fn run() {
             file_handler::read_excel_file,
             file_handler::get_merchants_by_portfolio,
             file_handler::get_pivot_tables_for_update,
+            file_handler::get_pivot_for_report,
             file_handler::get_active_workbook_path,
             file_handler::find_unmatched_deals,
             file_handler::find_unmatched_deals_by_portfolio,

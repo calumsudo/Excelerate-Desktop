@@ -43,6 +43,7 @@ Forgetting `generate_handler` registration compiles fine but the frontend `invok
 | `delete_funder_upload` | Deletes upload and its associated pivot table | `file-service.ts` → `deleteFunderUpload` |
 | `get_all_database_files` | Returns all uploaded files from the database | _(not wrapped)_ |
 | `get_pivot_tables_for_update` | Returns pivot tables for a report date | _(not wrapped)_ |
+| `get_pivot_for_report` | Returns one pivot's rows + parser totals for the cloud sync | `pivot-sync-service.ts` → `PivotSyncService` (private helper) |
 
 ---
 

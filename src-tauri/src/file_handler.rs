@@ -1322,6 +1322,71 @@ pub fn get_pivot_tables_for_update(
     Ok(all_pivot_data)
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct PivotExport {
+    pub rows: Vec<PivotTableData>,
+    pub total_gross: f64,
+    pub total_fee: f64,
+    pub total_net: f64,
+}
+
+/// Return the parsed pivot rows plus the parser's totals for one
+/// (portfolio, funder, report) so the frontend can push them to Supabase.
+/// The totals come from the SQLite record written at parse time, so the
+/// cloud validation RPC compares row sums against the parser's own totals.
+#[tauri::command]
+pub fn get_pivot_for_report(
+    portfolio_name: &str,
+    funder_name: &str,
+    report_date: &str,
+    upload_type: &str,
+) -> Result<Option<PivotExport>, String> {
+    if DB.lock().unwrap().is_none() {
+        init_database()?;
+    }
+
+    let record = {
+        let db_lock = DB.lock().unwrap();
+        let db = db_lock.as_ref().ok_or("Database not initialized")?;
+        db.get_funder_pivot_table(portfolio_name, funder_name, report_date, upload_type)
+            .map_err(|e| format!("Failed to get pivot table record: {}", e))?
+    };
+
+    let Some(record) = record else {
+        return Ok(None);
+    };
+
+    let csv_content = fs::read_to_string(&record.pivot_file_path)
+        .map_err(|e| format!("Failed to read pivot CSV: {}", e))?;
+
+    let mut reader = csv::Reader::from_reader(csv_content.as_bytes());
+    let mut rows = Vec::new();
+
+    for result in reader.records() {
+        let row = result.map_err(|e| format!("Failed to parse pivot CSV: {}", e))?;
+        if row.len() >= 5 {
+            let advance_id = row.get(0).unwrap_or("").to_string();
+            if advance_id == "Totals" {
+                continue;
+            }
+            rows.push(PivotTableData {
+                advance_id,
+                merchant_name: row.get(1).unwrap_or("").to_string(),
+                gross_amount: row.get(2).unwrap_or("0").parse::<f64>().unwrap_or(0.0),
+                management_fee: row.get(3).unwrap_or("0").parse::<f64>().unwrap_or(0.0),
+                net_amount: row.get(4).unwrap_or("0").parse::<f64>().unwrap_or(0.0),
+            });
+        }
+    }
+
+    Ok(Some(PivotExport {
+        rows,
+        total_gross: record.total_gross,
+        total_fee: record.total_fee,
+        total_net: record.total_net,
+    }))
+}
+
 #[tauri::command]
 pub fn get_active_workbook_path(portfolio_name: &str) -> Result<String, String> {
     let base_dir = get_excelerate_dir()?;

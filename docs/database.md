@@ -71,6 +71,13 @@ Schema is managed by CLI migrations in `supabase/migrations/` (`supabase migrati
 - **weekly_rtr_matrix** — the `RTR` sheet in long form (funder × payment date)
 - **funder_allocation_current** — the `R&H-ALDER-P` allocation snapshot
 
+### Functions (Phase 2 write path)
+
+- **commit_funder_pivot(upload_id, rows jsonb, total_gross, total_fee, total_net, dry_run)** — the single write path from parser output to the DB. Replaces the upload's `funder_pivot_tables`/`funder_pivot_rows`, matches rows to `deals` on `funder_advance_id` (scoped to portfolio + funder; ambiguous matches flagged as duplicates), and unless `dry_run` writes `net_rtr_payments` — aborting unless matched + unmatched + duplicate nets equal the parser's `total_net` within a cent. Returns a reconciliation JSON. `SECURITY INVOKER`, so RLS applies.
+- **resolve_pivot_row(row_id, deal_id)** — resolves one unmatched pivot row to a deal and (re)writes that deal's payment for the pivot's report date; idempotent.
+
+Frontend flow (`src/services/pivot-sync-service.ts` + `use-cloud-sync.ts`): after the local save, the raw file goes to the private `funder-uploads` Storage bucket (`{portfolio_id}/{funder_id}/{report_date}/{filename}`, RLS on the first path segment), `funder_uploads` is upserted, then a dry-run of `commit_funder_pivot` feeds the reconciliation modal; confirming re-runs it for real. Clear View syncs both portfolios from one upload.
+
 ### RLS
 
 `has_portfolio_access(portfolio_id)` + `is_admin()` (both `SECURITY DEFINER`) gate all portfolio-scoped tables via `portfolio_access`. Tables without a `portfolio_id` scope through their parent (`net_rtr_payments` via `deals`, `funder_pivot_rows` via `funder_pivot_tables`). Lookups (`funders`, `industries`, `states`) remain readable by any authenticated user; anon sees nothing.
@@ -82,14 +89,14 @@ Schema is managed by CLI migrations in `supabase/migrations/` (`supabase migrati
 | Data | Current owner |
 |------|--------------|
 | Portfolio workbook versions | SQLite |
-| Funder uploads | SQLite (Supabase tables ready, cutover in Phase 2) |
-| Pivot tables | SQLite (Supabase tables ready, cutover in Phase 2) |
+| Funder uploads | Dual-write: SQLite + Supabase (`funder_uploads` + Storage bucket, Phase 2) |
+| Pivot tables | Dual-write: SQLite CSV + Supabase (`funder_pivot_tables`/`_rows` via `commit_funder_pivot`, Phase 2) |
 | Merchant records | SQLite (Supabase table ready, populated in Phase 3) |
-| Deals & payments | Supabase (empty until the Phase 3 workbook import) |
+| Deals & payments | Supabase (`deals` empty until the Phase 3 workbook import; `net_rtr_payments` written by `commit_funder_pivot`) |
 | User profiles & auth | Supabase |
 | Portfolio access control | Supabase (`portfolio_access` + RLS) |
 
-The Supabase schema is complete but the app's write paths still target SQLite. Moving them is Phase 2.
+Phase 2 added the cloud write path alongside the local one. SQLite stays load-bearing (the Pyodide workbook update still reads local pivot CSVs) until the Phase 5 cutover.
 
 ---
 
