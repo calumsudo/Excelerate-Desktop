@@ -736,6 +736,16 @@ export interface Database {
         Args: { p_row_id: string; p_deal_id: string };
         Returns: Json;
       };
+      import_funder_sheet: {
+        Args: {
+          p_portfolio_id: number;
+          p_funder_id: number;
+          p_management_fee_rate: number | null;
+          p_deals: Json;
+          p_total_net_payments: number;
+        };
+        Returns: Json;
+      };
     };
     Enums: {
       user_role: "admin" | "member";

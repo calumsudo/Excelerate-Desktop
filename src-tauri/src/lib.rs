@@ -3,6 +3,7 @@ mod file_handler;
 mod notification;
 pub mod parsers;
 mod validated_file_handler;
+mod workbook_import;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -46,7 +47,8 @@ pub fn run() {
             file_handler::find_unmatched_deals_by_portfolio,
             file_handler::find_unmatched_deals_by_date,
             validated_file_handler::save_funder_upload_validated,
-            validated_file_handler::save_portfolio_workbook_validated
+            validated_file_handler::save_portfolio_workbook_validated,
+            workbook_import::parse_portfolio_workbook
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
