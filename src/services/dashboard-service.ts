@@ -19,15 +19,6 @@ export interface MerchantData {
   updated_timestamp: string;
 }
 
-export interface DashboardStats {
-  totalMerchants: number;
-  totalFunded: number;
-  avgBuyRate: number;
-  avgCommission: number;
-  activeFunders: number;
-  recentFundings: number;
-}
-
 export interface FunderDistribution {
   name: string;
   value: number;
@@ -40,64 +31,11 @@ export interface MonthlyFunding {
   count: number;
 }
 
-export interface PortfolioSummary {
-  portfolio_name: string;
-  total_merchants: number;
-  total_funded: number;
-  active_funders: string[];
-  avg_buy_rate: number;
-  avg_commission: number;
-  recent_fundings: number;
-}
-
 export async function getPortfolioMerchants(portfolioName: string): Promise<MerchantData[]> {
   try {
     return await invoke<MerchantData[]>("get_merchants_by_portfolio", { portfolioName });
   } catch (error) {
     console.error("Failed to fetch portfolio merchants:", error);
-    return [];
-  }
-}
-
-export async function getDashboardStats(portfolioName?: string): Promise<DashboardStats> {
-  try {
-    return await invoke<DashboardStats>("get_dashboard_stats", { portfolioName });
-  } catch (error) {
-    console.error("Failed to fetch dashboard stats:", error);
-    return {
-      totalMerchants: 0,
-      totalFunded: 0,
-      avgBuyRate: 0,
-      avgCommission: 0,
-      activeFunders: 0,
-      recentFundings: 0,
-    };
-  }
-}
-
-export async function getFunderDistribution(portfolioName?: string): Promise<FunderDistribution[]> {
-  try {
-    return await invoke<FunderDistribution[]>("get_funder_distribution", { portfolioName });
-  } catch (error) {
-    console.error("Failed to fetch funder distribution:", error);
-    return [];
-  }
-}
-
-export async function getMonthlyFundingTrends(portfolioName?: string): Promise<MonthlyFunding[]> {
-  try {
-    return await invoke<MonthlyFunding[]>("get_monthly_funding_trends", { portfolioName });
-  } catch (error) {
-    console.error("Failed to fetch monthly funding trends:", error);
-    return [];
-  }
-}
-
-export async function getPortfolioSummaries(): Promise<PortfolioSummary[]> {
-  try {
-    return await invoke<PortfolioSummary[]>("get_portfolio_summaries");
-  } catch (error) {
-    console.error("Failed to fetch portfolio summaries:", error);
     return [];
   }
 }

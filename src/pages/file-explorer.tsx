@@ -145,7 +145,7 @@ function FileExplorer() {
       portfolioName: file.portfolio_name,
       funderName: file.funder_name,
       reportDate: file.report_date,
-      uploadType: file.upload_type as "weekly" | "monthly" | undefined,
+      uploadType: file.upload_type as "monthly" | undefined,
       fileSize: file.file_size,
       uploadTimestamp: file.upload_timestamp,
       totalGross: file.total_gross,

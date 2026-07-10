@@ -2,10 +2,10 @@ use crate::database::{
     Database, FileVersion, FunderPivotTable, FunderUpload, Merchant, UnmatchedDeal,
 };
 use crate::parsers::{
-    BaseParser, BhbParser, BigParser, BoomParser, ClearViewMonthlyParser, ClearViewPivotProcessor,
-    EfinParser, InAdvParser, KingsParser, PortfolioParser,
+    BaseParser, BhbParser, BigParser, BoomParser, ClearViewMonthlyParser, EfinParser, InAdvParser,
+    KingsParser, PortfolioParser,
 };
-use chrono::{Datelike, Utc};
+use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -77,16 +77,11 @@ pub fn ensure_directories() -> Result<(), String> {
         base_dir.join("Alder").join("Workbook"),
         base_dir.join("Alder").join("Workbook").join("versions"),
         base_dir.join("Alder").join("Funder Uploads"),
-        base_dir.join("Alder").join("Funder Uploads").join("Weekly"),
         base_dir
             .join("Alder")
             .join("Funder Uploads")
             .join("Monthly"),
         base_dir.join("Alder").join("Funder Pivot Tables"),
-        base_dir
-            .join("Alder")
-            .join("Funder Pivot Tables")
-            .join("Weekly"),
         base_dir
             .join("Alder")
             .join("Funder Pivot Tables")
@@ -101,16 +96,8 @@ pub fn ensure_directories() -> Result<(), String> {
         base_dir
             .join("White Rabbit")
             .join("Funder Uploads")
-            .join("Weekly"),
-        base_dir
-            .join("White Rabbit")
-            .join("Funder Uploads")
             .join("Monthly"),
         base_dir.join("White Rabbit").join("Funder Pivot Tables"),
-        base_dir
-            .join("White Rabbit")
-            .join("Funder Pivot Tables")
-            .join("Weekly"),
         base_dir
             .join("White Rabbit")
             .join("Funder Pivot Tables")
@@ -440,94 +427,131 @@ fn process_clearview_monthly_file(
         init_database()?;
     }
 
-    // Generate pivots for both portfolios from the single uploaded file
-    let portfolios = ["Alder", "White Rabbit"];
-    for &pf in &portfolios {
-        let parser = ClearViewMonthlyParser::new(pf);
-        let pivot = parser
-            .process(file_path)
-            .map_err(|e| format!("Failed to parse ClearView monthly file for {}: {:?}", pf, e))?;
+    // Generate pivots for both portfolios from the single uploaded file.
+    // Each portfolio is processed independently so a failure in one doesn't
+    // discard the other's result.
+    let mut errors: Vec<String> = Vec::new();
+    for pf in ["Alder", "White Rabbit"] {
+        if let Err(e) = process_clearview_portfolio(
+            file_path,
+            pf,
+            portfolio_name,
+            report_date,
+            upload_id,
+            original_filename,
+            file_size,
+        ) {
+            errors.push(format!("{}: {}", pf, e));
+        }
+    }
 
-        let csv_content = pivot
-            .to_csv_string()
-            .map_err(|e| format!("Failed to generate CSV for {}: {}", pf, e))?;
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        Err(errors.join("; "))
+    }
+}
 
-        let portfolio_dir = get_portfolio_dir(pf)?;
-        let pivot_dir = portfolio_dir
-            .join("Funder Pivot Tables")
+fn process_clearview_portfolio(
+    file_path: &Path,
+    pf: &str,
+    uploading_portfolio: &str,
+    report_date: &str,
+    upload_id: &str,
+    original_filename: &str,
+    file_size: i64,
+) -> Result<(), String> {
+    let parser = ClearViewMonthlyParser::new(pf);
+    let pivot = parser
+        .process(file_path)
+        .map_err(|e| format!("Failed to parse ClearView monthly file: {:?}", e))?;
+
+    let csv_content = pivot
+        .to_csv_string()
+        .map_err(|e| format!("Failed to generate CSV: {}", e))?;
+
+    let portfolio_dir = get_portfolio_dir(pf)?;
+    let pivot_dir = portfolio_dir
+        .join("Funder Pivot Tables")
+        .join("Monthly")
+        .join("Clear View");
+    fs::create_dir_all(&pivot_dir)
+        .map_err(|e| format!("Failed to create pivot directory: {}", e))?;
+
+    let pivot_path = pivot_dir.join(format!("{}.csv", report_date));
+    fs::write(&pivot_path, csv_content.as_bytes())
+        .map_err(|e| format!("Failed to save pivot table: {}", e))?;
+
+    // For the uploading portfolio, reuse the upload_id of the record just saved.
+    // For the other portfolio, reuse its existing upload record for this report
+    // if one exists (re-uploads are idempotent) instead of replacing it.
+    let effective_upload_id = if pf == uploading_portfolio {
+        upload_id.to_string()
+    } else {
+        let other_funder_dir = portfolio_dir
+            .join("Funder Uploads")
             .join("Monthly")
             .join("Clear View");
-        fs::create_dir_all(&pivot_dir)
-            .map_err(|e| format!("Failed to create pivot directory: {}", e))?;
+        fs::create_dir_all(&other_funder_dir)
+            .map_err(|e| format!("Failed to create other portfolio funder directory: {}", e))?;
 
-        let pivot_path = pivot_dir.join(format!("{}.csv", report_date));
-        fs::write(&pivot_path, csv_content.as_bytes())
-            .map_err(|e| format!("Failed to save pivot table: {}", e))?;
+        let file_extension = Path::new(original_filename)
+            .extension()
+            .and_then(|ext| ext.to_str())
+            .unwrap_or("xlsx");
+        let stored_filename = format!("{}.{}", report_date, file_extension);
+        let other_file_path = other_funder_dir.join(&stored_filename);
+        fs::copy(file_path, &other_file_path)
+            .map_err(|e| format!("Failed to copy CV file to other portfolio: {}", e))?;
 
-        // For the uploading portfolio, reuse the existing upload_id.
-        // For the other portfolio, create a FunderUpload record so it shows up there too.
-        let effective_upload_id = if pf == portfolio_name {
-            upload_id.to_string()
-        } else {
-            // Copy the file to the other portfolio's funder upload directory
-            let other_portfolio_dir = get_portfolio_dir(pf)?;
-            let other_funder_dir = other_portfolio_dir
-                .join("Funder Uploads")
-                .join("Monthly")
-                .join("Clear View");
-            fs::create_dir_all(&other_funder_dir)
-                .map_err(|e| format!("Failed to create other portfolio funder directory: {}", e))?;
+        let db_lock = DB.lock().unwrap();
+        let db = db_lock.as_ref().ok_or("Database not initialized")?;
 
-            let file_extension = Path::new(original_filename)
-                .extension()
-                .and_then(|ext| ext.to_str())
-                .unwrap_or("xlsx");
-            let stored_filename = format!("{}.{}", report_date, file_extension);
-            let other_file_path = other_funder_dir.join(&stored_filename);
-            fs::copy(file_path, &other_file_path)
-                .map_err(|e| format!("Failed to copy CV file to other portfolio: {}", e))?;
+        let other_upload_id = db
+            .get_funder_upload(pf, "Clear View", report_date, "monthly")
+            .map_err(|e| format!("Failed to look up existing CV upload: {}", e))?
+            .map(|u| u.id)
+            .unwrap_or_else(|| Uuid::new_v4().to_string());
 
-            let other_upload_id = Uuid::new_v4().to_string();
-            let other_upload = FunderUpload {
-                id: other_upload_id.clone(),
-                portfolio_name: pf.to_string(),
-                funder_name: "Clear View".to_string(),
-                report_date: report_date.to_string(),
-                upload_type: "monthly".to_string(),
-                original_filename: original_filename.to_string(),
-                stored_filename: stored_filename.clone(),
-                file_path: other_file_path.to_string_lossy().to_string(),
-                file_size,
-                upload_timestamp: Utc::now(),
-            };
-            let db_lock = DB.lock().unwrap();
-            if let Some(db) = db_lock.as_ref() {
-                db.insert_funder_upload(&other_upload)
-                    .map_err(|e| format!("Failed to save CV upload for other portfolio: {}", e))?;
-            }
-            other_upload_id
-        };
-
-        let pivot_record = FunderPivotTable {
-            id: Uuid::new_v4().to_string(),
-            upload_id: effective_upload_id,
+        let other_upload = FunderUpload {
+            id: other_upload_id.clone(),
             portfolio_name: pf.to_string(),
             funder_name: "Clear View".to_string(),
             report_date: report_date.to_string(),
             upload_type: "monthly".to_string(),
-            pivot_file_path: pivot_path.to_string_lossy().to_string(),
-            total_gross: pivot.total_gross,
-            total_fee: pivot.total_fee,
-            total_net: pivot.total_net,
-            row_count: (pivot.rows.len().saturating_sub(1)) as i32,
-            created_timestamp: Utc::now(),
+            original_filename: original_filename.to_string(),
+            stored_filename,
+            file_path: other_file_path.to_string_lossy().to_string(),
+            file_size,
+            upload_timestamp: Utc::now(),
         };
+        db.insert_funder_upload(&other_upload)
+            .map_err(|e| format!("Failed to save CV upload for other portfolio: {}", e))?;
+        other_upload_id
+    };
 
-        let db_lock = DB.lock().unwrap();
-        if let Some(db) = db_lock.as_ref() {
-            db.insert_funder_pivot_table(&pivot_record)
-                .map_err(|e| format!("Failed to save CV pivot table to database: {}", e))?;
-        }
+    let pivot_record = FunderPivotTable {
+        id: Uuid::new_v4().to_string(),
+        upload_id: effective_upload_id,
+        portfolio_name: pf.to_string(),
+        funder_name: "Clear View".to_string(),
+        report_date: report_date.to_string(),
+        upload_type: "monthly".to_string(),
+        pivot_file_path: pivot_path.to_string_lossy().to_string(),
+        total_gross: pivot.total_gross,
+        total_fee: pivot.total_fee,
+        total_net: pivot.total_net,
+        row_count: (pivot.rows.len().saturating_sub(1)) as i32,
+        created_timestamp: Utc::now(),
+    };
+
+    let db_lock = DB.lock().unwrap();
+    if let Some(db) = db_lock.as_ref() {
+        // Replace any pivot records left by a previous upload of this report
+        db.delete_pivot_tables_for_report(pf, "Clear View", report_date, "monthly")
+            .map_err(|e| format!("Failed to clear existing CV pivot records: {}", e))?;
+        db.insert_funder_pivot_table(&pivot_record)
+            .map_err(|e| format!("Failed to save CV pivot table to database: {}", e))?;
     }
 
     Ok(())
@@ -616,11 +640,7 @@ fn process_funder_file(
     let portfolio_dir = get_portfolio_dir(portfolio_name)?;
     let pivot_dir = portfolio_dir
         .join("Funder Pivot Tables")
-        .join(if upload_type == "weekly" {
-            "Weekly"
-        } else {
-            "Monthly"
-        })
+        .join("Monthly")
         .join(funder_name);
 
     fs::create_dir_all(&pivot_dir)
@@ -653,6 +673,14 @@ fn process_funder_file(
     {
         let db_lock = DB.lock().unwrap();
         if let Some(db) = db_lock.as_ref() {
+            // Replace any pivot records left by a previous upload of this report
+            db.delete_pivot_tables_for_report(
+                portfolio_name,
+                funder_name,
+                report_date,
+                upload_type,
+            )
+            .map_err(|e| format!("Failed to clear existing pivot records: {}", e))?;
             db.insert_funder_pivot_table(&pivot_record)
                 .map_err(|e| format!("Failed to save pivot table to database: {}", e))?;
         }
@@ -693,7 +721,7 @@ pub fn save_funder_upload(
     file_data: Vec<u8>,
     file_name: &str,
     report_date: &str,
-    upload_type: &str, // "weekly" or "monthly"
+    upload_type: &str, // "monthly"
 ) -> Result<UploadResponse, String> {
     ensure_directories()?;
 
@@ -734,7 +762,19 @@ pub fn save_funder_upload(
     // println!("File saved successfully");
 
     let file_size = file_data.len() as i64;
-    let upload_id = Uuid::new_v4().to_string();
+
+    // Reuse the existing upload id for this (portfolio, funder, report_date, upload_type)
+    // so re-uploading the same report updates records in place instead of
+    // replacing them (INSERT OR REPLACE would delete the old row and orphan
+    // its pivot table records).
+    let upload_id = {
+        let db_lock = DB.lock().unwrap();
+        let db = db_lock.as_ref().ok_or("Database not initialized")?;
+        db.get_funder_upload(portfolio_name, &final_funder_name, report_date, upload_type)
+            .map_err(|e| format!("Failed to look up existing upload: {}", e))?
+            .map(|u| u.id)
+            .unwrap_or_else(|| Uuid::new_v4().to_string())
+    };
 
     // Save to database with normalized funder name
     let funder_upload = FunderUpload {
@@ -742,7 +782,7 @@ pub fn save_funder_upload(
         portfolio_name: portfolio_name.to_string(),
         funder_name: final_funder_name.clone(),
         report_date: report_date.to_string(),
-        upload_type: upload_type.to_string(), // Keep the original upload_type (daily remains daily)
+        upload_type: upload_type.to_string(),
         original_filename: file_name.to_string(),
         stored_filename: stored_filename.clone(),
         file_path: file_path.to_string_lossy().to_string(),
@@ -915,7 +955,7 @@ pub struct DatabaseFileEntry {
     pub portfolio_name: String,
     pub funder_name: Option<String>,
     pub report_date: String,
-    pub upload_type: Option<String>, // "weekly" or "monthly"
+    pub upload_type: Option<String>, // "monthly"
     pub file_name: String,
     pub file_path: String,
     pub file_size: i64,
@@ -1124,384 +1164,6 @@ pub fn read_excel_file(file_path: &str) -> Result<serde_json::Value, String> {
     }))
 }
 
-#[allow(dead_code)]
-#[derive(Debug, Serialize, Deserialize)]
-pub struct ClearViewPivotResponse {
-    pub success: bool,
-    pub message: String,
-    pub daily_pivot_path: Option<String>,
-    pub weekly_pivot_path: Option<String>,
-    pub combined_pivot_path: Option<String>,
-    pub daily_total_gross: Option<f64>,
-    pub daily_total_net: Option<f64>,
-    pub weekly_total_gross: Option<f64>,
-    pub weekly_total_net: Option<f64>,
-    pub combined_total_gross: Option<f64>,
-    pub combined_total_net: Option<f64>,
-}
-
-#[allow(dead_code)]
-#[tauri::command]
-pub fn process_clearview_pivots(
-    portfolio_name: &str,
-    report_date: &str,
-    daily_file_paths: Vec<String>,
-    weekly_file_path: Option<String>,
-) -> Result<ClearViewPivotResponse, String> {
-    if DB.lock().unwrap().is_none() {
-        init_database()?;
-    }
-
-    let processor =
-        ClearViewPivotProcessor::new(portfolio_name.to_string(), report_date.to_string());
-
-    let mut response = ClearViewPivotResponse {
-        success: false,
-        message: String::new(),
-        daily_pivot_path: None,
-        weekly_pivot_path: None,
-        combined_pivot_path: None,
-        daily_total_gross: None,
-        daily_total_net: None,
-        weekly_total_gross: None,
-        weekly_total_net: None,
-        combined_total_gross: None,
-        combined_total_net: None,
-    };
-
-    let db_lock = DB.lock().unwrap();
-    let db = db_lock.as_ref().ok_or("Database not initialized")?;
-
-    // Process daily files if provided
-    let daily_pivot =
-        if !daily_file_paths.is_empty() {
-            let paths: Vec<PathBuf> = daily_file_paths.iter().map(PathBuf::from).collect();
-
-            match processor.create_daily_aggregated_pivot(paths) {
-                Ok((pivot, path)) => {
-                    // Store pivot metadata in database
-                    let upload_id = Uuid::new_v4().to_string();
-                    processor.store_pivot_metadata(
-                    db,
-                    &upload_id,
-                    &path,
-                    &pivot,
-                    crate::parsers::clearview_pivot_processor::PivotTableType::DailyAggregated,
-                ).map_err(|e| format!("Failed to store daily pivot metadata: {}", e))?;
-
-                    response.daily_pivot_path = Some(path);
-                    response.daily_total_gross = Some(pivot.total_gross);
-                    response.daily_total_net = Some(pivot.total_net);
-                    Some(pivot)
-                }
-                Err(e) => {
-                    response.message = format!("Failed to create daily pivot: {:?}", e);
-                    None
-                }
-            }
-        } else {
-            None
-        };
-
-    // Process weekly file if provided
-    let weekly_pivot = if let Some(weekly_path) = weekly_file_path {
-        match processor.create_weekly_report_pivot(Path::new(&weekly_path)) {
-            Ok((pivot, path)) => {
-                // Store pivot metadata in database
-                let upload_id = Uuid::new_v4().to_string();
-                processor
-                    .store_pivot_metadata(
-                        db,
-                        &upload_id,
-                        &path,
-                        &pivot,
-                        crate::parsers::clearview_pivot_processor::PivotTableType::WeeklyReport,
-                    )
-                    .map_err(|e| format!("Failed to store weekly pivot metadata: {}", e))?;
-
-                response.weekly_pivot_path = Some(path);
-                response.weekly_total_gross = Some(pivot.total_gross);
-                response.weekly_total_net = Some(pivot.total_net);
-                Some(pivot)
-            }
-            Err(e) => {
-                response.message = format!("Failed to create weekly pivot: {:?}", e);
-                None
-            }
-        }
-    } else {
-        None
-    };
-
-    // Create combined pivot if we have both daily and weekly
-    if let (Some(daily), Some(weekly)) = (daily_pivot.as_ref(), weekly_pivot.as_ref()) {
-        match processor.create_combined_pivot(daily, weekly) {
-            Ok((pivot, path)) => {
-                // Store pivot metadata in database
-                let upload_id = Uuid::new_v4().to_string();
-                processor
-                    .store_pivot_metadata(
-                        db,
-                        &upload_id,
-                        &path,
-                        &pivot,
-                        crate::parsers::clearview_pivot_processor::PivotTableType::Combined,
-                    )
-                    .map_err(|e| format!("Failed to store combined pivot metadata: {}", e))?;
-
-                response.combined_pivot_path = Some(path);
-                response.combined_total_gross = Some(pivot.total_gross);
-                response.combined_total_net = Some(pivot.total_net);
-            }
-            Err(e) => {
-                response.message = format!("Failed to create combined pivot: {:?}", e);
-            }
-        }
-    }
-
-    response.success = true;
-    if response.message.is_empty() {
-        response.message = "Pivot tables created successfully".to_string();
-    }
-
-    Ok(response)
-}
-
-#[allow(dead_code)]
-#[tauri::command]
-pub fn process_clearview_daily_pivot(
-    portfolio_name: &str,
-    report_date: &str,
-) -> Result<UploadResponse, String> {
-    use crate::parsers::clearview_pivot_processor::ClearViewPivotProcessor;
-
-    if DB.lock().unwrap().is_none() {
-        init_database()?;
-    }
-
-    let processor =
-        ClearViewPivotProcessor::new(portfolio_name.to_string(), report_date.to_string());
-
-    // Process all daily files in the folder
-    let (pivot, pivot_path) = processor
-        .process_all_daily_files()
-        .map_err(|e| format!("Failed to process Clear View daily files: {:?}", e))?;
-
-    // Store pivot metadata
-    let db_lock = DB.lock().unwrap();
-    if let Some(db) = db_lock.as_ref() {
-        let upload_id = uuid::Uuid::new_v4().to_string();
-        processor
-            .store_pivot_metadata(
-                db,
-                &upload_id,
-                &pivot_path,
-                &pivot,
-                crate::parsers::clearview_pivot_processor::PivotTableType::DailyAggregated,
-            )
-            .map_err(|e| format!("Failed to store pivot metadata: {}", e))?;
-
-        // Check if we need to update the combined pivot
-        if let Ok(Some((combined_pivot, combined_path))) =
-            processor.update_combined_pivot_if_needed()
-        {
-            processor
-                .store_pivot_metadata(
-                    db,
-                    &upload_id,
-                    &combined_path,
-                    &combined_pivot,
-                    crate::parsers::clearview_pivot_processor::PivotTableType::Combined,
-                )
-                .map_err(|e| format!("Failed to store combined pivot metadata: {}", e))?;
-        }
-    }
-
-    Ok(UploadResponse {
-        success: true,
-        message: format!("Clear View daily pivot table created successfully. Total gross: ${:.2}, Total net: ${:.2}", 
-                        pivot.total_gross, pivot.total_net),
-        file_path: Some(pivot_path),
-        version_id: None,
-        backup_path: None,
-    })
-}
-
-#[allow(dead_code)]
-#[tauri::command]
-pub fn delete_clearview_file(
-    upload_id: &str,
-    portfolio_name: &str,
-    report_date: &str,
-    is_daily: bool,
-) -> Result<UploadResponse, String> {
-    if DB.lock().unwrap().is_none() {
-        init_database()?;
-    }
-
-    // First delete the file using the standard deletion
-    delete_funder_upload(upload_id)?;
-
-    if is_daily {
-        // After deleting a daily file, regenerate the daily aggregated pivot
-        // if there are remaining daily files
-        let processor =
-            ClearViewPivotProcessor::new(portfolio_name.to_string(), report_date.to_string());
-
-        let remaining_files = processor
-            .get_daily_files_for_week("")
-            .map_err(|e| format!("Failed to get remaining daily files: {}", e))?;
-
-        if !remaining_files.is_empty() {
-            // Regenerate the daily aggregated pivot
-            let (pivot, pivot_path) = processor
-                .process_all_daily_files()
-                .map_err(|e| format!("Failed to regenerate daily pivot: {:?}", e))?;
-
-            // Store updated pivot metadata
-            let db_lock = DB.lock().unwrap();
-            if let Some(db) = db_lock.as_ref() {
-                let new_upload_id = uuid::Uuid::new_v4().to_string();
-                processor
-                    .store_pivot_metadata(
-                        db,
-                        &new_upload_id,
-                        &pivot_path,
-                        &pivot,
-                        crate::parsers::clearview_pivot_processor::PivotTableType::DailyAggregated,
-                    )
-                    .map_err(|e| format!("Failed to store pivot metadata: {}", e))?;
-
-                // Check if we need to update the combined pivot
-                if let Ok(Some((combined_pivot, combined_path))) =
-                    processor.update_combined_pivot_if_needed()
-                {
-                    processor
-                        .store_pivot_metadata(
-                            db,
-                            &new_upload_id,
-                            &combined_path,
-                            &combined_pivot,
-                            crate::parsers::clearview_pivot_processor::PivotTableType::Combined,
-                        )
-                        .map_err(|e| format!("Failed to store combined pivot metadata: {}", e))?;
-                }
-            }
-
-            return Ok(UploadResponse {
-                success: true,
-                message: "Clear View daily file deleted and pivots updated".to_string(),
-                file_path: Some(pivot_path),
-                version_id: None,
-                backup_path: None,
-            });
-        } else {
-            // No remaining daily files, delete the daily pivot and combined pivot
-            let base_dir = get_excelerate_dir()?;
-            let daily_pivot_path = base_dir
-                .join(portfolio_name)
-                .join("Funder Pivot Tables")
-                .join("Weekly")
-                .join("Clear View")
-                .join("Daily")
-                .join(format!("{}.csv", report_date.replace('/', "-")));
-
-            if daily_pivot_path.exists() {
-                fs::remove_file(&daily_pivot_path).ok();
-            }
-
-            let combined_pivot_path = base_dir
-                .join(portfolio_name)
-                .join("Funder Pivot Tables")
-                .join("Weekly")
-                .join("Clear View")
-                .join("Combined")
-                .join(format!("{}.csv", report_date.replace('/', "-")));
-
-            if combined_pivot_path.exists() {
-                fs::remove_file(&combined_pivot_path).ok();
-            }
-        }
-    } else {
-        // Weekly file deleted, also delete the combined pivot
-        let base_dir = get_excelerate_dir()?;
-        let combined_pivot_path = base_dir
-            .join(portfolio_name)
-            .join("Funder Pivot Tables")
-            .join("Weekly")
-            .join("Clear View")
-            .join("Combined")
-            .join(format!("{}.csv", report_date.replace('/', "-")));
-
-        if combined_pivot_path.exists() {
-            fs::remove_file(&combined_pivot_path).ok();
-        }
-    }
-
-    Ok(UploadResponse {
-        success: true,
-        message: "Clear View file deleted successfully".to_string(),
-        file_path: None,
-        version_id: None,
-        backup_path: None,
-    })
-}
-
-#[allow(dead_code)]
-#[tauri::command]
-pub fn get_clearview_daily_files_for_week(
-    portfolio_name: &str,
-    report_date: &str,
-) -> Result<Vec<String>, String> {
-    let processor =
-        ClearViewPivotProcessor::new(portfolio_name.to_string(), report_date.to_string());
-
-    // Get the week start date
-    let week_start = ClearViewPivotProcessor::get_week_start(report_date)?;
-
-    // Get all daily files for the week
-    let files = processor.get_daily_files_for_week(&week_start)?;
-
-    Ok(files
-        .iter()
-        .map(|p| p.to_string_lossy().to_string())
-        .collect())
-}
-
-#[tauri::command]
-pub fn extract_merchants_from_portfolio(
-    portfolio_name: &str,
-) -> Result<ExtractMerchantsResponse, String> {
-    if DB.lock().unwrap().is_none() {
-        init_database()?;
-    }
-
-    let portfolio_path = get_portfolio_workbook_path(portfolio_name)?;
-    let file_path = Path::new(&portfolio_path);
-
-    if !file_path.exists() {
-        return Err(format!("Portfolio workbook not found: {}", portfolio_path));
-    }
-
-    let db_lock = DB.lock().unwrap();
-    let db = db_lock.as_ref().ok_or("Database not initialized")?;
-
-    // Create parser and extract merchants
-    let parser = PortfolioParser::new(portfolio_name.to_string());
-    let merchant_count = parser
-        .parse_portfolio_workbook(file_path, db)
-        .map_err(|e| format!("Failed to extract merchants: {}", e))?;
-
-    Ok(ExtractMerchantsResponse {
-        success: true,
-        message: format!(
-            "Successfully extracted {} merchants from portfolio",
-            merchant_count
-        ),
-        merchant_count,
-    })
-}
-
 #[tauri::command]
 pub fn get_merchants_by_portfolio(portfolio_name: &str) -> Result<Vec<MerchantInfo>, String> {
     if DB.lock().unwrap().is_none() {
@@ -1516,45 +1178,6 @@ pub fn get_merchants_by_portfolio(portfolio_name: &str) -> Result<Vec<MerchantIn
         .map_err(|e| format!("Failed to get merchants: {}", e))?;
 
     Ok(merchants.into_iter().map(MerchantInfo::from).collect())
-}
-
-#[tauri::command]
-pub fn get_merchants_by_funder(
-    portfolio_name: &str,
-    funder_name: &str,
-) -> Result<Vec<MerchantInfo>, String> {
-    if DB.lock().unwrap().is_none() {
-        init_database()?;
-    }
-
-    let db_lock = DB.lock().unwrap();
-    let db = db_lock.as_ref().ok_or("Database not initialized")?;
-
-    let merchants = db
-        .get_merchants_by_funder(portfolio_name, funder_name)
-        .map_err(|e| format!("Failed to get merchants: {}", e))?;
-
-    Ok(merchants.into_iter().map(MerchantInfo::from).collect())
-}
-
-#[tauri::command]
-pub fn clear_merchants_for_portfolio(portfolio_name: &str) -> Result<usize, String> {
-    if DB.lock().unwrap().is_none() {
-        init_database()?;
-    }
-
-    let db_lock = DB.lock().unwrap();
-    let db = db_lock.as_ref().ok_or("Database not initialized")?;
-
-    db.delete_merchants_by_portfolio(portfolio_name)
-        .map_err(|e| format!("Failed to delete merchants: {}", e))
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct ExtractMerchantsResponse {
-    pub success: bool,
-    pub message: String,
-    pub merchant_count: usize,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -1729,248 +1352,6 @@ pub fn get_active_workbook_path(portfolio_name: &str) -> Result<String, String> 
         }
         Ok(original_path.to_string_lossy().to_string())
     }
-}
-
-// Dashboard-related commands
-#[derive(Debug, Serialize, Deserialize)]
-pub struct DashboardStats {
-    pub total_merchants: i32,
-    pub total_funded: f64,
-    pub avg_buy_rate: f64,
-    pub avg_commission: f64,
-    pub active_funders: i32,
-    pub recent_fundings: i32,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct FunderDistribution {
-    pub name: String,
-    pub value: f64,
-    pub percentage: f64,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct MonthlyFunding {
-    pub month: String,
-    pub amount: f64,
-    pub count: i32,
-}
-
-#[tauri::command]
-pub fn get_dashboard_stats(portfolio_name: Option<String>) -> Result<DashboardStats, String> {
-    if DB.lock().unwrap().is_none() {
-        init_database()?;
-    }
-
-    let db_lock = DB.lock().unwrap();
-    let db = db_lock.as_ref().ok_or("Database not initialized")?;
-
-    let merchants = if let Some(portfolio) = portfolio_name {
-        db.get_merchants_by_portfolio(&portfolio)
-            .map_err(|e| format!("Failed to get merchants: {}", e))?
-    } else {
-        // Get merchants from both portfolios
-        let alder = db
-            .get_merchants_by_portfolio("Alder")
-            .map_err(|e| format!("Failed to get Alder merchants: {}", e))?;
-        let white_rabbit = db
-            .get_merchants_by_portfolio("White Rabbit")
-            .map_err(|e| format!("Failed to get White Rabbit merchants: {}", e))?;
-
-        let mut all_merchants = alder;
-        all_merchants.extend(white_rabbit);
-        all_merchants
-    };
-
-    let total_merchants = merchants.len() as i32;
-    let total_funded: f64 = merchants.iter().filter_map(|m| m.total_amount_funded).sum();
-
-    let buy_rates: Vec<f64> = merchants.iter().filter_map(|m| m.buy_rate).collect();
-    let avg_buy_rate = if !buy_rates.is_empty() {
-        buy_rates.iter().sum::<f64>() / buy_rates.len() as f64
-    } else {
-        0.0
-    };
-
-    let commissions: Vec<f64> = merchants.iter().filter_map(|m| m.commission).collect();
-    let avg_commission = if !commissions.is_empty() {
-        commissions.iter().sum::<f64>() / commissions.len() as f64
-    } else {
-        0.0
-    };
-
-    let mut unique_funders = std::collections::HashSet::new();
-    for merchant in &merchants {
-        unique_funders.insert(&merchant.funder_name);
-    }
-    let active_funders = unique_funders.len() as i32;
-
-    // Count recent fundings (last 30 days)
-    let thirty_days_ago = chrono::Utc::now() - chrono::Duration::days(30);
-    let recent_fundings = merchants
-        .iter()
-        .filter(|m| {
-            if let Some(date_str) = &m.date_funded {
-                if let Ok(date) = chrono::NaiveDate::parse_from_str(date_str, "%m/%d/%y")
-                    .or_else(|_| chrono::NaiveDate::parse_from_str(date_str, "%m/%d/%Y"))
-                    .or_else(|_| chrono::NaiveDate::parse_from_str(date_str, "%Y-%m-%d"))
-                {
-                    let datetime = date.and_hms_opt(0, 0, 0).map(|dt| {
-                        chrono::DateTime::<chrono::Utc>::from_naive_utc_and_offset(dt, chrono::Utc)
-                    });
-                    if let Some(dt) = datetime {
-                        return dt > thirty_days_ago;
-                    }
-                }
-            }
-            false
-        })
-        .count() as i32;
-
-    Ok(DashboardStats {
-        total_merchants,
-        total_funded,
-        avg_buy_rate,
-        avg_commission,
-        active_funders,
-        recent_fundings,
-    })
-}
-
-#[tauri::command]
-pub fn get_funder_distribution(
-    portfolio_name: Option<String>,
-) -> Result<Vec<FunderDistribution>, String> {
-    if DB.lock().unwrap().is_none() {
-        init_database()?;
-    }
-
-    let db_lock = DB.lock().unwrap();
-    let db = db_lock.as_ref().ok_or("Database not initialized")?;
-
-    let merchants = if let Some(portfolio) = portfolio_name {
-        db.get_merchants_by_portfolio(&portfolio)
-            .map_err(|e| format!("Failed to get merchants: {}", e))?
-    } else {
-        let alder = db
-            .get_merchants_by_portfolio("Alder")
-            .map_err(|e| format!("Failed to get Alder merchants: {}", e))?;
-        let white_rabbit = db
-            .get_merchants_by_portfolio("White Rabbit")
-            .map_err(|e| format!("Failed to get White Rabbit merchants: {}", e))?;
-
-        let mut all_merchants = alder;
-        all_merchants.extend(white_rabbit);
-        all_merchants
-    };
-
-    // Group by funder and sum amounts
-    let mut funder_totals: std::collections::HashMap<String, f64> =
-        std::collections::HashMap::new();
-    for merchant in merchants {
-        let amount = merchant.total_amount_funded.unwrap_or(0.0);
-        *funder_totals
-            .entry(merchant.funder_name.clone())
-            .or_insert(0.0) += amount;
-    }
-
-    let total_amount: f64 = funder_totals.values().sum();
-
-    let mut distribution: Vec<FunderDistribution> = funder_totals
-        .into_iter()
-        .map(|(name, value)| {
-            let percentage = if total_amount > 0.0 {
-                (value / total_amount) * 100.0
-            } else {
-                0.0
-            };
-            FunderDistribution {
-                name,
-                value,
-                percentage,
-            }
-        })
-        .collect();
-
-    // Sort by value descending
-    distribution.sort_by(|a, b| b.value.partial_cmp(&a.value).unwrap());
-
-    // Return top 10 funders
-    distribution.truncate(10);
-
-    Ok(distribution)
-}
-
-#[tauri::command]
-pub fn get_monthly_funding_trends(
-    portfolio_name: Option<String>,
-) -> Result<Vec<MonthlyFunding>, String> {
-    if DB.lock().unwrap().is_none() {
-        init_database()?;
-    }
-
-    let db_lock = DB.lock().unwrap();
-    let db = db_lock.as_ref().ok_or("Database not initialized")?;
-
-    let merchants = if let Some(portfolio) = portfolio_name {
-        db.get_merchants_by_portfolio(&portfolio)
-            .map_err(|e| format!("Failed to get merchants: {}", e))?
-    } else {
-        let alder = db
-            .get_merchants_by_portfolio("Alder")
-            .map_err(|e| format!("Failed to get Alder merchants: {}", e))?;
-        let white_rabbit = db
-            .get_merchants_by_portfolio("White Rabbit")
-            .map_err(|e| format!("Failed to get White Rabbit merchants: {}", e))?;
-
-        let mut all_merchants = alder;
-        all_merchants.extend(white_rabbit);
-        all_merchants
-    };
-
-    // Group by month
-    let mut monthly_data: std::collections::HashMap<String, (f64, i32)> =
-        std::collections::HashMap::new();
-
-    for merchant in merchants {
-        if let Some(date_str) = merchant.date_funded {
-            // Try different date formats
-            if let Ok(date) = chrono::NaiveDate::parse_from_str(&date_str, "%m/%d/%y")
-                .or_else(|_| chrono::NaiveDate::parse_from_str(&date_str, "%m/%d/%Y"))
-                .or_else(|_| chrono::NaiveDate::parse_from_str(&date_str, "%Y-%m-%d"))
-            {
-                let month_key = format!("{}-{:02}", date.year(), date.month());
-                let amount = merchant.total_amount_funded.unwrap_or(0.0);
-
-                let entry = monthly_data.entry(month_key).or_insert((0.0, 0));
-                entry.0 += amount;
-                entry.1 += 1;
-            }
-        }
-    }
-
-    // Get last 6 months
-    let mut months = Vec::new();
-    let now = chrono::Utc::now();
-
-    for i in 0..6 {
-        let date = now - chrono::Duration::days(i * 30);
-        let month_key = format!("{}-{:02}", date.year(), date.month());
-        let month_name = date.format("%b").to_string();
-
-        let (amount, count) = monthly_data.get(&month_key).copied().unwrap_or((0.0, 0));
-
-        months.push(MonthlyFunding {
-            month: month_name,
-            amount,
-            count,
-        });
-    }
-
-    // Reverse to get chronological order
-    months.reverse();
-
-    Ok(months)
 }
 
 #[tauri::command]
