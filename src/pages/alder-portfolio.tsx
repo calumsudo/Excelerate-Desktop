@@ -88,6 +88,19 @@ function AlderPortfolio() {
       net_amount: number;
     }>
   >([]);
+  const [duplicateConflicts, setDuplicateConflicts] = useState<
+    Array<{
+      funder_name: string;
+      sheet_name: string;
+      advance_id: string;
+      internal_advance_id: string;
+      merchant_name: string;
+      date_funded: string;
+      row_index: number;
+      net_amount: number;
+      match_count: number;
+    }>
+  >([]);
 
   useEffect(() => {
     const loadActiveVersion = async () => {
@@ -238,12 +251,17 @@ function AlderPortfolio() {
         selectedDate.toString()
       );
       if (response.success) {
-        if (response.unmatched_deals && response.unmatched_deals.length > 0) {
-          setUnmatchedDeals(response.unmatched_deals);
+        const unmatched = response.unmatched_deals ?? [];
+        const duplicates = response.duplicate_conflicts ?? [];
+        setUnmatchedDeals(unmatched);
+        setDuplicateConflicts(duplicates);
+        if (unmatched.length > 0 || duplicates.length > 0) {
           setUnmatchedDealsModalOpen(true);
-          alert(
-            `Portfolio updated! ${response.unmatched_count} unmatched deals found. Please review.`
-          );
+          const parts: string[] = [];
+          if (unmatched.length > 0) parts.push(`${unmatched.length} unmatched deals`);
+          if (duplicates.length > 0)
+            parts.push(`${duplicates.length} rows with duplicate Funder Advance IDs`);
+          alert(`Portfolio updated! ${parts.join(" and ")} found. Please review.`);
         } else {
           alert("Portfolio updated successfully with Net RTR values! All deals matched.");
         }
@@ -352,6 +370,7 @@ function AlderPortfolio() {
         isOpen={unmatchedDealsModalOpen}
         onOpenChange={setUnmatchedDealsModalOpen}
         unmatchedDeals={unmatchedDeals}
+        duplicateConflicts={duplicateConflicts}
         portfolioName={PORTFOLIO}
         reportDate={selectedDate?.toString() || ""}
       />

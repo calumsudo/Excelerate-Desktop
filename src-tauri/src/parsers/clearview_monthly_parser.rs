@@ -7,10 +7,10 @@ use std::path::Path;
 ///
 /// The file has 4 sheets with two different schemas:
 ///
-/// LendSaaS sheets ("R&H LendSaaS", "WR LendSaaS"):
+/// LendSaaS sheets ("AL LENDSAAS", "WR LendSaas"):
 ///   key cols: Deal ID, Gross Payable, Management Fee, Net Payment
 ///
-/// Centrex sheets ("R&H Centrex", "WR Centrex"):
+/// Centrex sheets ("AL Centrex", "WR CENTREX"):
 ///   key cols: Advance ID, Payable Amt (Gross), Servicing Fee $, Payable Amt (Net)
 ///
 /// Merchant name is not present in either sheet format.
@@ -26,13 +26,41 @@ impl ClearViewMonthlyParser {
         }
     }
 
-    fn sheet_names(&self) -> (&'static str, &'static str) {
+    /// Lowercase substring patterns identifying which sheets belong to this parser's
+    /// portfolio. ClearView has changed the human-readable naming over time
+    /// (e.g. Alder sheets have been prefixed "R&H", "AL", or "Alder"), so we match
+    /// by substring rather than an exact sheet name. Note the Alder sheet prefix is
+    /// "AL"/"R&H" in the sheet name even though the Syndicator column reads
+    /// "R&H Capital Management LLC".
+    fn portfolio_patterns(&self) -> &'static [&'static str] {
         if self.portfolio_name == "White Rabbit" {
-            ("WR LENDSAAS", "WR CENTREX")
+            &["wr", "white rabbit"]
         } else {
-            // Default to Alder / R&H
-            ("R&H LENDSAAS", "R&H CENTREX")
+            &["al ", "alder", "r&h"]
         }
+    }
+
+    fn find_sheet(
+        &self,
+        workbook: &Xlsx<std::io::BufReader<std::fs::File>>,
+        sheet_type: &str,
+    ) -> ParserResult<String> {
+        let needle = sheet_type.to_lowercase();
+        let patterns = self.portfolio_patterns();
+        let names = workbook.sheet_names();
+        names
+            .iter()
+            .find(|name| {
+                let lower = name.to_lowercase();
+                lower.contains(&needle) && patterns.iter().any(|p| lower.contains(p))
+            })
+            .cloned()
+            .ok_or_else(|| {
+                ParserError::ProcessingError(format!(
+                    "No {} sheet found for {} in ClearView monthly file. Available sheets: {:?}",
+                    sheet_type, self.portfolio_name, names
+                ))
+            })
     }
 
     pub fn validate_file_structure(&self, file_path: &Path) -> bool {
@@ -40,11 +68,8 @@ impl ClearViewMonthlyParser {
             Ok(wb) => wb,
             Err(_) => return false,
         };
-        let names = workbook.sheet_names();
-        let required = ["R&H LENDSAAS", "WR LENDSAAS", "R&H CENTREX", "WR CENTREX"];
-        required
-            .iter()
-            .all(|r| names.iter().any(|n| n.eq_ignore_ascii_case(r)))
+        self.find_sheet(&workbook, "lendsaas").is_ok()
+            && self.find_sheet(&workbook, "centrex").is_ok()
     }
 
     fn parse_lendsaas_sheet(
@@ -142,27 +167,12 @@ impl ClearViewMonthlyParser {
     }
 
     pub fn process(&self, file_path: &Path) -> ParserResult<PivotTable> {
-        let (lendsaas_sheet, centrex_sheet) = self.sheet_names();
-
         let mut workbook: Xlsx<_> = open_workbook(file_path).map_err(|_| {
             ParserError::ProcessingError("Failed to open ClearView monthly Excel file".to_string())
         })?;
 
-        let resolve = |wanted: &str| -> ParserResult<String> {
-            workbook
-                .sheet_names()
-                .iter()
-                .find(|n| n.eq_ignore_ascii_case(wanted))
-                .cloned()
-                .ok_or_else(|| {
-                    ParserError::ProcessingError(format!(
-                        "Sheet '{}' not found in ClearView monthly file",
-                        wanted
-                    ))
-                })
-        };
-        let lendsaas_actual = resolve(lendsaas_sheet)?;
-        let centrex_actual = resolve(centrex_sheet)?;
+        let lendsaas_actual = self.find_sheet(&workbook, "lendsaas")?;
+        let centrex_actual = self.find_sheet(&workbook, "centrex")?;
 
         let mut all_rows: Vec<(String, f64, f64, f64)> = Vec::new();
         all_rows.extend(self.parse_lendsaas_sheet(&mut workbook, &lendsaas_actual)?);

@@ -29,9 +29,22 @@ export interface UnmatchedDealFromUpdate {
   net_amount: number;
 }
 
+export interface DuplicateConflictFromUpdate {
+  funder_name: string;
+  sheet_name: string;
+  advance_id: string;
+  internal_advance_id: string;
+  merchant_name: string;
+  date_funded: string;
+  row_index: number;
+  net_amount: number;
+  match_count: number;
+}
+
 export interface UpdateWorkbookResult {
   filePath: string;
   unmatchedDeals: UnmatchedDealFromUpdate[];
+  duplicateConflicts: DuplicateConflictFromUpdate[];
 }
 
 // Singleton instance of Pyodide
@@ -162,8 +175,9 @@ from copy import copy
 # Parse the pivot tables data
 pivot_tables = json.loads(pivot_tables_json)
 
-# Track unmatched deals across all funders
+# Track unmatched deals and duplicate-id conflicts across all funders
 all_unmatched_deals = []
+all_duplicate_conflicts = []
 
 # Convert JavaScript Uint8Array to Python bytes
 workbook_bytes = bytes(workbook_array.to_py())
@@ -273,52 +287,45 @@ for funder_pivot in pivot_tables:
             cell = ws.cell(row=row, column=net_rtr_col)
             cell.value = None
     else:
-        # Column not found - need to find where to place it
-        # Try to find the previous Friday's column to place after it
-        from datetime import datetime, timedelta
-        
-        # Parse the current date
+        # Column not found - place chronologically among existing Net RTR headers,
+        # ignoring stale/unparseable outliers so column order tracks date order.
+        def parse_net_rtr_date(header):
+            if not header.startswith('Net RTR '):
+                return None
+            parts = header[len('Net RTR '):].strip().split('/')
+            if len(parts) != 3:
+                return None
+            try:
+                mm, dd, yy = int(parts[0]), int(parts[1]), int(parts[2])
+                if yy < 100:
+                    yy += 2000
+                return datetime(yy, mm, dd)
+            except (ValueError, TypeError):
+                return None
+
         date_parts = report_date.split('-')
-        if len(date_parts) == 3:
-            current_date = datetime(int(date_parts[0]), int(date_parts[1]), int(date_parts[2]))
+        new_date = datetime(int(date_parts[0]), int(date_parts[1]), int(date_parts[2]))
 
-            # Look for previous Fridays (up to 4 weeks back)
-            found_previous = False
-            for weeks_back in range(1, 5):
-                previous_friday = current_date - timedelta(days=7 * weeks_back)
-                # Generate the column name for the previous Friday using the same format as generate_net_rtr_column
-                prev_year = previous_friday.year
-                if prev_year >= 2000:
-                    two_digit_year = str(prev_year)[-2:]
-                    prev_col_name = f"Net RTR {previous_friday.month}/{previous_friday.day}/{two_digit_year}"
-                else:
-                    prev_col_name = f"Net RTR {previous_friday.month}/{previous_friday.day}/{str(prev_year).zfill(2)}"
+        dated_cols = [(c, parse_net_rtr_date(h)) for c, h in net_rtr_columns]
+        dated_cols = [(c, d) for c, d in dated_cols if d is not None]
+        older = [(c, d) for c, d in dated_cols if d < new_date]
+        newer = [(c, d) for c, d in dated_cols if d > new_date]
 
-                # Search for this column
-                for col, col_name in net_rtr_columns:
-                    if col_name == prev_col_name:
-                        # Found a previous week - place new column right after it
-                        net_rtr_col = col + 1
-                        print(f"Found previous week column '{prev_col_name}' at {col}, placing new column at {net_rtr_col}")
-                        found_previous = True
-                        break
+        if older:
+            anchor_col, anchor_date = max(older, key=lambda x: x[1])
+            net_rtr_col = anchor_col + 1
+            print(f"Placing after latest-older Net RTR col {anchor_col} ({anchor_date.strftime('%m/%d/%Y')}) at {net_rtr_col}")
+        elif newer:
+            anchor_col, anchor_date = min(newer, key=lambda x: x[1])
+            net_rtr_col = anchor_col
+            print(f"Placing before earliest-newer Net RTR col {anchor_col} ({anchor_date.strftime('%m/%d/%Y')}) at {net_rtr_col}")
+        elif last_net_rtr_col > 0:
+            net_rtr_col = last_net_rtr_col + 1
+            print(f"No parseable Net RTR dates; placing after last Net RTR col at {net_rtr_col}")
+        else:
+            net_rtr_col = last_data_col + 1
+            print(f"No Net RTR columns; placing after last data col at {net_rtr_col}")
 
-                if found_previous:
-                    break
-        
-        # If no previous Friday found or date parsing failed, place after last Net RTR column
-        if net_rtr_col is None:
-            if last_net_rtr_col > 0:
-                # Add after the last Net RTR column without any artificial cap
-                net_rtr_col = last_net_rtr_col + 1
-                print(f"Adding new Net RTR column at {net_rtr_col} (after last Net RTR)")
-            else:
-                # No Net RTR columns exist yet, add after last data column
-                net_rtr_col = last_data_col + 1
-                print(f"Adding first Net RTR column at {net_rtr_col} (after last data)")
-
-        # Insert a new column at the calculated position to avoid overwriting
-        # This shifts all columns to the right from this position
         ws.insert_cols(net_rtr_col)
         print(f"Inserted new column at position {net_rtr_col}")
 
@@ -363,45 +370,72 @@ for funder_pivot in pivot_tables:
         funder_advance_col = 5
         print(f"Using default column 5 for Funder Advance ID")
     
-    for row_idx in range(3, min(ws.max_row + 1, 1000)):  # Limit for safety
-        # Read the Funder Advance ID from the identified column
+    # First pass: bucket Funder Advance ID -> [row_idx, ...] so we can detect duplicates
+    # before writing anything. If one funder id maps to multiple workbook rows (e.g. an
+    # original deal + an add-on tracked as a separate position), writing the same Net
+    # RTR to each row would double-count in the column total, so we skip those and
+    # surface them for human reconciliation instead.
+    id_row_map = {}
+    for row_idx in range(3, min(ws.max_row + 1, 1000)):
         funder_advance_id_cell = ws.cell(row=row_idx, column=funder_advance_col)
-        
         if funder_advance_id_cell.value:
             funder_advance_id = str(funder_advance_id_cell.value).strip()
-            
-            # Collect worksheet IDs for analysis
             worksheet_ids.append(funder_advance_id)
-            
-            # Check if we have a net amount for this advance ID
             if funder_advance_id in net_amount_map:
-                net_amount = net_amount_map[funder_advance_id]
-                matched_ids.append(funder_advance_id)
-                
-                # Write the Net RTR value
-                net_rtr_cell = ws.cell(row=row_idx, column=net_rtr_col, value=net_amount)
-                
-                # Apply currency formatting
-                net_rtr_cell.number_format = '$#,##0.00'
-                
-                # Copy formatting from a nearby financial cell if available (without using deprecated .copy())
-                ref_col = max(7, min(net_rtr_col - 1, last_data_col))  # Use a reasonable reference column
-                ref_cell = ws.cell(row=row_idx, column=ref_col)
-                if ref_cell.font:
-                    net_rtr_cell.font = copy(ref_cell.font)
-                if ref_cell.fill:
-                    net_rtr_cell.fill = copy(ref_cell.fill)
-                if ref_cell.border:
-                    net_rtr_cell.border = copy(ref_cell.border)
-                if ref_cell.alignment:
-                    net_rtr_cell.alignment = copy(ref_cell.alignment)
-                
-                updates_count += 1
-    
-    print(f"Updated {updates_count} rows with Net RTR values")
+                id_row_map.setdefault(funder_advance_id, []).append(row_idx)
 
-    # Find unmatched deals - advance IDs from pivot that weren't matched in worksheet
-    unmatched_advance_ids = set(net_amount_map.keys()) - set(matched_ids)
+    duplicate_advance_ids = set()
+    for fid, row_indices in id_row_map.items():
+        net_amount = net_amount_map[fid]
+        if len(row_indices) > 1:
+            duplicate_advance_ids.add(fid)
+            for r_idx in row_indices:
+                date_val = ws.cell(row=r_idx, column=1).value
+                if hasattr(date_val, 'isoformat'):
+                    date_str = date_val.isoformat()
+                elif date_val is None:
+                    date_str = ''
+                else:
+                    date_str = str(date_val)
+                all_duplicate_conflicts.append({
+                    'funder_name': funder_name,
+                    'sheet_name': sheet_name,
+                    'advance_id': fid,
+                    'internal_advance_id': str(ws.cell(row=r_idx, column=4).value or ''),
+                    'merchant_name': str(ws.cell(row=r_idx, column=2).value or ''),
+                    'date_funded': date_str,
+                    'row_index': r_idx,
+                    'net_amount': net_amount,
+                    'match_count': len(row_indices),
+                })
+            continue
+
+        row_idx = row_indices[0]
+        matched_ids.append(fid)
+        net_rtr_cell = ws.cell(row=row_idx, column=net_rtr_col, value=net_amount)
+        net_rtr_cell.number_format = '$#,##0.00'
+        ref_col = max(7, min(net_rtr_col - 1, last_data_col))
+        ref_cell = ws.cell(row=row_idx, column=ref_col)
+        if ref_cell.font:
+            net_rtr_cell.font = copy(ref_cell.font)
+        if ref_cell.fill:
+            net_rtr_cell.fill = copy(ref_cell.fill)
+        if ref_cell.border:
+            net_rtr_cell.border = copy(ref_cell.border)
+        if ref_cell.alignment:
+            net_rtr_cell.alignment = copy(ref_cell.alignment)
+        updates_count += 1
+
+    print(f"Updated {updates_count} rows with Net RTR values")
+    if duplicate_advance_ids:
+        print(f"WARNING: {len(duplicate_advance_ids)} advance IDs appeared on multiple rows; skipped writing and flagged for reconciliation:")
+        for fid in list(duplicate_advance_ids)[:10]:
+            print(f"  - {fid}")
+
+    # Find unmatched deals - advance IDs from pivot that weren't matched in worksheet.
+    # Exclude duplicates: they DID appear in the workbook but were skipped pending reconciliation,
+    # so they belong in the duplicates list, not the unmatched list.
+    unmatched_advance_ids = set(net_amount_map.keys()) - set(matched_ids) - duplicate_advance_ids
 
     if unmatched_advance_ids:
         print(f"WARNING: {len(unmatched_advance_ids)} advance IDs from pivot table were not found in worksheet:")
@@ -468,11 +502,14 @@ debug_info = {
     'updated_size': len(updated_workbook_bytes),
     'test_size': len(test_bytes),
     'unmatched_deals': all_unmatched_deals,
-    'unmatched_count': len(all_unmatched_deals)
+    'unmatched_count': len(all_unmatched_deals),
+    'duplicate_conflicts': all_duplicate_conflicts,
+    'duplicate_count': len(all_duplicate_conflicts)
 }
 print(f"Updated workbook base64 length: {len(debug_info['updated'])}")
 print(f"Test workbook base64 length: {len(debug_info['test'])}")
 print(f"Total unmatched deals across all funders: {len(all_unmatched_deals)}")
+print(f"Total duplicate-id conflicts across all funders: {len(all_duplicate_conflicts)}")
 
 # Return as JSON string
 import json
@@ -487,8 +524,10 @@ json.dumps(debug_info)
       console.warn("Updated workbook size:", result.updated_size);
       console.warn("Test workbook size:", result.test_size);
       console.warn("Unmatched deals found:", result.unmatched_count);
+      console.warn("Duplicate-id conflicts found:", result.duplicate_count);
 
       const unmatchedDeals: UnmatchedDealFromUpdate[] = result.unmatched_deals || [];
+      const duplicateConflicts: DuplicateConflictFromUpdate[] = result.duplicate_conflicts || [];
 
       // Convert base64 string to Uint8Array for the updated workbook
       const binaryString = atob(result.updated);
@@ -588,6 +627,7 @@ json.dumps(debug_info)
         return {
           filePath,
           unmatchedDeals,
+          duplicateConflicts,
         };
       } else {
         console.warn("User cancelled save dialog");
