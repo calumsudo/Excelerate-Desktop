@@ -91,8 +91,9 @@ Frontend flow (`src/services/pivot-sync-service.ts` + `use-cloud-sync.ts`): afte
 | Portfolio workbook versions | SQLite |
 | Funder uploads | Dual-write: SQLite + Supabase (`funder_uploads` + Storage bucket, Phase 2) |
 | Pivot tables | Dual-write: SQLite CSV + Supabase (`funder_pivot_tables`/`_rows` via `commit_funder_pivot`, Phase 2) |
-| Merchant records | SQLite (Supabase table ready, populated in Phase 3) |
+| Merchant records | Dual-write: SQLite (still extracted on workbook upload) + Supabase (populated by the Phase 3 import). Nothing reads the SQLite copy anymore — the dashboard moved to the Supabase analytics views in Phase 4 |
 | Deals & payments | Supabase (`deals` empty until the Phase 3 workbook import; `net_rtr_payments` written by `commit_funder_pivot`) |
+| Dashboard analytics | Supabase views (`portfolio_monthly`, `monthly_vintage_stats`, `funder_allocation_current`, `weekly_rtr_matrix`) read by `analytics-service.ts` (Phase 4) |
 | User profiles & auth | Supabase |
 | Portfolio access control | Supabase (`portfolio_access` + RLS) |
 

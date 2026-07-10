@@ -214,11 +214,11 @@ One migration (`20260710135856_phase3_workbook_import`). Full pipeline verified 
 - [x] `import_funder_sheet` RPC (SECURITY INVOKER, one call per sheet): upserts portfolio_funders fee from `B1`, merchants (industry/state resolved case-insensitively, unmatched reported), deals, and replaces import-sourced `net_rtr_payments` (`source_upload_id IS NULL`; monthly-flow rows preserved). Gross/fee reconstructed from net via the fee rate so imported rows match monthly-parser rows in the views. Phase 2-style guards: payload-vs-parser net total on entry, inserted+dropped=total before commit. Workbook quirks: literal duplicate week columns (Alder `Net RTR 5/10` ×2) and WR's dual May-2026 grids sum into one `(deal, date)` payment — dollar-preserving, same as the sheet's own row-total `SUM`
 - [x] Run once per portfolio at onboarding; wizard is re-runnable (idempotent) and reports per-sheet counts + unmatched industries/states
 
-### Phase 4 — Dashboard buildout
+### Phase 4 — Dashboard buildout ✅ Completed 2026-07-10
 
-- [ ] Replace merchant-count dashboard with the workbook's charts, each backed by a Phase 1 view (see Charts table above)
-- [ ] KPI cards from `portfolio_monthly`: total dollars at work, cost basis, net RTR outstanding, principal/profit returned, vintage return %, bad debt %
-- [ ] Portfolio switcher driven by `portfolio_access`
+- [x] Replace merchant-count dashboard with the workbook's charts, each backed by a Phase 1 view: allocations $/% by month stacked by funder (`monthly_vintage_stats`), latest-vintage + current cost-basis pies (`monthly_vintage_stats` / `funder_allocation_current`), net RTR received growth + by-funder (`weekly_rtr_matrix`, paged reads — the view exceeds PostgREST's 1000-row cap), participation & commissions by month, points per month, term vs weighted avg net factor (`portfolio_monthly`). New `analytics-service.ts` (queries + pure transforms, unit-tested); old SQLite `dashboard-service.ts` deleted along with the now-dead `get_merchants_by_portfolio` command chain (merchant *extraction* on workbook upload stays — Phase 5 scope)
+- [x] KPI cards from `portfolio_monthly`: dollars at work, cost basis, net RTR outstanding, principal/profit returned, lifetime return %, bad debt % (ratios recomputed from the summed columns, not averaged over vintages)
+- [x] Portfolio switcher driven by `portfolio_access` — the Select lists `portfolios` and RLS filters to granted rows; hardcoded Alder/White Rabbit options removed. No "all portfolios" aggregate (each workbook is one portfolio; cross-portfolio sums would mix profit-share/fee configs)
 
 ### Phase 5 — Excel export & retirement
 
