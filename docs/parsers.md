@@ -32,9 +32,11 @@ Format: XLSX only. Detects sheet by name containing `"R&H"` or `"White Rabbit"`.
 | merchant_name | Column D (Business Name) |
 | gross | Derived: net / (1 − fee_rate) |
 | fee | Derived: gross × fee_rate |
-| net | Sum of all "Total Paid" columns (detected from headers) |
+| net | Sum of the report's weekly "Total Paid" columns |
 
 fee_rate comes from column Q (Management Fee %).
+
+**Which "Total Paid" weeks are summed:** BIG highlights the report's weeks yellow and sums them in a grand-total formula (e.g. `=BH374+BP374+BX374+CF374+CN374`). The parser reads that additive formula and sums exactly those columns — this stays correct when a report's weeks straddle a calendar-month boundary (the trailing week can end in the prior month). If no such formula is present, it falls back to selecting "Total Paid" columns whose end-date falls in the report month.
 
 No required-columns validation — layout is positional.
 

@@ -40,6 +40,71 @@ impl BigParser {
         Some((year, month))
     }
 
+    /// Convert spreadsheet column letters (e.g. "BH") to a 0-based column index.
+    fn column_letters_to_index(letters: &str) -> Option<usize> {
+        if letters.is_empty() {
+            return None;
+        }
+        let mut idx: usize = 0;
+        for ch in letters.chars() {
+            if !ch.is_ascii_uppercase() {
+                return None;
+            }
+            idx = idx * 26 + (ch as usize - 'A' as usize + 1);
+        }
+        Some(idx - 1)
+    }
+
+    /// Parse a grand-total formula of the form "BH374+BP374+BX374+CF374+CN374"
+    /// (a leading "=" is optional) into the 0-based column indices it references.
+    /// Returns None unless the text is a pure sum of at least two plain cell
+    /// references, so `=SUM(...)` and single-cell formulas are ignored.
+    fn parse_additive_formula_columns(formula: &str) -> Option<Vec<usize>> {
+        let cleaned: String = formula.chars().filter(|c| !c.is_whitespace()).collect();
+        let body = cleaned.strip_prefix('=').unwrap_or(&cleaned);
+        let terms: Vec<&str> = body.split('+').collect();
+        if terms.len() < 2 {
+            return None;
+        }
+        let mut columns = Vec::new();
+        for term in terms {
+            // Each term must be a plain cell reference: letters then digits,
+            // with no absolute markers, ranges, or function calls.
+            let split_at = term.find(|c: char| c.is_ascii_digit())?;
+            let (letters, digits) = term.split_at(split_at);
+            if digits.chars().any(|c| !c.is_ascii_digit()) {
+                return None;
+            }
+            let col = Self::column_letters_to_index(letters)?;
+            if !columns.contains(&col) {
+                columns.push(col);
+            }
+        }
+        Some(columns)
+    }
+
+    /// Determine the weekly "Total Paid" columns that make up this report by
+    /// reading the sheet's grand-total formula (e.g. "=BH374+BP374+…+CN374").
+    /// BIG highlights those columns yellow and sums them into the reported
+    /// total, so this is the authoritative column set — it stays correct even
+    /// when a report's weeks straddle a calendar-month boundary (the reason a
+    /// pure month filter can drop a trailing week). Returns None when no such
+    /// formula exists, in which case the caller falls back to month detection.
+    fn report_columns_from_formula(
+        &self,
+        file_path: &Path,
+        sheet_name: &str,
+    ) -> Option<Vec<usize>> {
+        let mut workbook: Xlsx<_> = open_workbook(file_path).ok()?;
+        let formulas = workbook.worksheet_formula(sheet_name).ok()?;
+        for (_row, _col, text) in formulas.used_cells() {
+            if let Some(cols) = Self::parse_additive_formula_columns(text) {
+                return Some(cols);
+            }
+        }
+        None
+    }
+
     /// Parse the end-date out of a "Total Paid m/d/yy - m/d/yy" header.
     /// Returns (year, month) of the end date. Two-digit years are mapped to 2000+yy.
     fn parse_total_paid_end_date(header: &str) -> Option<(i32, u32)> {
@@ -140,26 +205,46 @@ impl BigParser {
             .nth(header_row_idx)
             .ok_or_else(|| ParserError::ProcessingError("Header row not found".to_string()))?;
 
-        // Collect all "Total Paid" weekly columns. When a report month is set,
-        // restrict to columns whose end-date falls within that month so we don't
-        // sum every historical week in the workbook.
-        let target_year_month = self.report_year_month();
-        let total_paid_columns: Vec<usize> = header_row
+        // All "Total Paid" weekly columns, paired with their header text.
+        let total_paid_headers: Vec<(usize, String)> = header_row
             .iter()
             .enumerate()
-            .filter(|(_, cell)| {
+            .filter_map(|(idx, cell)| {
                 let text = cell.to_string();
-                if !text.trim().to_lowercase().starts_with("total paid") {
-                    return false;
-                }
-                match (target_year_month, Self::parse_total_paid_end_date(&text)) {
-                    (Some(target), Some(end)) => end == target,
-                    (Some(_), None) => false,
-                    (None, _) => true,
+                if text.trim().to_lowercase().starts_with("total paid") {
+                    Some((idx, text))
+                } else {
+                    None
                 }
             })
-            .map(|(idx, _)| idx)
             .collect();
+
+        // Primary: the columns BIG sums in its own grand-total formula (the
+        // yellow-highlighted weeks), keeping only genuine "Total Paid" columns
+        // so a stray additive formula elsewhere can't leak in. Fall back to the
+        // month-based filter when the report has no such formula.
+        let target_year_month = self.report_year_month();
+        let total_paid_columns: Vec<usize> = self
+            .report_columns_from_formula(file_path, sheet_name)
+            .map(|cols| {
+                cols.into_iter()
+                    .filter(|c| total_paid_headers.iter().any(|(idx, _)| idx == c))
+                    .collect::<Vec<usize>>()
+            })
+            .filter(|cols| !cols.is_empty())
+            .unwrap_or_else(|| {
+                total_paid_headers
+                    .iter()
+                    .filter(|(_, text)| {
+                        match (target_year_month, Self::parse_total_paid_end_date(text)) {
+                            (Some(target), Some(end)) => end == target,
+                            (Some(_), None) => false,
+                            (None, _) => true,
+                        }
+                    })
+                    .map(|(idx, _)| *idx)
+                    .collect()
+            });
 
         if total_paid_columns.is_empty() {
             let msg = match target_year_month {
@@ -378,5 +463,37 @@ mod tests {
     fn report_year_month_none_when_unset() {
         let p = BigParser::new();
         assert_eq!(p.report_year_month(), None);
+    }
+
+    #[test]
+    fn column_letters_convert_to_zero_based_index() {
+        assert_eq!(BigParser::column_letters_to_index("A"), Some(0));
+        assert_eq!(BigParser::column_letters_to_index("Z"), Some(25));
+        assert_eq!(BigParser::column_letters_to_index("AA"), Some(26));
+        assert_eq!(BigParser::column_letters_to_index("BH"), Some(59));
+        assert_eq!(BigParser::column_letters_to_index("CN"), Some(91));
+    }
+
+    #[test]
+    fn grand_total_formula_yields_all_referenced_columns() {
+        // BH=59, BP=67, BX=75, CF=83, CN=91 — the trailing CN week ends in the
+        // prior month yet must still be summed.
+        assert_eq!(
+            BigParser::parse_additive_formula_columns("=BH374+BP374+BX374+CF374+CN374"),
+            Some(vec![59, 67, 75, 83, 91])
+        );
+    }
+
+    #[test]
+    fn additive_formula_parse_ignores_sum_and_single_refs() {
+        assert_eq!(
+            BigParser::parse_additive_formula_columns("=SUM(BH2:BH373)"),
+            None
+        );
+        assert_eq!(BigParser::parse_additive_formula_columns("=BH374"), None);
+        assert_eq!(
+            BigParser::parse_additive_formula_columns("=BH:BH+BP:BP"),
+            None
+        );
     }
 }

@@ -56,6 +56,18 @@ export interface UpdateWithNetRtrResponse extends UploadResponse {
     net_amount: number;
   }>;
   unmatched_count?: number;
+  duplicate_conflicts?: Array<{
+    funder_name: string;
+    sheet_name: string;
+    advance_id: string;
+    internal_advance_id: string;
+    merchant_name: string;
+    date_funded: string;
+    row_index: number;
+    net_amount: number;
+    match_count: number;
+  }>;
+  duplicate_count?: number;
 }
 
 export class FileService {
@@ -278,21 +290,39 @@ export class FileService {
         reportDate
       );
 
-      // Log unmatched deals if any
       if (result.unmatchedDeals && result.unmatchedDeals.length > 0) {
         console.warn(
           `Found ${result.unmatchedDeals.length} unmatched deals:`,
           result.unmatchedDeals
         );
       }
+      if (result.duplicateConflicts && result.duplicateConflicts.length > 0) {
+        console.warn(
+          `Found ${result.duplicateConflicts.length} duplicate-id rows requiring reconciliation:`,
+          result.duplicateConflicts
+        );
+      }
 
-      // Return success response with unmatched deals info
+      const messageParts = [
+        `Successfully updated portfolio with Net RTR values for ${reportDate}. File saved successfully.`,
+      ];
+      if (result.unmatchedDeals.length > 0) {
+        messageParts.push(`Found ${result.unmatchedDeals.length} unmatched deals.`);
+      }
+      if (result.duplicateConflicts.length > 0) {
+        messageParts.push(
+          `Skipped ${result.duplicateConflicts.length} rows with duplicate Funder Advance IDs (need human reconciliation).`
+        );
+      }
+
       return {
         success: true,
-        message: `Successfully updated portfolio with Net RTR values for ${reportDate}. File saved successfully.${result.unmatchedDeals.length > 0 ? ` Found ${result.unmatchedDeals.length} unmatched deals.` : ""}`,
+        message: messageParts.join(" "),
         file_path: result.filePath,
         unmatched_deals: result.unmatchedDeals,
         unmatched_count: result.unmatchedDeals.length,
+        duplicate_conflicts: result.duplicateConflicts,
+        duplicate_count: result.duplicateConflicts.length,
       };
     } catch (error) {
       console.error("Error updating portfolio with Net RTR:", error);
