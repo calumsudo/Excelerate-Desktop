@@ -17,7 +17,9 @@ Excelerate is a desktop application built with Tauri (Rust backend) and React + 
 - `npm run format:check` - Prettier check (CI gate)
 
 ### Tauri Application
-- `npm run tauri dev` - Run Tauri app in development mode
+- `npm run tauri dev` - Run Tauri app in development mode (against the **production** Supabase project via `.env`)
+- `npm run dev:local` - Run against the **local** Supabase stack in Docker (login: `dev@excelerate.local` / `excelerate-dev`; see [`docs/local-dev.md`](docs/local-dev.md))
+- `npm run db:reset:local` - Wipe the local stack DB, re-apply migrations + `supabase/seed.sql`
 - `npm run tauri build` - Build production desktop app
 
 ### Rust
