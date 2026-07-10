@@ -4,12 +4,6 @@ mod notification;
 pub mod parsers;
 mod validated_file_handler;
 
-// Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-#[tauri::command]
-fn greet(name: &str) -> String {
-    format!("Hello, {}! You've been greeted from Rust!", name)
-}
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // Ensure directories exist on app startup
@@ -27,7 +21,6 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
-            greet,
             file_handler::save_portfolio_workbook_with_version,
             file_handler::get_portfolio_workbook_path,
             file_handler::check_workbook_exists,
@@ -45,15 +38,9 @@ pub fn run() {
             file_handler::get_all_database_files,
             file_handler::read_csv_file,
             file_handler::read_excel_file,
-            file_handler::extract_merchants_from_portfolio,
             file_handler::get_merchants_by_portfolio,
-            file_handler::get_merchants_by_funder,
-            file_handler::clear_merchants_for_portfolio,
             file_handler::get_pivot_tables_for_update,
             file_handler::get_active_workbook_path,
-            file_handler::get_dashboard_stats,
-            file_handler::get_funder_distribution,
-            file_handler::get_monthly_funding_trends,
             file_handler::find_unmatched_deals,
             file_handler::find_unmatched_deals_by_portfolio,
             file_handler::find_unmatched_deals_by_date,

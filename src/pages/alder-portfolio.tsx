@@ -204,11 +204,10 @@ function AlderPortfolio() {
       );
       if (response.success) {
         setMonthlyFiles((prev) => ({ ...prev, [funderName]: file }));
-        setFunderErrorState("monthly", funderName, false);
+        setFunderErrorState(funderName, false);
         setFunderUploads(await FileService.getFunderUploadsForDate(PORTFOLIO, reportDate));
       } else {
         setFunderErrorState(
-          "monthly",
           funderName,
           true,
           response.validation_errors?.join(", ") || response.message
@@ -216,7 +215,7 @@ function AlderPortfolio() {
       }
     } catch (error) {
       console.error(`Error uploading funder file for ${funderName}:`, error);
-      setFunderErrorState("monthly", funderName, true, "Upload failed");
+      setFunderErrorState(funderName, true, "Upload failed");
     }
   };
 

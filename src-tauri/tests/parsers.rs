@@ -1,6 +1,4 @@
-use excelerate_lib::parsers::{
-    BaseParser, BhbParser, ClearViewDailyParser, EfinParser, InAdvParser, KingsParser,
-};
+use excelerate_lib::parsers::{BaseParser, BhbParser, EfinParser, InAdvParser, KingsParser};
 use std::path::PathBuf;
 
 fn fixtures() -> PathBuf {
@@ -106,34 +104,4 @@ fn inadv_skips_non_cleared_rows() {
     // Only totals row (zero data rows)
     assert_eq!(pivot.rows.len(), 1);
     assert_eq!(pivot.total_gross, 0.0);
-}
-
-// --- ClearView Daily ---
-
-#[test]
-fn clearview_daily_processes_csv_fixture() {
-    let path = fixtures().join("clearview_daily.csv");
-    let parser = ClearViewDailyParser::from_single(&path);
-    let pivot = parser.process().expect("clearview daily parse failed");
-    // 3 advance IDs + 1 totals row
-    assert_eq!(pivot.rows.len(), 4);
-    assert!((pivot.total_gross - 1750.0).abs() < 0.01);
-    assert!((pivot.total_net - 1697.5).abs() < 0.01);
-}
-
-#[test]
-fn clearview_daily_skips_zero_amount_rows() {
-    let tmp = std::env::temp_dir().join("clearview_zero.csv");
-    std::fs::write(
-        &tmp,
-        "AdvanceID,Advance Status,Syn Gross Amount,Syn Net Amount\n\
-         ADV001,Active,0.00,0.00\n\
-         ADV002,Active,100.00,97.00\n",
-    )
-    .unwrap();
-    let parser = ClearViewDailyParser::from_single(&tmp);
-    let pivot = parser.process().expect("clearview zero parse failed");
-    std::fs::remove_file(tmp).ok();
-    assert_eq!(pivot.rows.len(), 2); // 1 valid + 1 totals
-    assert!((pivot.total_gross - 100.0).abs() < 0.01);
 }

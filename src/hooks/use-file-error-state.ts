@@ -7,9 +7,7 @@ export interface FileErrorState {
 
 export function useFileErrorState() {
   const [workbookError, setWorkbookError] = useState<FileErrorState | undefined>();
-  const [weeklyErrorStates, setWeeklyErrorStates] = useState<Record<string, FileErrorState>>({});
   const [monthlyErrorStates, setMonthlyErrorStates] = useState<Record<string, FileErrorState>>({});
-  const [dailyErrorStates, setDailyErrorStates] = useState<Record<string, FileErrorState>>({});
 
   const setWorkbookErrorState = useCallback((hasError: boolean, message?: string) => {
     // Simplify the message for display in the UI component
@@ -22,23 +20,11 @@ export function useFileErrorState() {
   }, []);
 
   const setFunderErrorState = useCallback(
-    (
-      type: "weekly" | "monthly" | "daily",
-      funderName: string,
-      hasError: boolean,
-      message?: string
-    ) => {
-      const setter =
-        type === "weekly"
-          ? setWeeklyErrorStates
-          : type === "monthly"
-            ? setMonthlyErrorStates
-            : setDailyErrorStates;
-
+    (funderName: string, hasError: boolean, message?: string) => {
       // Simplify the message for display in the UI component
       const simplifiedMessage = message && message.length > 50 ? "Invalid file format" : message;
 
-      setter((prev) => ({
+      setMonthlyErrorStates((prev) => ({
         ...prev,
         [funderName]: { hasError, message: simplifiedMessage },
       }));
@@ -46,7 +32,7 @@ export function useFileErrorState() {
       if (!hasError) {
         // Clear error after a moment when it's resolved
         setTimeout(() => {
-          setter((prev) => {
+          setMonthlyErrorStates((prev) => {
             const updated = { ...prev };
             delete updated[funderName];
             return updated;
@@ -59,16 +45,12 @@ export function useFileErrorState() {
 
   const clearAllErrors = useCallback(() => {
     setWorkbookError(undefined);
-    setWeeklyErrorStates({});
     setMonthlyErrorStates({});
-    setDailyErrorStates({});
   }, []);
 
   return {
     workbookError,
-    weeklyErrorStates,
     monthlyErrorStates,
-    dailyErrorStates,
     setWorkbookErrorState,
     setFunderErrorState,
     clearAllErrors,

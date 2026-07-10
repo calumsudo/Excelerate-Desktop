@@ -24,7 +24,7 @@ pub struct FunderUpload {
     pub portfolio_name: String,
     pub funder_name: String,
     pub report_date: String,
-    pub upload_type: String, // "weekly" or "monthly"
+    pub upload_type: String, // "monthly"
     pub original_filename: String,
     pub stored_filename: String,
     pub file_path: String,
@@ -724,6 +724,21 @@ impl Database {
             params![upload_id],
         )?;
         Ok(rows_affected > 0)
+    }
+
+    pub fn delete_pivot_tables_for_report(
+        &self,
+        portfolio_name: &str,
+        funder_name: &str,
+        report_date: &str,
+        upload_type: &str,
+    ) -> Result<usize> {
+        let rows_affected = self.conn.execute(
+            "DELETE FROM funder_pivot_tables
+             WHERE portfolio_name = ?1 AND funder_name = ?2 AND report_date = ?3 AND upload_type = ?4",
+            params![portfolio_name, funder_name, report_date, upload_type],
+        )?;
+        Ok(rows_affected)
     }
 
     // Merchant Methods
