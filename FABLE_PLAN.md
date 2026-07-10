@@ -205,11 +205,14 @@ Two migrations (`20260710131919/20`), pushed live. RPC logic behaviorally tested
 - [x] **Validation RPC**: `SECURITY INVOKER`, two guards — rows-vs-parser-total on entry, matched+unmatched+duplicate = `total_net` (±$0.01) before commit; payments written per-deal with replace-on-re-upload semantics (`source_upload_id` scoped delete + upsert)
 - [x] Reconciliation modal (`pivot-reconciliation-modal.tsx` + `use-cloud-sync.ts`): dry-run first, shows pivot/matched/unmatched/duplicate totals + unmatched rows, then user confirms the real commit. Clear View produces one preview per portfolio from the single upload
 
-### Phase 3 — One-time workbook import (kills the weekly workbook upload)
+### Phase 3 — One-time workbook import (kills the weekly workbook upload) ✅ Completed 2026-07-10
 
-- [ ] Port `scripts/migrate-workbook.py` (618 lines — header quirks, `Net RTR M/D/YY` date inference, batch upserts already solved) into an in-app "Import portfolio workbook" wizard using the existing Rust xlsx reading (calamine). Note: the script has drifted from the live `deals` schema (`sell_rate`/`total_rtr`/`term_months` columns don't exist; live column is `deal_length_months`) — reconcile during the port
-- [ ] Import populates `deals` + `net_rtr_payments` + `funders` (reading each sheet's `B1` fee) per portfolio
-- [ ] Run once per portfolio at onboarding; monthly funder files only from then on
+One migration (`20260710135856_phase3_workbook_import`). Full pipeline verified offline: Rust parse of both real workbooks matches an openpyxl probe cell-for-cell (Alder 1,687 deals / 26,127 payments; WR 1,073 / 26,023), then replayed through the RPC in a scratch Postgres 16 cluster — 2,760 deals, 52,122 payment rows, $13.1M net, all reconciliation guards pass, re-import idempotent.
+
+- [x] Ported `scripts/migrate-workbook.py` into Rust `parse_portfolio_workbook` (calamine, `workbook_import.rs`) + `WorkbookImportService` + wizard modal (`workbook-import-wizard.tsx`) on both portfolio pages. Schema drift reconciled: inputs only (`commission` = rate; sell rate/total RTR/term stay derived in views). Extra inputs the script missed are captured: participation, `New $`/`RTR` flags (non-blank text like `'New  '`), Date Closed, and R'bull (script's sheet list omitted it)
+- [x] **Import identity**: the workbooks have duplicate internal advance ids that are distinct deals (BHB-264 ×2 etc.) and null/dup funder advance ids — upsert key is the composite `(portfolio, funder, advance_id, COALESCE(funder_advance_id,''))`, verified unique across every sheet of both books. `deals.total_amount_funded`/`participation_on_amount` widened integer→numeric (39 PayVa deals have cents)
+- [x] `import_funder_sheet` RPC (SECURITY INVOKER, one call per sheet): upserts portfolio_funders fee from `B1`, merchants (industry/state resolved case-insensitively, unmatched reported), deals, and replaces import-sourced `net_rtr_payments` (`source_upload_id IS NULL`; monthly-flow rows preserved). Gross/fee reconstructed from net via the fee rate so imported rows match monthly-parser rows in the views. Phase 2-style guards: payload-vs-parser net total on entry, inserted+dropped=total before commit. Workbook quirks: literal duplicate week columns (Alder `Net RTR 5/10` ×2) and WR's dual May-2026 grids sum into one `(deal, date)` payment — dollar-preserving, same as the sheet's own row-total `SUM`
+- [x] Run once per portfolio at onboarding; wizard is re-runnable (idempotent) and reports per-sheet counts + unmatched industries/states
 
 ### Phase 4 — Dashboard buildout
 

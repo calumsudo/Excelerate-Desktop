@@ -7,6 +7,7 @@ import { useFileErrorState } from "@/hooks/use-file-error-state";
 import { useCloudSync } from "@/hooks/use-cloud-sync";
 import { UnmatchedDealsResultModal } from "@components/portfolio/unmatched-deals-result-modal";
 import PivotReconciliationModal from "@components/portfolio/pivot-reconciliation-modal";
+import WorkbookImportWizard from "@components/portfolio/workbook-import-wizard";
 
 const PORTFOLIO = "Alder";
 
@@ -304,6 +305,8 @@ function AlderPortfolio() {
         canUpdateNetRtr={canUpdateNetRtr}
         isUpdatingNetRtr={isUpdatingNetRtr}
       />
+
+      <WorkbookImportWizard portfolioName={PORTFOLIO} />
 
       {/* Uploaded Files Summary */}
       {selectedDate && funderUploads.length > 0 && (

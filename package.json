@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:local": "bash tools/dev-local.sh",
+    "db:reset:local": "supabase db reset --local",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
