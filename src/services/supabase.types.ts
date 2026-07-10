@@ -721,6 +721,21 @@ export interface Database {
         Args: Record<string, never>;
         Returns: boolean;
       };
+      commit_funder_pivot: {
+        Args: {
+          p_upload_id: string;
+          p_rows: Json;
+          p_total_gross: number;
+          p_total_fee: number;
+          p_total_net: number;
+          p_dry_run?: boolean;
+        };
+        Returns: Json;
+      };
+      resolve_pivot_row: {
+        Args: { p_row_id: string; p_deal_id: string };
+        Returns: Json;
+      };
     };
     Enums: {
       user_role: "admin" | "member";

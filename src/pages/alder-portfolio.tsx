@@ -4,7 +4,9 @@ import BasePortfolio from "@components/portfolio/base-portfolio";
 import { FunderData } from "@components/portfolio/funder-upload-section";
 import FileService, { VersionInfo, FunderUploadInfo } from "@services/file-service";
 import { useFileErrorState } from "@/hooks/use-file-error-state";
+import { useCloudSync } from "@/hooks/use-cloud-sync";
 import { UnmatchedDealsResultModal } from "@components/portfolio/unmatched-deals-result-modal";
+import PivotReconciliationModal from "@components/portfolio/pivot-reconciliation-modal";
 
 const PORTFOLIO = "Alder";
 
@@ -73,6 +75,7 @@ function AlderPortfolio() {
   const [funderUploads, setFunderUploads] = useState<FunderUploadInfo[]>([]);
   const { workbookError, monthlyErrorStates, setWorkbookErrorState, setFunderErrorState } =
     useFileErrorState();
+  const cloudSync = useCloudSync();
 
   const [isUploading, setIsUploading] = useState(false);
   const [isUpdatingNetRtr, setIsUpdatingNetRtr] = useState(false);
@@ -206,6 +209,7 @@ function AlderPortfolio() {
         setMonthlyFiles((prev) => ({ ...prev, [funderName]: file }));
         setFunderErrorState(funderName, false);
         setFunderUploads(await FileService.getFunderUploadsForDate(PORTFOLIO, reportDate));
+        await cloudSync.startSync(PORTFOLIO, funderName, file, reportDate);
       } else {
         setFunderErrorState(
           funderName,
@@ -364,6 +368,14 @@ function AlderPortfolio() {
           </div>
         </div>
       )}
+
+      <PivotReconciliationModal
+        isOpen={cloudSync.isModalOpen}
+        onOpenChange={cloudSync.setModalOpen}
+        previews={cloudSync.previews}
+        onCommit={cloudSync.commit}
+        isCommitting={cloudSync.isCommitting}
+      />
 
       <UnmatchedDealsResultModal
         isOpen={unmatchedDealsModalOpen}

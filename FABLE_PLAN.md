@@ -196,12 +196,14 @@ Five migrations (`20260710_phase1_*`), pushed to the live DB and verified (seeds
 - [x] Views (formulas transcribed from a live dump of the deal-sheet/`-P`/portfolio-sheet formulas, not from the prose above): `deal_computed`, `monthly_vintage_stats`, `portfolio_monthly`, `weekly_rtr_matrix`, `funder_allocation_current` — all `security_invoker`. Deviation: portfolio-level weighted term uses cost-basis weighting instead of the sheet's plain `AVERAGE()` across funders
 - [x] RLS via `portfolio_access` on all portfolio-scoped tables (`net_rtr_payments` scopes through `deals`, `funder_pivot_rows` through `funder_pivot_tables`); lookups stay authenticated-read; anon sees nothing
 
-### Phase 2 — Move saves to the cloud (monthly flow)
+### Phase 2 — Move saves to the cloud (monthly flow) ✅ Completed 2026-07-10
 
-- [ ] Keep Rust parsers unchanged; swap persistence: pivot → `funder_pivot_tables` + `funder_pivot_rows`; raw upload file → Supabase Storage
-- [ ] Matched pivot rows insert into `net_rtr_payments` keyed to `deal_id`; existing unmatched-deals modal drives resolution of the rest
-- [ ] **Validation RPC** (the core requirement): a single Postgres function that takes pivot rows + the parser's `total_net`, inserts payments transactionally, and **fails unless `SUM(matched) + SUM(unmatched) = total_net` within a cent tolerance** — the guarantee that what hits the database equals what would have been typed into the workbook's Net RTR column
-- [ ] UI shows the reconciliation (pivot total / matched total / unmatched total) before commit
+Two migrations (`20260710131919/20`), pushed live. RPC logic behaviorally tested in a scratch Postgres 16 cluster (dry-run/commit/re-commit idempotency, duplicate advance-ids, tolerance abort, cross-funder resolve rejection — all pass).
+
+- [x] Parsers unchanged; new `get_pivot_for_report` Tauri command returns rows + parser totals from the local pivot; `pivot-sync-service.ts` pushes raw file → Storage bucket `funder-uploads` (`{portfolio_id}/{funder_id}/{report_date}/{filename}`, per-portfolio RLS on path prefix), upserts `funder_uploads`, then commits the pivot via RPC. **Dual-write**: local SQLite/CSV flow untouched — the Pyodide workbook update still needs it until Phase 5
+- [x] `commit_funder_pivot` matches rows to `deals.funder_advance_id` (scoped to portfolio+funder); ambiguous matches are flagged `duplicate` and skipped, mirroring the workbook updater. `resolve_pivot_row(row_id, deal_id)` RPC + `PivotSyncService.resolveRow` ready for the resolution UI (deals is empty until Phase 3, so everything reports unmatched for now)
+- [x] **Validation RPC**: `SECURITY INVOKER`, two guards — rows-vs-parser-total on entry, matched+unmatched+duplicate = `total_net` (±$0.01) before commit; payments written per-deal with replace-on-re-upload semantics (`source_upload_id` scoped delete + upsert)
+- [x] Reconciliation modal (`pivot-reconciliation-modal.tsx` + `use-cloud-sync.ts`): dry-run first, shows pivot/matched/unmatched/duplicate totals + unmatched rows, then user confirms the real commit. Clear View produces one preview per portfolio from the single upload
 
 ### Phase 3 — One-time workbook import (kills the weekly workbook upload)
 
