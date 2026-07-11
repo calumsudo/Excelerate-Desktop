@@ -153,6 +153,7 @@ impl NotificationManager {
     }
 
     /// Send a success notification
+    #[allow(dead_code)]
     pub fn success(
         app_handle: &AppHandle,
         title: impl Into<String>,

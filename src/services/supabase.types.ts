@@ -696,6 +696,18 @@ export interface Database {
         };
         Relationships: [];
       };
+      deal_payments: {
+        Row: {
+          portfolio_id: number | null;
+          funder_id: number | null;
+          deal_id: string;
+          payment_date: string;
+          gross: number;
+          fee: number;
+          net: number;
+        };
+        Relationships: [];
+      };
       funder_allocation_current: {
         Row: {
           portfolio_id: number | null;

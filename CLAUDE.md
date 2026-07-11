@@ -72,15 +72,12 @@ Frontend calls commands via `@tauri-apps/api/core` `invoke()`. TypeScript wrappe
 
 ## Supabase / Database State
 
-**In-flight migration**: moving from SQLite + Excel workbook (ALDER.xlsx) to Supabase.
+**Supabase is the only store** (Phase 5 retired SQLite, local file/version management, and the Pyodide workbook updater). All data lives in Supabase tables/views; raw funder files go to the `funder-uploads` Storage bucket.
 
-Current Supabase tables (defined in `src/services/supabase.types.ts`, manually written):
-`user_profiles`, `portfolio_access`, `file_versions`, `funder_uploads`, `funder_pivot_tables`, `merchants`
-
-SQLite still handles: portfolio workbook versioning, funder uploads, pivot table storage, merchant data.
-
-`supabase/migrations/` does not exist yet — no CLI migrations have been applied.
+Schema is managed by CLI migrations in `supabase/migrations/`: `supabase migration new <name>` → write SQL → `supabase db push` → update `src/services/supabase.types.ts` by hand.
 `src/services/supabase.types.ts` is **manually written** (not auto-generated). Edit it directly if the schema changes.
+
+Write paths are RPCs: `commit_funder_pivot` (monthly flow), `import_funder_sheet` (one-time workbook import), `resolve_pivot_row`. Reads go through the analytics views (`deal_computed`, `monthly_vintage_stats`, `portfolio_monthly`, `weekly_rtr_matrix`, `funder_allocation_current`, `deal_payments`); page reads at 1000 rows (PostgREST cap).
 
 Supabase client: `src/services/supabase.ts`. Auth service: `src/services/auth-service.ts`.
 
@@ -97,17 +94,16 @@ Supabase client: `src/services/supabase.ts`. Auth service: `src/services/auth-se
 - **Framework**: Tauri v2 (Rust)
 - **Main Binary**: `src-tauri/src/main.rs`
 - **Library**: `src-tauri/src/lib.rs` (exported as `excelerate_lib`)
-- **Modules**: `parsers/`, `file_handler`, `database`, `notification`, `validated_file_handler`
+- **Modules**: `parsers/`, `funder_pivot` (validate + parse monthly uploads), `workbook_import` (one-time onboarding), `workbook_export` (values-only xlsx export), `notification`
 - **Plugins**: tauri-plugin-opener, tauri-plugin-fs, tauri-plugin-dialog
 
 ## Detail Docs
 
 - [`docs/parsers.md`](docs/parsers.md) — column mappings per funder, source format, output fields
-- [`docs/database.md`](docs/database.md) — SQLite vs Supabase split, table schemas, legacy Excel workbook
+- [`docs/database.md`](docs/database.md) — Supabase schema, views, RPCs, RLS, monthly flow + export
 - [`docs/tauri-commands.md`](docs/tauri-commands.md) — every command in `lib.rs`, what it does, which TS service wraps it
 
 ## Do NOT Touch
 - `dist/`, `node_modules/`, `target/` — build artifacts
 - `src/services/supabase.types.ts` — manually maintained, not auto-generated; edit intentionally
 - `pro-examples/`, `examples/`, `monthlys/` — gitignored data directories
-- `src-tauri/src/parsers/big_aggregator.rs` — utility, not a parser; don't treat as a parser template

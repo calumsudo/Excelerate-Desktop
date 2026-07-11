@@ -209,6 +209,20 @@ fn parse_net_rtr_header(header: &str, prev: Option<NaiveDate>) -> Option<NaiveDa
     NaiveDate::from_ymd_opt(year, month, day)
 }
 
+/// 0-based column index to Excel letter(s): 0 -> "A", 27 -> "AB".
+fn column_letter(mut idx: usize) -> String {
+    let mut letters = Vec::new();
+    loop {
+        letters.push(b'A' + (idx % 26) as u8);
+        if idx < 26 {
+            break;
+        }
+        idx = idx / 26 - 1;
+    }
+    letters.reverse();
+    String::from_utf8(letters).unwrap()
+}
+
 /// Semantic column indices resolved from the header row.
 #[derive(Default)]
 struct ColumnMap {
@@ -235,7 +249,11 @@ struct ColumnMap {
     net_rtr: Vec<(usize, NaiveDate)>,
 }
 
-fn build_column_map(header_row: &[Data], warnings: &mut Vec<String>) -> ColumnMap {
+fn build_column_map(
+    header_row: &[Data],
+    sheet_name: &str,
+    warnings: &mut Vec<String>,
+) -> ColumnMap {
     let mut map = ColumnMap::default();
     let mut prev_net_rtr_date: Option<NaiveDate> = None;
 
@@ -252,7 +270,12 @@ fn build_column_map(header_row: &[Data], warnings: &mut Vec<String>) -> ColumnMa
                     map.net_rtr.push((idx, date));
                     prev_net_rtr_date = Some(date);
                 }
-                None => warnings.push(format!("Unparseable Net RTR header: '{}'", raw)),
+                None => warnings.push(format!(
+                    "Unparseable Net RTR header: '{}' (sheet '{}', column {})",
+                    raw,
+                    sheet_name,
+                    column_letter(idx)
+                )),
             }
             continue;
         }
@@ -311,7 +334,7 @@ fn parse_sheet(range: &calamine::Range<Data>, sheet_name: &str) -> SheetImport {
             warnings: vec!["Sheet has no header row".to_string()],
         };
     };
-    let map = build_column_map(header_row, &mut warnings);
+    let map = build_column_map(header_row, sheet_name, &mut warnings);
 
     if map.merchant_name.is_none() {
         return SheetImport {

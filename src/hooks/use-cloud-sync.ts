@@ -2,10 +2,15 @@ import { useState } from "react";
 import PivotSyncService, { CloudSyncPreview } from "@/services/pivot-sync-service";
 import { toast } from "@/services/toast-service";
 
+export interface StartSyncResult {
+  ok: boolean;
+  validationErrors: string[];
+}
+
 /**
- * Drives the Phase 2 cloud save: after a funder file is saved locally, run a
- * dry-run of the validation RPC, show the reconciliation for confirmation,
- * then commit payments transactionally.
+ * Drives the cloud save for a monthly funder upload: validate + parse the
+ * file, run a dry-run of the validation RPC, show the reconciliation for
+ * confirmation, then commit payments transactionally.
  */
 export function useCloudSync() {
   const [previews, setPreviews] = useState<CloudSyncPreview[]>([]);
@@ -17,15 +22,21 @@ export function useCloudSync() {
     funderName: string,
     file: File,
     reportDate: string
-  ) => {
+  ): Promise<StartSyncResult> => {
     try {
       const result = await PivotSyncService.preview(portfolioName, funderName, file, reportDate);
-      if (result.length === 0) return;
-      setPreviews(result);
-      setModalOpen(true);
+      if (result.validationErrors.length > 0) {
+        return { ok: false, validationErrors: result.validationErrors };
+      }
+      if (result.previews.length > 0) {
+        setPreviews(result.previews);
+        setModalOpen(true);
+      }
+      return { ok: true, validationErrors: [] };
     } catch (error) {
       console.error("Cloud sync preview failed:", error);
       toast.error("Cloud save failed", String(error));
+      return { ok: false, validationErrors: [] };
     }
   };
 

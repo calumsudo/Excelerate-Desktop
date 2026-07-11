@@ -164,12 +164,10 @@ Required columns: `Advance ID`, `Business Name`, `Payable Amt (Gross)`, `Servici
 
 ---
 
-## Portfolio (`portfolio_parser.rs`)
+## Workbook import (`src-tauri/src/workbook_import.rs`)
 
-Not a funder report parser. Reads XLSX portfolio workbooks (e.g. `ALDER.xlsx`) that contain one sheet per funder and extracts merchant data.
-
-Sheet-name → funder mapping: `BHB→BHB`, `BIG→BIG`, `CV→Clear View`, `EFin→eFin`, `InAd→In Advance`, `Kings→Kings`, `Boom→Boom`
-
-Flexible column aliases supported: `Date Funded | Funded Date`, `Merchant Name | Business Name`, `Advance ID | Deal ID`, etc.
-
-Output goes to the `merchants` table, not a `PivotTable`.
+Not a funder report parser (and not in `parsers/`). One-time onboarding
+import: reads a full portfolio workbook (one deal sheet per funder), extracts
+the `B1` management fee, the deal input columns, and the `Net RTR M/D/YY`
+payment matrix for the `import_funder_sheet` RPC. Sheet names come from
+`funders.sheet_name` in Supabase.

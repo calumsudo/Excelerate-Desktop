@@ -24,11 +24,6 @@ export const items: SidebarItem[] = [
     icon: "solar:safe-square-outline",
     title: "White Rabbit Portfolio",
   },
-  {
-    key: "file-explorer",
-    icon: "solar:folder-with-files-outline",
-    title: "File Explorer",
-  },
 ];
 
 export const settingsItem: SidebarItem = {

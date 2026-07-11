@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { supabase } from "./supabase";
 
-/** Pivot rows + parser totals returned by the Rust `get_pivot_for_report` command. */
+/** Pivot rows + parser totals returned by the Rust `parse_funder_pivot` command. */
 export interface PivotRowData {
   advance_id: string;
   merchant_name: string;
@@ -15,6 +15,15 @@ export interface PivotExport {
   total_gross: number;
   total_fee: number;
   total_net: number;
+}
+
+export interface ParseFunderPivotResponse {
+  success: boolean;
+  message: string;
+  validation_errors: string[];
+  validation_warnings: string[];
+  /** null when no parser exists for the funder (e.g. Payva) */
+  pivot: PivotExport | null;
 }
 
 /** Reconciliation summary returned by the `commit_funder_pivot` RPC. */
@@ -57,6 +66,25 @@ export interface CloudSyncPreview {
   reconciliation: PivotReconciliation;
 }
 
+/** Outcome of the parse + dry-run step for one uploaded file. */
+export interface PreviewResult {
+  previews: CloudSyncPreview[];
+  validationErrors: string[];
+  validationWarnings: string[];
+}
+
+/** One funder_uploads row, resolved for display. */
+export interface CloudUploadInfo {
+  id: string;
+  funder_id: number;
+  funder_name: string;
+  report_date: string;
+  original_filename: string;
+  file_size: number | null;
+  storage_path: string | null;
+  created_at: string;
+}
+
 // UI funder labels that differ from funders.name in Supabase
 const FUNDER_NAME_MAP: Record<string, string> = {
   InAdvance: "In Advance",
@@ -66,9 +94,19 @@ const FUNDER_NAME_MAP: Record<string, string> = {
 
 const dbFunderName = (uiName: string) => FUNDER_NAME_MAP[uiName] ?? uiName;
 
+// funders.name in Supabase → the label the portfolio pages use ("Clear View"
+// is spelled the same in both, so only these two need mapping back)
+const DB_TO_UI_FUNDER: Record<string, string> = {
+  "In Advance": "InAdvance",
+  PayVa: "Payva",
+};
+
+export const uiFunderName = (dbName: string) => DB_TO_UI_FUNDER[dbName] ?? dbName;
+
 export class PivotSyncService {
   private static portfolioIds = new Map<string, number>();
   private static funderIds = new Map<string, number>();
+  private static funderNamesById: Map<number, string> | null = null;
 
   private static async getPortfolioId(portfolioName: string): Promise<number> {
     const cached = this.portfolioIds.get(portfolioName);
@@ -99,16 +137,28 @@ export class PivotSyncService {
     return data.id;
   }
 
-  private static async getPivotForReport(
+  private static async getFunderNames(): Promise<Map<number, string>> {
+    if (this.funderNamesById) return this.funderNamesById;
+    const { data, error } = await supabase.from("funders").select("id, name");
+    if (error) throw new Error(`Failed to load funders: ${error.message}`);
+    this.funderNamesById = new Map((data ?? []).map((f) => [f.id, f.name]));
+    return this.funderNamesById;
+  }
+
+  /** Validate + parse the uploaded file via the Rust parser for one portfolio. */
+  private static async parsePivot(
     portfolioName: string,
     funderName: string,
+    fileData: number[],
+    fileName: string,
     reportDate: string
-  ): Promise<PivotExport | null> {
-    return await invoke<PivotExport | null>("get_pivot_for_report", {
+  ): Promise<ParseFunderPivotResponse> {
+    return await invoke<ParseFunderPivotResponse>("parse_funder_pivot", {
       portfolioName,
       funderName,
+      fileData,
+      fileName,
       reportDate,
-      uploadType: "monthly",
     });
   }
 
@@ -140,17 +190,14 @@ export class PivotSyncService {
   /**
    * Push one portfolio's parsed pivot to the cloud: raw file to Storage,
    * upload record to funder_uploads, then a dry-run of the validation RPC.
-   * Returns null when no pivot exists locally (e.g. parser not implemented).
    */
   private static async previewPortfolio(
     portfolioName: string,
     funderName: string,
+    pivot: PivotExport,
     file: File,
     reportDate: string
-  ): Promise<CloudSyncPreview | null> {
-    const pivot = await this.getPivotForReport(portfolioName, funderName, reportDate);
-    if (!pivot) return null;
-
+  ): Promise<CloudSyncPreview> {
     const portfolioId = await this.getPortfolioId(portfolioName);
     const funderId = await this.getFunderId(funderName);
 
@@ -192,24 +239,32 @@ export class PivotSyncService {
   }
 
   /**
-   * Preview the cloud sync for a freshly uploaded funder file. A Clear View
-   * file carries deals for both portfolios, so it produces one preview each.
+   * Validate, parse, and preview the cloud sync for a freshly uploaded funder
+   * file. A Clear View file carries deals for both portfolios, so it produces
+   * one preview each. Validation failures return errors and no previews.
    */
   static async preview(
     portfolioName: string,
     funderName: string,
     file: File,
     reportDate: string
-  ): Promise<CloudSyncPreview[]> {
+  ): Promise<PreviewResult> {
     const isClearView = funderName === "Clear View" || funderName === "ClearView";
     const portfolios = isClearView ? ["Alder", "White Rabbit"] : [portfolioName];
+    const fileData = Array.from(new Uint8Array(await file.arrayBuffer()));
 
     const previews: CloudSyncPreview[] = [];
+    const validationWarnings: string[] = [];
     for (const pf of portfolios) {
-      const preview = await this.previewPortfolio(pf, funderName, file, reportDate);
-      if (preview) previews.push(preview);
+      const parsed = await this.parsePivot(pf, funderName, fileData, file.name, reportDate);
+      validationWarnings.push(...parsed.validation_warnings);
+      if (!parsed.success) {
+        return { previews: [], validationErrors: parsed.validation_errors, validationWarnings };
+      }
+      if (!parsed.pivot) continue; // no parser for this funder yet
+      previews.push(await this.previewPortfolio(pf, funderName, parsed.pivot, file, reportDate));
     }
-    return previews;
+    return { previews, validationErrors: [], validationWarnings };
   }
 
   /** Re-run the validation RPC for real: writes net_rtr_payments transactionally. */
@@ -226,6 +281,75 @@ export class PivotSyncService {
     if (error) {
       throw new Error(`Failed to resolve pivot row: ${error.message}`);
     }
+  }
+
+  /** All funder uploads recorded in Supabase for one portfolio + report date. */
+  static async listUploadsForDate(
+    portfolioName: string,
+    reportDate: string
+  ): Promise<CloudUploadInfo[]> {
+    const portfolioId = await this.getPortfolioId(portfolioName);
+    const [funderNames, { data, error }] = await Promise.all([
+      this.getFunderNames(),
+      supabase
+        .from("funder_uploads")
+        .select(
+          "id, funder_id, report_date, original_filename, file_size, storage_path, created_at"
+        )
+        .eq("portfolio_id", portfolioId)
+        .eq("report_date", reportDate)
+        .order("funder_id"),
+    ]);
+    if (error) throw new Error(`Failed to load funder uploads: ${error.message}`);
+    return (data ?? []).map((u) => ({
+      ...u,
+      funder_name: funderNames.get(u.funder_id) ?? `Funder ${u.funder_id}`,
+    }));
+  }
+
+  /** Whether an upload already exists for this (portfolio, funder, date). */
+  static async uploadExists(
+    portfolioName: string,
+    uiFunderName: string,
+    reportDate: string
+  ): Promise<boolean> {
+    const portfolioId = await this.getPortfolioId(portfolioName);
+    const funderId = await this.getFunderId(uiFunderName);
+    const { count, error } = await supabase
+      .from("funder_uploads")
+      .select("id", { count: "exact", head: true })
+      .eq("portfolio_id", portfolioId)
+      .eq("funder_id", funderId)
+      .eq("report_date", reportDate);
+    if (error) throw new Error(`Failed to check funder upload: ${error.message}`);
+    return (count ?? 0) > 0;
+  }
+
+  /**
+   * Delete one upload and everything derived from it: its committed
+   * payments (scoped by source_upload_id), the raw file in Storage, and the
+   * funder_uploads row (pivot tables/rows cascade).
+   */
+  static async deleteUpload(upload: CloudUploadInfo): Promise<void> {
+    const { error: paymentsError } = await supabase
+      .from("net_rtr_payments")
+      .delete()
+      .eq("source_upload_id", upload.id);
+    if (paymentsError) {
+      throw new Error(`Failed to delete payments for upload: ${paymentsError.message}`);
+    }
+
+    if (upload.storage_path) {
+      const { error: storageError } = await supabase.storage
+        .from("funder-uploads")
+        .remove([upload.storage_path]);
+      if (storageError) {
+        console.error(`Failed to delete stored file ${upload.storage_path}:`, storageError);
+      }
+    }
+
+    const { error } = await supabase.from("funder_uploads").delete().eq("id", upload.id);
+    if (error) throw new Error(`Failed to delete funder upload: ${error.message}`);
   }
 }
 

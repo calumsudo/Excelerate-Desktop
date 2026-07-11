@@ -1,11 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { DateValue } from "@internationalized/date";
 import BasePortfolio from "@components/portfolio/base-portfolio";
 import { FunderData } from "@components/portfolio/funder-upload-section";
-import FileService, { VersionInfo, FunderUploadInfo } from "@services/file-service";
+import PivotSyncService, { CloudUploadInfo, uiFunderName } from "@services/pivot-sync-service";
+import WorkbookExportService from "@services/workbook-export-service";
+import { toast } from "@services/toast-service";
 import { useFileErrorState } from "@/hooks/use-file-error-state";
 import { useCloudSync } from "@/hooks/use-cloud-sync";
-import { UnmatchedDealsResultModal } from "@components/portfolio/unmatched-deals-result-modal";
 import PivotReconciliationModal from "@components/portfolio/pivot-reconciliation-modal";
 import WorkbookImportWizard from "@components/portfolio/workbook-import-wizard";
 
@@ -70,153 +71,65 @@ const monthlyFunderList: FunderData[] = [
 
 function AlderPortfolio() {
   const [monthlyFiles, setMonthlyFiles] = useState<Record<string, File>>({});
-  const [existingWorkbook, setExistingWorkbook] = useState<File | null>(null);
   const [selectedDate, setSelectedDate] = useState<DateValue | null>(null);
-  const [versions, setVersions] = useState<VersionInfo[]>([]);
-  const [funderUploads, setFunderUploads] = useState<FunderUploadInfo[]>([]);
-  const { workbookError, monthlyErrorStates, setWorkbookErrorState, setFunderErrorState } =
-    useFileErrorState();
+  const [funderUploads, setFunderUploads] = useState<CloudUploadInfo[]>([]);
+  const [isExporting, setIsExporting] = useState(false);
+  const { monthlyErrorStates, setFunderErrorState } = useFileErrorState();
   const cloudSync = useCloudSync();
 
-  const [isUploading, setIsUploading] = useState(false);
-  const [isUpdatingNetRtr, setIsUpdatingNetRtr] = useState(false);
-  const [unmatchedDealsModalOpen, setUnmatchedDealsModalOpen] = useState(false);
-  const [unmatchedDeals, setUnmatchedDeals] = useState<
-    Array<{
-      funder_name: string;
-      sheet_name: string;
-      advance_id: string;
-      merchant_name: string;
-      gross_amount: number;
-      management_fee: number;
-      net_amount: number;
-    }>
-  >([]);
-  const [duplicateConflicts, setDuplicateConflicts] = useState<
-    Array<{
-      funder_name: string;
-      sheet_name: string;
-      advance_id: string;
-      internal_advance_id: string;
-      merchant_name: string;
-      date_funded: string;
-      row_index: number;
-      net_amount: number;
-      match_count: number;
-    }>
-  >([]);
+  const refreshUploads = useCallback(async (reportDate: string) => {
+    try {
+      const uploads = await PivotSyncService.listUploadsForDate(PORTFOLIO, reportDate);
+      setFunderUploads(uploads);
 
-  useEffect(() => {
-    const loadActiveVersion = async () => {
-      const activeVersion = await FileService.getActiveVersion(PORTFOLIO);
-      if (activeVersion) {
-        const file = new File([], activeVersion.original_filename, {
-          type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      const filesMap: Record<string, File> = {};
+      uploads.forEach((upload) => {
+        const file = new File([], upload.original_filename, {
+          type: upload.original_filename.endsWith(".csv")
+            ? "text/csv"
+            : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         });
-        Object.defineProperty(file, "size", { value: activeVersion.file_size, writable: false });
-        setExistingWorkbook(file);
-      }
-    };
-    const loadVersions = async () => {
-      setVersions(await FileService.getPortfolioVersions(PORTFOLIO));
-    };
-    loadActiveVersion();
-    loadVersions();
+        Object.defineProperty(file, "size", {
+          value: upload.file_size ?? 0,
+          writable: false,
+        });
+        filesMap[uiFunderName(upload.funder_name)] = file;
+      });
+      setMonthlyFiles(filesMap);
+    } catch (error) {
+      console.error("Error loading funder uploads:", error);
+    }
   }, []);
 
   useEffect(() => {
-    const loadFunderUploads = async () => {
-      if (!selectedDate) {
-        setFunderUploads([]);
-        setMonthlyFiles({});
-        return;
-      }
-      const reportDate = selectedDate.toString();
-      const uploads = await FileService.getFunderUploadsForDate(PORTFOLIO, reportDate);
-      setFunderUploads(uploads);
-
-      // Load monthly funder files
-      const filesMap: Record<string, File> = {};
-      uploads
-        .filter((u) => u.upload_type === "monthly")
-        .forEach((upload) => {
-          const file = new File([], upload.original_filename, {
-            type: upload.original_filename.endsWith(".csv")
-              ? "text/csv"
-              : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-          });
-          Object.defineProperty(file, "size", { value: upload.file_size, writable: false });
-          filesMap[upload.funder_name] = file;
-        });
-      setMonthlyFiles(filesMap);
-    };
-    loadFunderUploads();
-  }, [selectedDate]);
+    if (!selectedDate) {
+      setFunderUploads([]);
+      setMonthlyFiles({});
+      return;
+    }
+    refreshUploads(selectedDate.toString());
+  }, [selectedDate, refreshUploads]);
 
   const handleDateChange = (date: DateValue | null) => setSelectedDate(date);
-
-  const handleFileUpload = async (file: File) => {
-    if (isUploading || !selectedDate) return;
-    const reportDate = selectedDate.toString();
-    try {
-      setIsUploading(true);
-      const versionExists = await FileService.checkVersionExists(PORTFOLIO, reportDate);
-      if (versionExists) {
-        if (!window.confirm(`A version already exists for ${reportDate}. Overwrite?`)) return;
-      }
-      const response = await FileService.savePortfolioWorkbookValidated(
-        PORTFOLIO,
-        file,
-        reportDate
-      );
-      if (response.success) {
-        setExistingWorkbook(file);
-        setWorkbookErrorState(false);
-        setVersions(await FileService.getPortfolioVersions(PORTFOLIO));
-      } else {
-        setWorkbookErrorState(true, response.validation_errors?.join(", ") || response.message);
-      }
-    } catch (error) {
-      console.error("Error saving workbook:", error);
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  const handleClearMainFile = () => setExistingWorkbook(null);
 
   const handleMonthlyFunderUpload = async (funderName: string, file: File) => {
     if (!selectedDate) return;
     const reportDate = selectedDate.toString();
     try {
-      const exists = await FileService.checkFunderUploadExists(
-        PORTFOLIO,
-        funderName,
-        reportDate,
-        "monthly"
-      );
+      const exists = await PivotSyncService.uploadExists(PORTFOLIO, funderName, reportDate);
       if (exists) {
         if (!window.confirm(`A file already exists for ${funderName} on ${reportDate}. Overwrite?`))
           return;
       }
-      const response = await FileService.saveFunderUploadValidated(
-        PORTFOLIO,
-        funderName,
-        file,
-        reportDate,
-        "monthly"
-      );
-      if (response.success) {
+      const result = await cloudSync.startSync(PORTFOLIO, funderName, file, reportDate);
+      if (result.ok) {
         setMonthlyFiles((prev) => ({ ...prev, [funderName]: file }));
         setFunderErrorState(funderName, false);
-        setFunderUploads(await FileService.getFunderUploadsForDate(PORTFOLIO, reportDate));
-        await cloudSync.startSync(PORTFOLIO, funderName, file, reportDate);
+        await refreshUploads(reportDate);
+      } else if (result.validationErrors.length > 0) {
+        setFunderErrorState(funderName, true, result.validationErrors.join(", "));
       } else {
-        setFunderErrorState(
-          funderName,
-          true,
-          response.validation_errors?.join(", ") || response.message
-        );
+        setFunderErrorState(funderName, true, "Upload failed");
       }
     } catch (error) {
       console.error(`Error uploading funder file for ${funderName}:`, error);
@@ -227,15 +140,26 @@ function AlderPortfolio() {
   const handleMonthlyClearFile = async (funderName: string) => {
     if (selectedDate) {
       const reportDate = selectedDate.toString();
-      const upload = funderUploads.find(
-        (u) => u.funder_name === funderName && u.upload_type === "monthly"
-      );
+      const upload = funderUploads.find((u) => uiFunderName(u.funder_name) === funderName);
       if (upload) {
+        if (
+          !window.confirm(
+            `Delete the ${funderName} upload for ${reportDate}? ` +
+              `This removes its synced payments from the cloud.`
+          )
+        )
+          return;
         try {
-          await FileService.deleteFunderUpload(upload.id);
-          setFunderUploads(await FileService.getFunderUploadsForDate(PORTFOLIO, reportDate));
+          await PivotSyncService.deleteUpload(upload);
+          toast.success(
+            "Upload deleted",
+            `${funderName} payments for ${reportDate} removed from the cloud`
+          );
+          await refreshUploads(reportDate);
         } catch (error) {
           console.error(`Error deleting ${funderName} upload:`, error);
+          toast.error("Delete failed", String(error));
+          return;
         }
       }
     }
@@ -246,64 +170,37 @@ function AlderPortfolio() {
     });
   };
 
-  const handleUpdateNetRtr = async () => {
-    if (!selectedDate || isUpdatingNetRtr) return;
+  const handleExportWorkbook = async () => {
+    if (isExporting) return;
     try {
-      setIsUpdatingNetRtr(true);
-      const response = await FileService.updatePortfolioWithNetRtr(
-        PORTFOLIO,
-        selectedDate.toString()
-      );
-      if (response.success) {
-        const unmatched = response.unmatched_deals ?? [];
-        const duplicates = response.duplicate_conflicts ?? [];
-        setUnmatchedDeals(unmatched);
-        setDuplicateConflicts(duplicates);
-        if (unmatched.length > 0 || duplicates.length > 0) {
-          setUnmatchedDealsModalOpen(true);
-          const parts: string[] = [];
-          if (unmatched.length > 0) parts.push(`${unmatched.length} unmatched deals`);
-          if (duplicates.length > 0)
-            parts.push(`${duplicates.length} rows with duplicate Funder Advance IDs`);
-          alert(`Portfolio updated! ${parts.join(" and ")} found. Please review.`);
-        } else {
-          alert("Portfolio updated successfully with Net RTR values! All deals matched.");
-        }
-        setVersions(await FileService.getPortfolioVersions(PORTFOLIO));
-      } else {
-        alert(`Failed to update portfolio: ${response.message}`);
+      setIsExporting(true);
+      const summary = await WorkbookExportService.exportPortfolio(PORTFOLIO);
+      if (summary) {
+        toast.success(
+          "Workbook exported",
+          `${summary.sheet_count} sheets, ${summary.deal_count} deals — ${summary.file_path}`
+        );
       }
     } catch (error) {
-      console.error("Error updating portfolio:", error);
-      alert("Error updating portfolio. Check console for details.");
+      console.error("Error exporting workbook:", error);
+      toast.error("Export failed", String(error));
     } finally {
-      setIsUpdatingNetRtr(false);
+      setIsExporting(false);
     }
   };
-
-  const canUpdateNetRtr = !!(
-    selectedDate &&
-    existingWorkbook &&
-    Object.keys(monthlyFiles).length > 0
-  );
 
   return (
     <>
       <BasePortfolio
         portfolioName={PORTFOLIO}
         onDateChange={handleDateChange}
-        onFileUpload={handleFileUpload}
-        onClearMainFile={handleClearMainFile}
         monthlyFunders={monthlyFunderList}
         onMonthlyFunderUpload={handleMonthlyFunderUpload}
         onMonthlyClearFile={handleMonthlyClearFile}
         monthlyUploadedFiles={monthlyFiles}
-        existingWorkbookFile={existingWorkbook}
-        workbookError={workbookError}
         monthlyErrorStates={monthlyErrorStates}
-        onUpdateNetRtr={handleUpdateNetRtr}
-        canUpdateNetRtr={canUpdateNetRtr}
-        isUpdatingNetRtr={isUpdatingNetRtr}
+        onExportWorkbook={handleExportWorkbook}
+        isExporting={isExporting}
       />
 
       <WorkbookImportWizard portfolioName={PORTFOLIO} />
@@ -319,7 +216,7 @@ function AlderPortfolio() {
               .filter((f) => !f.disabled)
               .map((funder) => {
                 const uploaded = funderUploads.find(
-                  (u) => u.funder_name === funder.name && u.upload_type === "monthly"
+                  (u) => uiFunderName(u.funder_name) === funder.name
                 );
                 return (
                   <div
@@ -339,54 +236,12 @@ function AlderPortfolio() {
         </div>
       )}
 
-      {/* Version History */}
-      {versions.length > 0 && (
-        <div className="max-w-6xl mx-auto mt-6 p-6 bg-default-50 rounded-lg border border-default-200">
-          <h3 className="text-xl font-semibold mb-4">Version History</h3>
-          <div className="space-y-2">
-            {versions.slice(0, 5).map((version) => (
-              <div
-                key={version.id}
-                className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 p-3 bg-default-100 rounded"
-              >
-                <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 min-w-0">
-                  <span className="font-medium whitespace-nowrap">{version.report_date}</span>
-                  <span
-                    className="text-sm text-default-500 truncate"
-                    title={version.original_filename}
-                  >
-                    {version.original_filename}
-                  </span>
-                  {version.is_active && (
-                    <span className="text-xs bg-success-100 text-success-700 px-2 py-1 rounded self-start sm:self-auto whitespace-nowrap">
-                      Active
-                    </span>
-                  )}
-                </div>
-                <span className="text-sm text-default-500 whitespace-nowrap">
-                  {new Date(version.upload_timestamp).toLocaleString()}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       <PivotReconciliationModal
         isOpen={cloudSync.isModalOpen}
         onOpenChange={cloudSync.setModalOpen}
         previews={cloudSync.previews}
         onCommit={cloudSync.commit}
         isCommitting={cloudSync.isCommitting}
-      />
-
-      <UnmatchedDealsResultModal
-        isOpen={unmatchedDealsModalOpen}
-        onOpenChange={setUnmatchedDealsModalOpen}
-        unmatchedDeals={unmatchedDeals}
-        duplicateConflicts={duplicateConflicts}
-        portfolioName={PORTFOLIO}
-        reportDate={selectedDate?.toString() || ""}
       />
     </>
   );

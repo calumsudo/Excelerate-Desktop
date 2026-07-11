@@ -53,7 +53,10 @@ ON CONFLICT (portfolio_id, funder_id) DO UPDATE
 
 DO $$
 DECLARE
-  v_user_id uuid := gen_random_uuid();
+  -- Fixed id so `db reset` doesn't invalidate a signed-in app session:
+  -- local JWTs survive resets (fixed dev secret), and a JWT whose sub no
+  -- longer exists makes RLS hide everything ("Portfolio not found").
+  v_user_id uuid := 'de00de00-0000-4000-8000-de00de00de00';
 BEGIN
   -- GoTrue reads these columns directly; the token columns must be empty
   -- strings (not NULL) or its Go scanner errors on login.
