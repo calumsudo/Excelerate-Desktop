@@ -6,10 +6,38 @@ export type PortfolioMonthlyRow = Views["portfolio_monthly"]["Row"];
 export type MonthlyVintageRow = Views["monthly_vintage_stats"]["Row"];
 export type FunderAllocationRow = Views["funder_allocation_current"]["Row"];
 export type WeeklyRtrRow = Views["weekly_rtr_matrix"]["Row"];
+export type DealComputedRow = Views["deal_computed"]["Row"];
 
 export interface PortfolioOption {
   id: number;
   name: string;
+}
+
+/** "all" aggregates every portfolio the user can see (RLS scopes the reads). */
+export type PortfolioSelection = number | "all";
+
+/**
+ * The per-vintage columns shared by portfolio_monthly and
+ * monthly_vintage_stats, so the KPI/chart transforms work on either a
+ * portfolio's months or a single funder's months.
+ */
+export interface MonthlyStatsRow {
+  vintage_month: string | null;
+  deal_count: number;
+  new_invested: number | null;
+  rtr_invested: number | null;
+  total_participation: number | null;
+  total_commissions: number | null;
+  cost_basis: number | null;
+  initial_net_rtr: number | null;
+  weighted_avg_factor: number;
+  rtr_received: number | null;
+  principal_returned: number | null;
+  profit_returned: number | null;
+  net_rtr_outstanding_after_bad_debt: number | null;
+  bad_debt_rtr: number | null;
+  weighted_avg_term_months: number | null;
+  points_per_month: number | null;
 }
 
 /** Everything the dashboard needs for one portfolio, fetched in parallel. */
@@ -55,38 +83,31 @@ async function getFunderNames(): Promise<Record<number, string>> {
   return Object.fromEntries((data ?? []).map((f) => [f.id, f.name]));
 }
 
-export async function getPortfolioAnalytics(portfolioId: number): Promise<PortfolioAnalytics> {
+export async function getPortfolioAnalytics(
+  selection: PortfolioSelection
+): Promise<PortfolioAnalytics> {
+  // For "all", omit the portfolio filter — RLS already limits rows to
+  // portfolios shared with the signed-in user.
+  const scope = <T extends { eq: (col: string, v: number) => T }>(query: T): T =>
+    selection === "all" ? query : query.eq("portfolio_id", selection);
+
   const [monthly, vintages, allocations, rtr, funderNames] = await Promise.all([
     fetchAllPages<PortfolioMonthlyRow>((from, to) =>
-      supabase
-        .from("portfolio_monthly")
-        .select("*")
-        .eq("portfolio_id", portfolioId)
-        .order("vintage_month")
-        .range(from, to)
+      scope(supabase.from("portfolio_monthly").select("*")).order("vintage_month").range(from, to)
     ),
     fetchAllPages<MonthlyVintageRow>((from, to) =>
-      supabase
-        .from("monthly_vintage_stats")
-        .select("*")
-        .eq("portfolio_id", portfolioId)
+      scope(supabase.from("monthly_vintage_stats").select("*"))
         .order("vintage_month")
         .order("funder_id")
         .range(from, to)
     ),
     fetchAllPages<FunderAllocationRow>((from, to) =>
-      supabase
-        .from("funder_allocation_current")
-        .select("*")
-        .eq("portfolio_id", portfolioId)
+      scope(supabase.from("funder_allocation_current").select("*"))
         .order("funder_id")
         .range(from, to)
     ),
     fetchAllPages<WeeklyRtrRow>((from, to) =>
-      supabase
-        .from("weekly_rtr_matrix")
-        .select("*")
-        .eq("portfolio_id", portfolioId)
+      scope(supabase.from("weekly_rtr_matrix").select("*"))
         .order("payment_date")
         .order("funder_id")
         .range(from, to)
@@ -95,6 +116,40 @@ export async function getPortfolioAnalytics(portfolioId: number): Promise<Portfo
   ]);
 
   return { monthly, vintages, allocations, rtr, funderNames };
+}
+
+/** A funder's deals with the merchant name resolved, for the drill-down table. */
+export interface FunderDealRow extends DealComputedRow {
+  merchant_name: string | null;
+}
+
+export async function getFunderDeals(
+  portfolioId: PortfolioSelection,
+  funderId: number
+): Promise<FunderDealRow[]> {
+  const scope = <T extends { eq: (col: string, v: number) => T }>(query: T): T =>
+    portfolioId === "all" ? query : query.eq("portfolio_id", portfolioId);
+
+  const [deals, merchants] = await Promise.all([
+    fetchAllPages<DealComputedRow>((from, to) =>
+      scope(supabase.from("deal_computed").select("*"))
+        .eq("funder_id", funderId)
+        .order("date_funded")
+        .range(from, to)
+    ),
+    fetchAllPages<{ id: string; name: string }>((from, to) =>
+      scope(supabase.from("merchants").select("id, name"))
+        .eq("funder_id", funderId)
+        .order("id")
+        .range(from, to)
+    ),
+  ]);
+
+  const names = new Map(merchants.map((m) => [m.id, m.name]));
+  return deals.map((d) => ({
+    ...d,
+    merchant_name: d.merchant_id != null ? (names.get(d.merchant_id) ?? null) : null,
+  }));
 }
 
 // ---------------------------------------------------------------------------
@@ -114,8 +169,8 @@ export interface PortfolioKpis {
   dealCount: number;
 }
 
-export function computeKpis(monthly: PortfolioMonthlyRow[]): PortfolioKpis {
-  const sum = (pick: (r: PortfolioMonthlyRow) => number | null) =>
+export function computeKpis(monthly: MonthlyStatsRow[]): PortfolioKpis {
+  const sum = (pick: (r: MonthlyStatsRow) => number | null) =>
     monthly.reduce((acc, r) => acc + (pick(r) ?? 0), 0);
 
   const costBasis = sum((r) => r.cost_basis);
@@ -132,6 +187,60 @@ export function computeKpis(monthly: PortfolioMonthlyRow[]): PortfolioKpis {
     badDebtPct: initialNetRtr > 0 ? sum((r) => r.bad_debt_rtr) / initialNetRtr : 0,
     dealCount: sum((r) => r.deal_count),
   };
+}
+
+/**
+ * Collapse per-portfolio (or per-funder) vintage rows into one row per month
+ * for the combined "All Portfolios" view. Dollar columns and deal counts sum;
+ * the weighted averages (factor, term, points/month) are re-weighted by cost
+ * basis across the contributing rows.
+ */
+export function aggregateMonthlyByVintage(rows: MonthlyStatsRow[]): MonthlyStatsRow[] {
+  const byMonth = new Map<string, MonthlyStatsRow[]>();
+  for (const row of rows) {
+    if (!row.vintage_month) continue;
+    const group = byMonth.get(row.vintage_month) ?? [];
+    group.push(row);
+    byMonth.set(row.vintage_month, group);
+  }
+
+  return [...byMonth.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([month, group]) => {
+      const sum = (pick: (r: MonthlyStatsRow) => number | null) =>
+        group.reduce((acc, r) => acc + (pick(r) ?? 0), 0);
+      const weighted = (pick: (r: MonthlyStatsRow) => number | null): number | null => {
+        let weightTotal = 0;
+        let acc = 0;
+        for (const r of group) {
+          const value = pick(r);
+          const weight = r.cost_basis ?? 0;
+          if (value == null || weight <= 0) continue;
+          acc += value * weight;
+          weightTotal += weight;
+        }
+        return weightTotal > 0 ? acc / weightTotal : null;
+      };
+
+      return {
+        vintage_month: month,
+        deal_count: sum((r) => r.deal_count),
+        new_invested: sum((r) => r.new_invested),
+        rtr_invested: sum((r) => r.rtr_invested),
+        total_participation: sum((r) => r.total_participation),
+        total_commissions: sum((r) => r.total_commissions),
+        cost_basis: sum((r) => r.cost_basis),
+        initial_net_rtr: sum((r) => r.initial_net_rtr),
+        weighted_avg_factor: weighted((r) => r.weighted_avg_factor) ?? 0,
+        rtr_received: sum((r) => r.rtr_received),
+        principal_returned: sum((r) => r.principal_returned),
+        profit_returned: sum((r) => r.profit_returned),
+        net_rtr_outstanding_after_bad_debt: sum((r) => r.net_rtr_outstanding_after_bad_debt),
+        bad_debt_rtr: sum((r) => r.bad_debt_rtr),
+        weighted_avg_term_months: weighted((r) => r.weighted_avg_term_months),
+        points_per_month: weighted((r) => r.points_per_month),
+      };
+    });
 }
 
 /** "2024-05-01" → "May 24" (avoids Date parsing so timezones can't shift the month). */
@@ -223,12 +332,16 @@ export function latestMonthAllocation(
   if (months.length === 0) return { month: null, slices: [] };
   const latest = months.sort()[months.length - 1];
 
-  const slices = vintages
-    .filter((v) => v.vintage_month === latest && (v.cost_basis ?? 0) > 0)
-    .map((v) => ({
-      name: v.funder_id != null ? (funderNames[v.funder_id] ?? `Funder ${v.funder_id}`) : "Unknown",
-      value: v.cost_basis ?? 0,
-    }))
+  // Sum by funder — in the combined view a funder contributes one row per portfolio.
+  const byFunder = new Map<string, number>();
+  for (const v of vintages) {
+    if (v.vintage_month !== latest || (v.cost_basis ?? 0) <= 0) continue;
+    const name =
+      v.funder_id != null ? (funderNames[v.funder_id] ?? `Funder ${v.funder_id}`) : "Unknown";
+    byFunder.set(name, (byFunder.get(name) ?? 0) + (v.cost_basis ?? 0));
+  }
+  const slices = [...byFunder.entries()]
+    .map(([name, value]) => ({ name, value }))
     .sort((a, b) => b.value - a.value);
 
   return { month: formatMonth(latest), slices };
@@ -239,17 +352,18 @@ export function currentAllocation(
   allocations: FunderAllocationRow[],
   funderNames: Record<number, string>
 ): PieSlice[] {
-  return (
-    allocations
-      // fully-repaid funders can go slightly negative; they hold no allocation
-      .filter((a) => (a.current_cost_basis ?? 0) > 0)
-      .map((a) => ({
-        name:
-          a.funder_id != null ? (funderNames[a.funder_id] ?? `Funder ${a.funder_id}`) : "Unknown",
-        value: a.current_cost_basis ?? 0,
-      }))
-      .sort((a, b) => b.value - a.value)
-  );
+  // Sum by funder — in the combined view a funder contributes one row per portfolio.
+  const byFunder = new Map<string, number>();
+  for (const a of allocations) {
+    // fully-repaid funders can go slightly negative; they hold no allocation
+    if ((a.current_cost_basis ?? 0) <= 0) continue;
+    const name =
+      a.funder_id != null ? (funderNames[a.funder_id] ?? `Funder ${a.funder_id}`) : "Unknown";
+    byFunder.set(name, (byFunder.get(name) ?? 0) + (a.current_cost_basis ?? 0));
+  }
+  return [...byFunder.entries()]
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value);
 }
 
 export interface CommissionsMonthRow {
@@ -259,7 +373,7 @@ export interface CommissionsMonthRow {
 }
 
 /** "Commissions Paid by month" — ALDER Portfolio columns E/F per vintage. */
-export function buildCommissionsByMonth(monthly: PortfolioMonthlyRow[]): CommissionsMonthRow[] {
+export function buildCommissionsByMonth(monthly: MonthlyStatsRow[]): CommissionsMonthRow[] {
   return monthly
     .filter((r) => r.vintage_month != null)
     .map((r) => ({
@@ -331,7 +445,7 @@ export interface VintagePerformanceRow {
 }
 
 /** "Term vs Weighted Avg Net Factor" + "Points per Month" per vintage. */
-export function buildVintagePerformance(monthly: PortfolioMonthlyRow[]): VintagePerformanceRow[] {
+export function buildVintagePerformance(monthly: MonthlyStatsRow[]): VintagePerformanceRow[] {
   return monthly
     .filter((r) => r.vintage_month != null)
     .map((r) => ({
