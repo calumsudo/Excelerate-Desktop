@@ -142,8 +142,19 @@ function AlderPortfolio() {
       const reportDate = selectedDate.toString();
       const upload = funderUploads.find((u) => uiFunderName(u.funder_name) === funderName);
       if (upload) {
+        if (
+          !window.confirm(
+            `Delete the ${funderName} upload for ${reportDate}? ` +
+              `This removes its synced payments from the cloud.`
+          )
+        )
+          return;
         try {
           await PivotSyncService.deleteUpload(upload);
+          toast.success(
+            "Upload deleted",
+            `${funderName} payments for ${reportDate} removed from the cloud`
+          );
           await refreshUploads(reportDate);
         } catch (error) {
           console.error(`Error deleting ${funderName} upload:`, error);
