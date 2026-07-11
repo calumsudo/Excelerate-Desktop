@@ -1,43 +1,15 @@
 # Database
 
-Excelerate is mid-migration from SQLite to Supabase. Both stores are live simultaneously.
-
----
-
-## SQLite
-
-Managed by `src-tauri/src/database.rs`. Schema is created/migrated in `run_migrations()` at startup — no external migration files.
-
-### Tables
-
-**file_versions** — one row per uploaded portfolio workbook version.
-`id, portfolio_name, report_date, original_filename, version_filename, file_path, file_size, upload_timestamp, is_active`
-Indexes: `idx_portfolio_date`, `idx_report_date`, `idx_active`
-
-**funder_uploads** — one row per funder report file upload.
-`id, portfolio_name, funder_name, report_date, upload_type, original_filename, stored_filename, file_path, file_size, upload_timestamp`
-Unique: `(portfolio_name, funder_name, report_date, upload_type, original_filename)`
-Index: `idx_funder_portfolio_date`
-
-**funder_pivot_tables** — parsed summary for each funder upload.
-`id, upload_id (FK→funder_uploads), portfolio_name, funder_name, report_date, upload_type, pivot_file_path, total_gross, total_fee, total_net, row_count, created_timestamp`
-Index: `idx_pivot_upload_id`
-
-**merchants** — one row per merchant/advance, extracted from portfolio workbooks.
-`id, portfolio_name, funder_name, date_funded, merchant_name, website, advance_id, funder_advance_id, industry_naics_or_sic, state, fico, buy_rate, commission, total_amount_funded, created_timestamp, updated_timestamp`
-Unique: `(portfolio_name, funder_name, merchant_name, advance_id)`
-Indexes: `idx_merchants_portfolio_funder`, `idx_merchants_advance_id`
-
----
-
-## Supabase
+Supabase is the only store. The SQLite database, local file/version
+management, and the Pyodide workbook updater were retired in Phase 5 —
+`~/Excelerate/` is no longer read or written by the app.
 
 Types defined in `src/services/supabase.types.ts` (**manually written** — not auto-generated; edit directly when schema changes).
 Client: `src/services/supabase.ts`. Auth: `src/services/auth-service.ts`.
 
-Schema is managed by CLI migrations in `supabase/migrations/` (`supabase migration new …` → write SQL → `supabase db push` → update `supabase.types.ts` by hand). The `2026-03-31`-stamped files plus `20260710005902_remote_schema.sql` are the Phase 0 baseline; the `phase1_*` files complete the schema.
+Schema is managed by CLI migrations in `supabase/migrations/` (`supabase migration new …` → write SQL → `supabase db push` → update `supabase.types.ts` by hand). The `2026-03-31`-stamped files plus `20260710005902_remote_schema.sql` are the Phase 0 baseline; the `phase1_*` files complete the schema, `phase2_*` add the cloud write path, `phase3_*` the workbook import, and `phase5_*` the export's `deal_payments` view.
 
-### Tables
+## Tables
 
 **user_profiles** — `id (FK→auth.users), email, full_name, role (admin|member)`; row auto-created by the `on_auth_user_created` trigger.
 
@@ -51,7 +23,7 @@ Schema is managed by CLI migrations in `supabase/migrations/` (`supabase migrati
 
 **deals** — inputs only (derived values live in views): rates, funded amount, payment counts, participation, `new_dollars`/`rtr` flags, `date_funded`, `date_closed`, default fields.
 
-**net_rtr_payments** — `deal_id, payment_date, gross, fee, net, source_upload_id`; unique `(deal_id, payment_date)`. Historical workbook rows are weekly-grained; go-forward rows monthly.
+**net_rtr_payments** — `deal_id, payment_date, gross, fee, net, source_upload_id`; unique `(deal_id, payment_date)`. Historical workbook rows are weekly-grained; go-forward rows monthly. `source_upload_id IS NULL` marks workbook-import rows; monthly-flow rows carry their upload id (used for replace-on-re-upload and for deleting an upload's payments).
 
 **funder_uploads** — `portfolio_id, funder_id, report_date, upload_type, original_filename, storage_path, file_size, uploaded_by`; unique `(portfolio_id, funder_id, report_date, upload_type)` (re-upload idempotency at the DB level).
 
@@ -63,44 +35,43 @@ Schema is managed by CLI migrations in `supabase/migrations/` (`supabase migrati
 
 **industries** (seeded from the workbook's curated Keep list, 171 rows), **states** (51 rows) — lookups.
 
-### Views (workbook formulas in SQL, all `security_invoker`)
+## Views (workbook formulas in SQL, all `security_invoker`)
 
 - **deal_computed** — the derived columns of a funder deal sheet (sell rate, cost basis, net RTR, factor, balances, bad debt)
 - **monthly_vintage_stats** — the per-funder `-P` sheets (per portfolio × funder × vintage month)
 - **portfolio_monthly** — the `ALDER Portfolio` sheet (per portfolio × vintage month)
 - **weekly_rtr_matrix** — the `RTR` sheet in long form (funder × payment date)
 - **funder_allocation_current** — the `R&H-ALDER-P` allocation snapshot
+- **deal_payments** — per-deal payment rows with portfolio/funder scope (Phase 5, feeds the export's payment matrix)
 
-### Functions (Phase 2 write path)
+## Functions (write paths)
 
 - **commit_funder_pivot(upload_id, rows jsonb, total_gross, total_fee, total_net, dry_run)** — the single write path from parser output to the DB. Replaces the upload's `funder_pivot_tables`/`funder_pivot_rows`, matches rows to `deals` on `funder_advance_id` (scoped to portfolio + funder; ambiguous matches flagged as duplicates), and unless `dry_run` writes `net_rtr_payments` — aborting unless matched + unmatched + duplicate nets equal the parser's `total_net` within a cent. Returns a reconciliation JSON. `SECURITY INVOKER`, so RLS applies.
 - **resolve_pivot_row(row_id, deal_id)** — resolves one unmatched pivot row to a deal and (re)writes that deal's payment for the pivot's report date; idempotent.
+- **import_funder_sheet(portfolio_id, funder_id, management_fee_rate, deals jsonb, total_net_payments)** — one-time onboarding import of a workbook funder sheet (merchants, deals, import-sourced payments); idempotent per sheet.
 
-Frontend flow (`src/services/pivot-sync-service.ts` + `use-cloud-sync.ts`): after the local save, the raw file goes to the private `funder-uploads` Storage bucket (`{portfolio_id}/{funder_id}/{report_date}/{filename}`, RLS on the first path segment), `funder_uploads` is upserted, then a dry-run of `commit_funder_pivot` feeds the reconciliation modal; confirming re-runs it for real. Clear View syncs both portfolios from one upload.
+## Monthly flow (cloud-only since Phase 5)
 
-### RLS
+`pivot-sync-service.ts` + `use-cloud-sync.ts`: the uploaded file's bytes go to
+the Rust `parse_funder_pivot` command (validate + parse, nothing kept
+locally), the raw file goes to the private `funder-uploads` Storage bucket
+(`{portfolio_id}/{funder_id}/{report_date}/{filename}`, RLS on the first path
+segment), `funder_uploads` is upserted, then a dry-run of
+`commit_funder_pivot` feeds the reconciliation modal; confirming re-runs it
+for real. Clear View syncs both portfolios from one upload. Deleting an
+upload removes its payments (`source_upload_id`), the Storage object, and the
+`funder_uploads` row (pivot tables/rows cascade).
+
+## Export (Phase 5)
+
+`workbook-export-service.ts` pages through the views (`deal_computed`,
+`deal_payments`, `monthly_vintage_stats`, `portfolio_monthly`,
+`weekly_rtr_matrix`, `funder_allocation_current`) plus the lookup tables,
+shapes one payload, and the Rust `export_portfolio_workbook` command writes a
+values-only .xlsx matching the client workbook layout. Deal-sheet headers are
+chosen so an exported workbook re-imports cleanly through
+`parse_portfolio_workbook` (round-trip covered by a Rust test).
+
+## RLS
 
 `has_portfolio_access(portfolio_id)` + `is_admin()` (both `SECURITY DEFINER`) gate all portfolio-scoped tables via `portfolio_access`. Tables without a `portfolio_id` scope through their parent (`net_rtr_payments` via `deals`, `funder_pivot_rows` via `funder_pivot_tables`). Lookups (`funders`, `industries`, `states`) remain readable by any authenticated user; anon sees nothing.
-
----
-
-## Which store owns what
-
-| Data | Current owner |
-|------|--------------|
-| Portfolio workbook versions | SQLite |
-| Funder uploads | Dual-write: SQLite + Supabase (`funder_uploads` + Storage bucket, Phase 2) |
-| Pivot tables | Dual-write: SQLite CSV + Supabase (`funder_pivot_tables`/`_rows` via `commit_funder_pivot`, Phase 2) |
-| Merchant records | Dual-write: SQLite (still extracted on workbook upload) + Supabase (populated by the Phase 3 import). Nothing reads the SQLite copy anymore — the dashboard moved to the Supabase analytics views in Phase 4 |
-| Deals & payments | Supabase (`deals` empty until the Phase 3 workbook import; `net_rtr_payments` written by `commit_funder_pivot`) |
-| Dashboard analytics | Supabase views (`portfolio_monthly`, `monthly_vintage_stats`, `funder_allocation_current`, `weekly_rtr_matrix`) read by `analytics-service.ts` (Phase 4) |
-| User profiles & auth | Supabase |
-| Portfolio access control | Supabase (`portfolio_access` + RLS) |
-
-Phase 2 added the cloud write path alongside the local one. SQLite stays load-bearing (the Pyodide workbook update still reads local pivot CSVs) until the Phase 5 cutover.
-
----
-
-## Legacy Excel workbook
-
-Portfolio workbooks (e.g. `ALDER.xlsx`) are the source-of-truth for merchant data. `PortfolioParser` reads them to populate the `merchants` SQLite table. The BIG parser also detects portfolio by looking for sheet names containing `"R&H"` or `"White Rabbit"`.

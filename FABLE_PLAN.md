@@ -220,10 +220,13 @@ One migration (`20260710135856_phase3_workbook_import`). Full pipeline verified 
 - [x] KPI cards from `portfolio_monthly`: dollars at work, cost basis, net RTR outstanding, principal/profit returned, lifetime return %, bad debt % (ratios recomputed from the summed columns, not averaged over vintages)
 - [x] Portfolio switcher driven by `portfolio_access` — the Select lists `portfolios` and RLS filters to granted rows; hardcoded Alder/White Rabbit options removed. No "all portfolios" aggregate (each workbook is one portfolio; cross-portfolio sums would mix profit-share/fee configs)
 
-### Phase 5 — Excel export & retirement
+### Phase 5 — Excel export & retirement ✅ Completed 2026-07-10
 
-- [ ] "Export portfolio as workbook": generate the full workbook from Supabase (`rust_xlsxwriter`, or repoint the existing openpyxl/Pyodide runtime at DB data). Values-only sheets matching the workbook layout first; live formulas later if the client keeps editing in Excel
-- [ ] Then delete: `pyodide-service.ts`, `database.rs` + SQLite, version-management bulk of `file_handler.rs`, local paths in `validated_file_handler.rs`
+One migration (`20260711002147_phase5_deal_payments_view`, pushed live): `deal_payments` view exposing per-deal payment rows with portfolio scope for the export's payment matrix.
+
+- [x] "Export Portfolio Workbook" button on both portfolio pages: `workbook-export-service.ts` pages the views (`deal_computed`, `deal_payments`, `monthly_vintage_stats`, `portfolio_monthly`, `weekly_rtr_matrix`, `funder_allocation_current`) + lookups into one payload; new Rust `export_portfolio_workbook` (`rust_xlsxwriter`, `workbook_export.rs`) writes values-only sheets matching the workbook layout — funder deal sheets (A1 label + B1 fee, inputs + derived columns + "Net RTR M/D/YY" matrix + totals row), per-funder `-P` vintage sheets, `{NAME} Portfolio` rollup, `RTR` matrix, `R&H-{NAME}-P` allocation snapshot. Deal-sheet headers deliberately match `build_column_map` so an export re-imports cleanly through the Phase 3 wizard — covered by a Rust round-trip test (export → `parse_portfolio_workbook` → field-for-field asserts)
+- [x] Monthly flow made cloud-only first (the dual-write's local half was the Pyodide updater's data source): new `parse_funder_pivot` command (`funder_pivot.rs`) validates + parses upload bytes straight to pivot rows + totals — no temp SQLite/CSV; `pivot-sync-service.ts` gained `listUploadsForDate`/`uploadExists`/`deleteUpload` (payments by `source_upload_id` + Storage object + row, pivot records cascade), portfolio pages list uploads from `funder_uploads` instead of SQLite
+- [x] Deleted: `pyodide-service.ts` + pyodide dep + preload, `database.rs` (all of SQLite), `file_handler.rs`, `validated_file_handler.rs`, `portfolio_parser.rs` (merchant extraction died with workbook uploads), `file-service.ts`, file-explorer page + file-viewer feature + sidebar entry, both unmatched-deals modals (cloud reconciliation modal covers it), workbook upload + version-history UI, `rusqlite`/`uuid`/`lazy_static`/`dirs`/`regex` deps. `run()` no longer touches `~/Excelerate/`. Not ported (never read from SQLite anyway): version restore/rollback — Storage keeps the raw files if it's ever needed
 
 ---
 
