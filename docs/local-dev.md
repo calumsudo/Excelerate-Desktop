@@ -47,10 +47,17 @@ populate them, which is also the end-to-end test for Phase 3.
 ## Useful commands
 
 ```bash
-npm run db:reset:local   # wipe local DB, re-apply migrations + seed
+npm run db:wipe:local    # fast: delete portfolio DATA only (deals, merchants,
+                         # payments, uploads + Storage) — schema, seeds, and the
+                         # dev login survive; also applies pending migrations
+npm run db:reset:local   # full: wipe local DB, re-apply migrations + seed
 supabase status          # URLs + keys of the running stack
 supabase stop            # shut the stack down (add --no-backup to also wipe)
 ```
+
+`db:wipe:local` is the loop for import/upload testing: import a workbook,
+poke at it, wipe, repeat. It refuses to run against anything but the local
+Docker stack.
 
 Supabase Studio runs at <http://127.0.0.1:54323> for poking at local data.
 
