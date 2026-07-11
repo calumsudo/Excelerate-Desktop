@@ -51,23 +51,13 @@ Forgetting `generate_handler` registration compiles fine but the frontend `invok
 
 | Command | What it does | TS wrapper |
 |---------|-------------|-----------|
-| `extract_merchants_from_portfolio` | Parses portfolio workbook and inserts merchant rows | `file-service.ts` → `extractMerchantsFromPortfolio` |
-| `get_merchants_by_portfolio` | Returns all merchants for a portfolio | `file-service.ts` / `dashboard-service.ts` → `getMerchantsByPortfolio` |
-| `get_merchants_by_funder` | Returns merchants for a specific funder | _(not wrapped)_ |
-| `clear_merchants_for_portfolio` | Deletes all merchant records for a portfolio | _(not wrapped)_ |
 | `find_unmatched_deals` | Returns deals with no matching merchant record | `file-service.ts` → `findUnmatchedDeals` |
 | `find_unmatched_deals_by_portfolio` | Same, scoped to one portfolio | `file-service.ts` → `findUnmatchedDealsByPortfolio` |
 | `find_unmatched_deals_by_date` | Same, scoped to one report date | `file-service.ts` → `findUnmatchedDealsByDate` |
 
----
-
-## Dashboard
-
-| Command | What it does | TS wrapper |
-|---------|-------------|-----------|
-| `get_dashboard_stats` | Returns aggregate stats for the dashboard | `dashboard-service.ts` → `getDashboardStats` |
-| `get_funder_distribution` | Returns funding breakdown by funder | `dashboard-service.ts` → `getFunderDistribution` |
-| `get_monthly_funding_trends` | Returns monthly funding trend data | `dashboard-service.ts` → `getMonthlyFundingTrends` |
+The dashboard has no Tauri commands: it reads the Supabase analytics views
+(`portfolio_monthly`, `monthly_vintage_stats`, `funder_allocation_current`,
+`weekly_rtr_matrix`) directly via `analytics-service.ts`.
 
 ---
 

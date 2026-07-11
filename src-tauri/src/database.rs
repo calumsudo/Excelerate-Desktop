@@ -810,20 +810,6 @@ impl Database {
         Ok(merchant)
     }
 
-    pub fn get_merchants_by_portfolio(&self, portfolio_name: &str) -> Result<Vec<Merchant>> {
-        let mut stmt = self.conn.prepare(
-            "SELECT id, portfolio_name, funder_name, date_funded, merchant_name, website,
-                    advance_id, funder_advance_id, industry_naics_or_sic, state, fico,
-                    buy_rate, commission, total_amount_funded, created_timestamp, updated_timestamp 
-             FROM merchants 
-             WHERE portfolio_name = ?1 
-             ORDER BY funder_name, merchant_name",
-        )?;
-
-        let merchants = stmt.query_map(params![portfolio_name], Self::row_to_merchant)?;
-        merchants.collect()
-    }
-
     pub fn get_merchants_by_funder(
         &self,
         portfolio_name: &str,
