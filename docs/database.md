@@ -47,7 +47,7 @@ Schema is managed by CLI migrations in `supabase/migrations/` (`supabase migrati
 ## Functions (write paths)
 
 - **commit_funder_pivot(upload_id, rows jsonb, total_gross, total_fee, total_net, dry_run)** — the single write path from parser output to the DB. Replaces the upload's `funder_pivot_tables`/`funder_pivot_rows`, matches rows to `deals` on `funder_advance_id` (scoped to portfolio + funder; ambiguous matches flagged as duplicates), and unless `dry_run` writes `net_rtr_payments` — aborting unless matched + unmatched + duplicate nets equal the parser's `total_net` within a cent. Returns a reconciliation JSON. `SECURITY INVOKER`, so RLS applies.
-- **resolve_pivot_row(row_id, deal_id)** — resolves one unmatched pivot row to a deal and (re)writes that deal's payment for the pivot's report date; idempotent.
+- **resolve_pivot_row(row_id, deal_id)** — resolves one unmatched pivot row to a deal and (re)writes that deal's payment for the pivot's report date; idempotent. Unmatched rows live in `funder_pivot_rows` with `matched_deal_id IS NULL` (their dollars are excluded from `net_rtr_payments` until resolved); the Deal Lookup page's Unmatched tab lists them all for later reconciliation — match to an existing deal or create the deal and auto-resolve.
 - **import_funder_sheet(portfolio_id, funder_id, management_fee_rate, deals jsonb, total_net_payments)** — one-time onboarding import of a workbook funder sheet (merchants, deals, import-sourced payments); idempotent per sheet.
 
 Deal CRUD from the Deal Lookup page (`deal-editor-service.ts`) writes `deals`/`merchants` directly — the phase 1 RLS policies allow insert/update/delete for users with portfolio access. Deleting a deal cascades its `net_rtr_payments`.

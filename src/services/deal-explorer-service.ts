@@ -643,6 +643,38 @@ export function chartRowsToPie(data: ChartData, maxSlices = 11): { name: string;
 }
 
 // ---------------------------------------------------------------------------
+// Unmatched pivot-row reconciliation
+// ---------------------------------------------------------------------------
+
+/**
+ * Candidate deals for an unresolved pivot row: same portfolio + funder,
+ * exact advance-id matches first (the duplicate-flag case), then merchant-
+ * name matches, then the rest newest-funded first.
+ */
+export function rankCandidateDeals(
+  row: {
+    advance_id: string | null;
+    merchant_name: string;
+    portfolio_id: number | null;
+    funder_id: number | null;
+  },
+  deals: DealRecord[]
+): DealRecord[] {
+  const merchant = row.merchant_name.trim().toLowerCase();
+  const score = (deal: DealRecord): number => {
+    if (row.advance_id != null && deal.funder_advance_id === row.advance_id) return 0;
+    const name = (deal.merchant_name ?? "").toLowerCase();
+    if (merchant && name && (name.includes(merchant) || merchant.includes(name))) return 1;
+    return 2;
+  };
+  return deals
+    .filter((d) => d.portfolio_id === row.portfolio_id && d.funder_id === row.funder_id)
+    .sort(
+      (a, b) => score(a) - score(b) || (b.date_funded ?? "").localeCompare(a.date_funded ?? "")
+    );
+}
+
+// ---------------------------------------------------------------------------
 // CSV export
 // ---------------------------------------------------------------------------
 

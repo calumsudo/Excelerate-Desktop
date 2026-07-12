@@ -258,12 +258,15 @@ async function upsertMerchant(values: DealFormValues): Promise<string> {
   return data.id;
 }
 
-export async function createDeal(values: DealFormValues): Promise<void> {
+export async function createDeal(values: DealFormValues): Promise<string> {
   const merchantId = await upsertMerchant(values);
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("deals")
-    .insert({ ...formToDealRow(values), merchant_id: merchantId });
+    .insert({ ...formToDealRow(values), merchant_id: merchantId })
+    .select("id")
+    .single();
   if (error) throw new Error(`Failed to create deal: ${error.message}`);
+  return data.id;
 }
 
 export async function updateDeal(dealId: string, values: DealFormValues): Promise<void> {

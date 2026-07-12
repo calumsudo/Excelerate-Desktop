@@ -7,6 +7,7 @@ import {
   countActiveFilters,
   formatFieldValue,
   pivotToCsv,
+  rankCandidateDeals,
   recordsToCsv,
   EMPTY_FILTERS,
   type DealRecord,
@@ -307,6 +308,52 @@ describe("CSV export", () => {
       "Jan 25,100,50,150",
       "Total,100,50,150",
     ]);
+  });
+});
+
+describe("rankCandidateDeals", () => {
+  const pivotRow = {
+    advance_id: "ADV-42",
+    merchant_name: "Acme Bakery",
+    portfolio_id: 1,
+    funder_id: 2,
+  };
+  const deals = [
+    deal({ id: "other-scope", portfolio_id: 2, funder_id: 2, funder_advance_id: "ADV-42" }),
+    deal({
+      id: "old",
+      portfolio_id: 1,
+      funder_id: 2,
+      funder_advance_id: "X",
+      merchant_name: "Bolt Trucking",
+      date_funded: "2024-01-01",
+    }),
+    deal({
+      id: "name-match",
+      portfolio_id: 1,
+      funder_id: 2,
+      funder_advance_id: "Y",
+      merchant_name: "Acme Bakery LLC",
+      date_funded: "2024-06-01",
+    }),
+    deal({
+      id: "exact",
+      portfolio_id: 1,
+      funder_id: 2,
+      funder_advance_id: "ADV-42",
+      merchant_name: "Renamed Corp",
+      date_funded: "2023-01-01",
+    }),
+  ];
+
+  it("scopes to the row's portfolio + funder and ranks exact ID first", () => {
+    const ranked = rankCandidateDeals(pivotRow, deals);
+    expect(ranked.map((d) => d.id)).toEqual(["exact", "name-match", "old"]);
+  });
+
+  it("falls back to merchant-name and recency without an advance id", () => {
+    const ranked = rankCandidateDeals({ ...pivotRow, advance_id: null }, deals);
+    expect(ranked.map((d) => d.id)).toEqual(["name-match", "old", "exact"]);
   });
 });
 

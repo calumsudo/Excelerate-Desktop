@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Button,
   Card,
+  Chip,
   Input,
   Modal,
   ModalBody,
@@ -37,14 +38,17 @@ import {
   deleteDeal,
   getDealFormValues,
   getEditorLookups,
+  EMPTY_DEAL_FORM,
   type DealFormValues,
   type EditorLookups,
 } from "@services/deal-editor-service";
+import PivotSyncService, { type UnresolvedPivotRow } from "@services/pivot-sync-service";
 import FilterPanel, { type FilterOptions } from "@components/deal-explorer/filter-panel";
 import ExplorerTable from "@components/deal-explorer/explorer-table";
 import PivotBuilder from "@components/deal-explorer/pivot-builder";
 import ChartBuilder from "@components/deal-explorer/chart-builder";
 import DealFormModal from "@components/deal-explorer/deal-form-modal";
+import ReconcilePanel from "@components/deal-explorer/reconcile-panel";
 
 const EMPTY_LOOKUPS: EditorLookups = {
   portfolios: [],
@@ -98,8 +102,16 @@ function DealLookup() {
   const [lookups, setLookups] = useState<EditorLookups>(EMPTY_LOOKUPS);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<{ dealId: string; values: DealFormValues } | null>(null);
+  const [createDefaults, setCreateDefaults] = useState<DealFormValues | null>(null);
   const [deleting, setDeleting] = useState<DealRecord | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
+
+  // Unmatched pivot-row reconciliation
+  const [unresolvedRows, setUnresolvedRows] = useState<UnresolvedPivotRow[]>([]);
+  const [unresolvedLoading, setUnresolvedLoading] = useState(true);
+  const [busyRowId, setBusyRowId] = useState<string | null>(null);
+  /** When set, the next saved deal also resolves this pivot row. */
+  const [pendingResolveRowId, setPendingResolveRowId] = useState<string | null>(null);
 
   const fetchLookups = useCallback(() => {
     getEditorLookups()
@@ -122,11 +134,28 @@ function DealLookup() {
       .finally(() => setLoading(false));
   }, []);
 
+  const fetchUnresolved = useCallback(() => {
+    setUnresolvedLoading(true);
+    PivotSyncService.listUnresolvedRows()
+      .then(setUnresolvedRows)
+      .catch((err) =>
+        showToast({
+          title: "Failed to load unmatched pivot rows",
+          description: err instanceof Error ? err.message : String(err),
+          type: "error",
+        })
+      )
+      .finally(() => setUnresolvedLoading(false));
+  }, [showToast]);
+
   useEffect(fetchRecords, [fetchRecords]);
   useEffect(fetchLookups, [fetchLookups]);
+  useEffect(fetchUnresolved, [fetchUnresolved]);
 
   const openCreate = () => {
     setEditing(null);
+    setCreateDefaults(null);
+    setPendingResolveRowId(null);
     setFormOpen(true);
   };
 
@@ -134,6 +163,8 @@ function DealLookup() {
     try {
       const values = await getDealFormValues(record.id);
       setEditing({ dealId: record.id, values });
+      setCreateDefaults(null);
+      setPendingResolveRowId(null);
       setFormOpen(true);
     } catch (err) {
       showToast({
@@ -144,8 +175,54 @@ function DealLookup() {
     }
   };
 
-  const handleSaved = () => {
+  const resolveRow = async (row: UnresolvedPivotRow, dealId: string) => {
+    setBusyRowId(row.row_id);
+    try {
+      await PivotSyncService.resolveRow(row.row_id, dealId);
+      showToast({
+        title: "Pivot row resolved",
+        description: `${row.merchant_name} — payment written for ${row.report_date}`,
+        type: "success",
+      });
+      fetchRecords();
+      fetchUnresolved();
+    } catch (err) {
+      showToast({
+        title: "Failed to resolve pivot row",
+        description: err instanceof Error ? err.message : String(err),
+        type: "error",
+      });
+    } finally {
+      setBusyRowId(null);
+    }
+  };
+
+  /** "New deal" from an unmatched row: prefill the form, resolve after save. */
+  const createDealFromRow = (row: UnresolvedPivotRow) => {
+    setEditing(null);
+    setCreateDefaults({
+      ...EMPTY_DEAL_FORM,
+      portfolioId: row.portfolio_id,
+      funderId: row.funder_id,
+      merchantName: row.merchant_name,
+      funderAdvanceId: row.advance_id ?? "",
+      dateFunded: row.report_date,
+    });
+    setPendingResolveRowId(row.row_id);
+    setFormOpen(true);
+  };
+
+  const handleSaved = async (dealId: string) => {
     showToast({ title: editing != null ? "Deal updated" : "Deal created", type: "success" });
+    if (pendingResolveRowId != null) {
+      const row = unresolvedRows.find((r) => r.row_id === pendingResolveRowId);
+      setPendingResolveRowId(null);
+      if (row != null) {
+        await resolveRow(row, dealId);
+        fetchLookups();
+        return; // resolveRow already refetched records
+      }
+    }
     fetchRecords();
     fetchLookups(); // a save may have added or renamed a merchant
   };
@@ -417,6 +494,30 @@ function DealLookup() {
           >
             <ChartBuilder records={filtered} config={chartConfig} onConfigChange={setChartConfig} />
           </Tab>
+          <Tab
+            key="unmatched"
+            title={
+              <div className="flex items-center gap-2">
+                <Icon icon="solar:link-broken-linear" width={16} />
+                Unmatched
+                {unresolvedRows.length > 0 && (
+                  <Chip size="sm" variant="flat" color="warning">
+                    {unresolvedRows.length}
+                  </Chip>
+                )}
+              </div>
+            }
+          >
+            <ReconcilePanel
+              rows={unresolvedRows}
+              deals={records}
+              lookups={lookups}
+              loading={unresolvedLoading}
+              busyRowId={busyRowId}
+              onResolve={resolveRow}
+              onCreateDeal={createDealFromRow}
+            />
+          </Tab>
         </Tabs>
       )}
 
@@ -425,6 +526,7 @@ function DealLookup() {
         onClose={() => setFormOpen(false)}
         lookups={lookups}
         editing={editing}
+        createDefaults={createDefaults}
         onSaved={handleSaved}
       />
 

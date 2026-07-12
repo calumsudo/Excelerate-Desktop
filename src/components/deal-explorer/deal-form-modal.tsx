@@ -60,13 +60,16 @@ const DealFormModal = ({
   lookups,
   /** null → create; otherwise the deal being edited with its loaded inputs. */
   editing,
+  /** Prefilled values for create mode (e.g. from an unmatched pivot row). */
+  createDefaults,
   onSaved,
 }: {
   isOpen: boolean;
   onClose: () => void;
   lookups: EditorLookups;
   editing: { dealId: string; values: DealFormValues } | null;
-  onSaved: () => void;
+  createDefaults?: DealFormValues | null;
+  onSaved: (dealId: string) => void;
 }) => {
   const [values, setValues] = useState<DealFormValues>(EMPTY_DEAL_FORM);
   const [saving, setSaving] = useState(false);
@@ -74,10 +77,10 @@ const DealFormModal = ({
 
   useEffect(() => {
     if (isOpen) {
-      setValues(editing?.values ?? EMPTY_DEAL_FORM);
+      setValues(editing?.values ?? createDefaults ?? EMPTY_DEAL_FORM);
       setError(null);
     }
-  }, [isOpen, editing]);
+  }, [isOpen, editing, createDefaults]);
 
   const set = <K extends keyof DealFormValues>(key: K, value: DealFormValues[K]) =>
     setValues((current) => ({ ...current, [key]: value }));
@@ -119,12 +122,14 @@ const DealFormModal = ({
     setSaving(true);
     setError(null);
     try {
+      let dealId: string;
       if (editing != null) {
         await updateDeal(editing.dealId, values);
+        dealId = editing.dealId;
       } else {
-        await createDeal(values);
+        dealId = await createDeal(values);
       }
-      onSaved();
+      onSaved(dealId);
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
