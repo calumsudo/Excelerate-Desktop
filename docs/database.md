@@ -50,6 +50,8 @@ Schema is managed by CLI migrations in `supabase/migrations/` (`supabase migrati
 - **resolve_pivot_row(row_id, deal_id)** — resolves one unmatched pivot row to a deal and (re)writes that deal's payment for the pivot's report date; idempotent.
 - **import_funder_sheet(portfolio_id, funder_id, management_fee_rate, deals jsonb, total_net_payments)** — one-time onboarding import of a workbook funder sheet (merchants, deals, import-sourced payments); idempotent per sheet.
 
+Deal CRUD from the Deal Lookup page (`deal-editor-service.ts`) writes `deals`/`merchants` directly — the phase 1 RLS policies allow insert/update/delete for users with portfolio access. Deleting a deal cascades its `net_rtr_payments`.
+
 ## Monthly flow (cloud-only since Phase 5)
 
 `pivot-sync-service.ts` + `use-cloud-sync.ts`: the uploaded file's bytes go to

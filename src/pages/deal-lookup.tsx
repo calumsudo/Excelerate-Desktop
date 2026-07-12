@@ -33,10 +33,26 @@ import {
   type PivotConfig,
   type PivotData,
 } from "@services/deal-explorer-service";
+import {
+  deleteDeal,
+  getDealFormValues,
+  getEditorLookups,
+  type DealFormValues,
+  type EditorLookups,
+} from "@services/deal-editor-service";
 import FilterPanel, { type FilterOptions } from "@components/deal-explorer/filter-panel";
 import ExplorerTable from "@components/deal-explorer/explorer-table";
 import PivotBuilder from "@components/deal-explorer/pivot-builder";
 import ChartBuilder from "@components/deal-explorer/chart-builder";
+import DealFormModal from "@components/deal-explorer/deal-form-modal";
+
+const EMPTY_LOOKUPS: EditorLookups = {
+  portfolios: [],
+  funders: [],
+  industries: [],
+  states: [],
+  merchants: [],
+};
 
 const VIEWS_STORAGE_KEY = "excelerate.deal-lookup.views";
 
@@ -78,6 +94,25 @@ function DealLookup() {
   const [saveModalOpen, setSaveModalOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
 
+  // Deal CRUD
+  const [lookups, setLookups] = useState<EditorLookups>(EMPTY_LOOKUPS);
+  const [formOpen, setFormOpen] = useState(false);
+  const [editing, setEditing] = useState<{ dealId: string; values: DealFormValues } | null>(null);
+  const [deleting, setDeleting] = useState<DealRecord | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+
+  const fetchLookups = useCallback(() => {
+    getEditorLookups()
+      .then(setLookups)
+      .catch((err) =>
+        showToast({
+          title: "Failed to load deal form lookups",
+          description: err instanceof Error ? err.message : String(err),
+          type: "error",
+        })
+      );
+  }, [showToast]);
+
   const fetchRecords = useCallback(() => {
     setLoading(true);
     setError(null);
@@ -88,6 +123,55 @@ function DealLookup() {
   }, []);
 
   useEffect(fetchRecords, [fetchRecords]);
+  useEffect(fetchLookups, [fetchLookups]);
+
+  const openCreate = () => {
+    setEditing(null);
+    setFormOpen(true);
+  };
+
+  const openEdit = async (record: DealRecord) => {
+    try {
+      const values = await getDealFormValues(record.id);
+      setEditing({ dealId: record.id, values });
+      setFormOpen(true);
+    } catch (err) {
+      showToast({
+        title: "Failed to load deal",
+        description: err instanceof Error ? err.message : String(err),
+        type: "error",
+      });
+    }
+  };
+
+  const handleSaved = () => {
+    showToast({ title: editing != null ? "Deal updated" : "Deal created", type: "success" });
+    fetchRecords();
+    fetchLookups(); // a save may have added or renamed a merchant
+  };
+
+  const confirmDelete = async () => {
+    if (deleting == null) return;
+    setDeleteBusy(true);
+    try {
+      await deleteDeal(deleting.id);
+      showToast({
+        title: "Deal deleted",
+        description: deleting.merchant_name ?? deleting.funder_advance_id ?? deleting.id,
+        type: "success",
+      });
+      setDeleting(null);
+      fetchRecords();
+    } catch (err) {
+      showToast({
+        title: "Delete failed",
+        description: err instanceof Error ? err.message : String(err),
+        type: "error",
+      });
+    } finally {
+      setDeleteBusy(false);
+    }
+  };
 
   const options = useMemo<FilterOptions>(
     () => ({
@@ -300,6 +384,9 @@ function DealLookup() {
               onVisibleFieldsChange={setVisibleFields}
               onExport={exportTable}
               exporting={exporting}
+              onCreate={openCreate}
+              onEdit={openEdit}
+              onDelete={setDeleting}
             />
           </Tab>
           <Tab
@@ -332,6 +419,54 @@ function DealLookup() {
           </Tab>
         </Tabs>
       )}
+
+      <DealFormModal
+        isOpen={formOpen}
+        onClose={() => setFormOpen(false)}
+        lookups={lookups}
+        editing={editing}
+        onSaved={handleSaved}
+      />
+
+      <Modal
+        isOpen={deleting != null}
+        onOpenChange={(open) => !open && setDeleting(null)}
+        size="sm"
+      >
+        <ModalContent>
+          <ModalHeader>Delete deal</ModalHeader>
+          <ModalBody>
+            <p className="text-small">
+              Delete the deal for{" "}
+              <span className="font-semibold">{deleting?.merchant_name ?? "this merchant"}</span>
+              {deleting?.funder_advance_id != null && (
+                <span className="text-default-500"> ({deleting.funder_advance_id})</span>
+              )}
+              ?
+            </p>
+            {deleting != null && deleting.total_net_received > 0 && (
+              <p className="text-small text-danger">
+                {formatMoney(deleting.total_net_received)} of recorded payments will be deleted with
+                it.
+              </p>
+            )}
+            <p className="text-tiny text-default-400">This cannot be undone.</p>
+          </ModalBody>
+          <ModalFooter>
+            <Button
+              size="sm"
+              variant="light"
+              onPress={() => setDeleting(null)}
+              isDisabled={deleteBusy}
+            >
+              Cancel
+            </Button>
+            <Button size="sm" color="danger" isLoading={deleteBusy} onPress={confirmDelete}>
+              Delete
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
 
       <Modal isOpen={saveModalOpen} onOpenChange={setSaveModalOpen} size="sm">
         <ModalContent>

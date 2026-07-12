@@ -46,18 +46,26 @@ function compareValues(a: unknown, b: unknown): number {
   return String(a).localeCompare(String(b));
 }
 
+const ACTIONS_KEY = "__actions";
+
 const ExplorerTable = ({
   records,
   visibleFields,
   onVisibleFieldsChange,
   onExport,
   exporting,
+  onCreate,
+  onEdit,
+  onDelete,
 }: {
   records: DealRecord[];
   visibleFields: string[];
   onVisibleFieldsChange: (fields: string[]) => void;
   onExport: () => void;
   exporting: boolean;
+  onCreate: () => void;
+  onEdit: (record: DealRecord) => void;
+  onDelete: (record: DealRecord) => void;
 }) => {
   const [page, setPage] = useState(1);
   const [sort, setSort] = useState<SortDescriptor>({
@@ -67,7 +75,14 @@ const ExplorerTable = ({
 
   // Keep registry order so the table layout is stable however columns are picked.
   const columns = useMemo(
-    () => DEAL_FIELDS.filter((f) => visibleFields.includes(f.key as string)),
+    () => [
+      ...DEAL_FIELDS.filter((f) => visibleFields.includes(f.key as string)).map((f) => ({
+        key: f.key as string,
+        label: f.label,
+        type: f.type,
+      })),
+      { key: ACTIONS_KEY, label: "", type: "text" as FieldType },
+    ],
     [visibleFields]
   );
 
@@ -86,6 +101,14 @@ const ExplorerTable = ({
       <div className="flex flex-wrap items-center justify-between gap-3 p-4 pb-2">
         <span className="text-tiny text-default-400">{records.length.toLocaleString()} deals</span>
         <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            color="primary"
+            startContent={<Icon icon="solar:add-circle-linear" width={16} />}
+            onPress={onCreate}
+          >
+            New Deal
+          </Button>
           <Dropdown closeOnSelect={false}>
             <DropdownTrigger>
               <Button
@@ -150,8 +173,8 @@ const ExplorerTable = ({
           <TableHeader columns={columns}>
             {(column) => (
               <TableColumn
-                key={column.key as string}
-                allowsSorting
+                key={column.key}
+                allowsSorting={column.key !== ACTIONS_KEY}
                 align={isNumericType(column.type) ? "end" : "start"}
               >
                 {column.label.toUpperCase()}
@@ -162,6 +185,33 @@ const ExplorerTable = ({
             {(record) => (
               <TableRow key={record.id}>
                 {(columnKey) => {
+                  if (columnKey === ACTIONS_KEY) {
+                    return (
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            isIconOnly
+                            size="sm"
+                            variant="light"
+                            aria-label="Edit deal"
+                            onPress={() => onEdit(record)}
+                          >
+                            <Icon icon="solar:pen-linear" width={16} />
+                          </Button>
+                          <Button
+                            isIconOnly
+                            size="sm"
+                            variant="light"
+                            color="danger"
+                            aria-label="Delete deal"
+                            onPress={() => onDelete(record)}
+                          >
+                            <Icon icon="solar:trash-bin-minimalistic-linear" width={16} />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    );
+                  }
                   const def = fieldDef(String(columnKey));
                   const value = def ? record[def.key] : null;
                   if (def?.key === "status") {
