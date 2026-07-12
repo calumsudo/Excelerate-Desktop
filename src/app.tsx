@@ -4,6 +4,7 @@ import Layout from "./layout";
 import Dashboard from "@pages/dashboard";
 import AlderPortfolio from "@pages/alder-portfolio";
 import WhiteRabbitPortfolio from "@pages/white-rabbit-portfolio";
+import DealLookup from "@pages/deal-lookup";
 import Settings from "@pages/settings";
 import Login from "@pages/login";
 import { ProtectedRoute } from "@components/auth/protected-route";
@@ -40,6 +41,7 @@ function App() {
         <Route path="dashboard" element={<Dashboard />} />
         <Route path="alder-portfolio" element={<AlderPortfolio />} />
         <Route path="white-rabbit-portfolio" element={<WhiteRabbitPortfolio />} />
+        <Route path="deal-lookup" element={<DealLookup />} />
         <Route path="settings" element={<Settings />} />
       </Route>
     </Routes>
