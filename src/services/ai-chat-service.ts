@@ -48,6 +48,7 @@ export interface AiSettings {
   google_model: string;
   lmstudio_base_url: string;
   lmstudio_model: string;
+  lmstudio_api_key: string;
 }
 
 /** Live events streamed from Rust while a turn runs. */
@@ -78,7 +79,7 @@ export function apiKeyFor(settings: AiSettings, provider: AiProvider): string {
   if (provider === "anthropic") return settings.anthropic_api_key;
   if (provider === "openai") return settings.openai_api_key;
   if (provider === "google") return settings.google_api_key;
-  return "";
+  return settings.lmstudio_api_key;
 }
 
 export function modelFor(settings: AiSettings, provider: AiProvider): string {

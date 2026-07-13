@@ -22,10 +22,12 @@ pub struct AiSettings {
     pub anthropic_model: String,
     pub openai_model: String,
     pub google_model: String,
-    /// OpenAI-compatible local server (LM Studio / Ollama). No API key needed.
+    /// OpenAI-compatible local server (LM Studio / Ollama).
     pub lmstudio_base_url: String,
     /// Model id as shown in LM Studio; empty until the user sets one.
     pub lmstudio_model: String,
+    /// Optional — only needed when the local server has auth enabled.
+    pub lmstudio_api_key: String,
 }
 
 impl AiSettings {
@@ -53,6 +55,7 @@ impl AiSettings {
             "anthropic" => &self.anthropic_api_key,
             "openai" => &self.openai_api_key,
             "google" => &self.google_api_key,
+            "lmstudio" => &self.lmstudio_api_key,
             _ => "",
         }
     }

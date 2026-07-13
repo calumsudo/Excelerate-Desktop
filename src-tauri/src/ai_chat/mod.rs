@@ -56,8 +56,15 @@ impl TurnCtx<'_> {
                 .await
             }
             "lmstudio" => {
+                // Tolerate URLs entered without the /v1 path segment.
+                let base = self.lmstudio_base_url.trim_end_matches('/');
+                let base_url = if base.ends_with("/v1") {
+                    base.to_string()
+                } else {
+                    format!("{base}/v1")
+                };
                 let target = openai::OpenAiCompat {
-                    base_url: self.lmstudio_base_url,
+                    base_url: &base_url,
                     api_key: key,
                     label: "LM Studio",
                 };
