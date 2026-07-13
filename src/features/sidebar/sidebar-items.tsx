@@ -24,6 +24,11 @@ export const items: SidebarItem[] = [
     icon: "solar:safe-square-outline",
     title: "White Rabbit Portfolio",
   },
+  {
+    key: "deal-lookup",
+    icon: "solar:magnifer-zoom-in-outline",
+    title: "Deal Lookup",
+  },
 ];
 
 export const settingsItem: SidebarItem = {

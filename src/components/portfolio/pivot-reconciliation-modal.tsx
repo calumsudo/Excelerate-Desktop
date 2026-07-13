@@ -108,8 +108,9 @@ export function PivotReconciliationModal({
                           </TableBody>
                         </Table>
                         <p className="text-xs text-default-500 mt-2">
-                          Unmatched rows are saved with the pivot and can be resolved to deals later
-                          — their payments are not written until resolved.
+                          Unmatched rows are saved with the pivot — their payments are not written
+                          until resolved. Reconcile them any time from the Deal Lookup page&apos;s
+                          Unmatched tab.
                         </p>
                       </div>
                     )}

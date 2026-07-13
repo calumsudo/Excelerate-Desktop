@@ -73,6 +73,19 @@ export interface PreviewResult {
   validationWarnings: string[];
 }
 
+/** A pivot row still waiting to be matched to a deal, with its upload scope. */
+export interface UnresolvedPivotRow {
+  row_id: string;
+  advance_id: string | null;
+  merchant_name: string;
+  gross: number;
+  fee: number;
+  net: number;
+  portfolio_id: number | null;
+  funder_id: number | null;
+  report_date: string;
+}
+
 /** One funder_uploads row, resolved for display. */
 export interface CloudUploadInfo {
   id: string;
@@ -281,6 +294,66 @@ export class PivotSyncService {
     if (error) {
       throw new Error(`Failed to resolve pivot row: ${error.message}`);
     }
+  }
+
+  /**
+   * Every pivot row across all uploads still waiting for a deal
+   * (matched_deal_id IS NULL), newest report dates first. These are the
+   * rows whose dollars are not yet in net_rtr_payments.
+   */
+  static async listUnresolvedRows(): Promise<UnresolvedPivotRow[]> {
+    const PAGE = 1000; // PostgREST response cap
+    const rows: Array<{
+      id: string;
+      pivot_table_id: string;
+      advance_id: string | null;
+      merchant_name: string;
+      gross: number;
+      fee: number;
+      net: number;
+    }> = [];
+    for (let from = 0; ; from += PAGE) {
+      const { data, error } = await supabase
+        .from("funder_pivot_rows")
+        .select("id, pivot_table_id, advance_id, merchant_name, gross, fee, net")
+        .is("matched_deal_id", null)
+        .order("id")
+        .range(from, from + PAGE - 1);
+      if (error) throw new Error(`Failed to load unresolved pivot rows: ${error.message}`);
+      if (!data || data.length === 0) break;
+      rows.push(...data);
+      if (data.length < PAGE) break;
+    }
+    if (rows.length === 0) return [];
+
+    const pivotIds = [...new Set(rows.map((r) => r.pivot_table_id))];
+    const { data: pivots, error: pivotError } = await supabase
+      .from("funder_pivot_tables")
+      .select("id, portfolio_id, funder_id, report_date")
+      .in("id", pivotIds);
+    if (pivotError) throw new Error(`Failed to load pivot tables: ${pivotError.message}`);
+    const pivotsById = new Map((pivots ?? []).map((p) => [p.id, p]));
+
+    return rows
+      .map((row) => {
+        const pivot = pivotsById.get(row.pivot_table_id);
+        return {
+          row_id: row.id,
+          advance_id: row.advance_id,
+          merchant_name: row.merchant_name,
+          gross: row.gross,
+          fee: row.fee,
+          net: row.net,
+          portfolio_id: pivot?.portfolio_id ?? null,
+          funder_id: pivot?.funder_id ?? null,
+          report_date: pivot?.report_date ?? "",
+        };
+      })
+      .sort(
+        (a, b) =>
+          b.report_date.localeCompare(a.report_date) ||
+          a.merchant_name.localeCompare(b.merchant_name)
+      );
   }
 
   /** All funder uploads recorded in Supabase for one portfolio + report date. */
