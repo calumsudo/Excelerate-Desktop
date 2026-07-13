@@ -6,13 +6,19 @@
 import { Channel, invoke } from "@tauri-apps/api/core";
 import { supabase } from "./supabase";
 
-export type AiProvider = "anthropic" | "openai" | "google";
+export type AiProvider = "anthropic" | "openai" | "google" | "lmstudio";
 
 export const PROVIDER_LABELS: Record<AiProvider, string> = {
   anthropic: "Anthropic (Claude)",
   openai: "OpenAI",
   google: "Google (Gemini)",
+  lmstudio: "LM Studio (local)",
 };
+
+/** Local servers don't authenticate; every cloud provider needs a key. */
+export function providerNeedsApiKey(provider: AiProvider): boolean {
+  return provider !== "lmstudio";
+}
 
 export type ChatBlock =
   | { kind: "text"; text: string }
@@ -40,6 +46,8 @@ export interface AiSettings {
   anthropic_model: string;
   openai_model: string;
   google_model: string;
+  lmstudio_base_url: string;
+  lmstudio_model: string;
 }
 
 /** Live events streamed from Rust while a turn runs. */
@@ -69,13 +77,15 @@ export function prepareChatAttachment(path: string): Promise<PreparedAttachment>
 export function apiKeyFor(settings: AiSettings, provider: AiProvider): string {
   if (provider === "anthropic") return settings.anthropic_api_key;
   if (provider === "openai") return settings.openai_api_key;
-  return settings.google_api_key;
+  if (provider === "google") return settings.google_api_key;
+  return "";
 }
 
 export function modelFor(settings: AiSettings, provider: AiProvider): string {
   if (provider === "anthropic") return settings.anthropic_model;
   if (provider === "openai") return settings.openai_model;
-  return settings.google_model;
+  if (provider === "google") return settings.google_model;
+  return settings.lmstudio_model;
 }
 
 /**

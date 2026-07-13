@@ -1,5 +1,6 @@
-//! OpenAI Chat Completions client (raw HTTP). Streams tool-call and text
-//! deltas and reassembles them into the shared `AssistantTurn` shape.
+//! OpenAI Chat Completions client (raw HTTP). Also serves any
+//! OpenAI-compatible server (LM Studio, Ollama, …) via a custom base URL.
+//! Streams tool-call and text deltas into the shared `AssistantTurn` shape.
 
 use std::collections::BTreeMap;
 
@@ -8,7 +9,16 @@ use serde_json::{json, Value};
 use super::sse::{ensure_success, read_sse};
 use super::types::{AssistantTurn, ChatBlock, ChatMessage, EventSink, ToolDef};
 
-const API_URL: &str = "https://api.openai.com/v1/chat/completions";
+pub const OPENAI_BASE_URL: &str = "https://api.openai.com/v1";
+
+/// Where to send Chat Completions requests. `api_key` may be empty for
+/// local servers that don't authenticate.
+pub struct OpenAiCompat<'a> {
+    pub base_url: &'a str,
+    pub api_key: &'a str,
+    /// Provider name used in error messages ("OpenAI", "LM Studio").
+    pub label: &'a str,
+}
 
 /// One chat message can expand to several OpenAI messages: tool results must
 /// be their own `role: "tool"` messages.
@@ -85,7 +95,7 @@ struct ToolCallAcc {
 
 pub async fn stream_chat(
     client: &reqwest::Client,
-    api_key: &str,
+    target: &OpenAiCompat<'_>,
     model: &str,
     system: &str,
     messages: &[ChatMessage],
@@ -111,14 +121,16 @@ pub async fn stream_chat(
         })).collect::<Vec<_>>(),
     });
 
-    let response = client
-        .post(API_URL)
-        .bearer_auth(api_key)
-        .json(&body)
+    let url = format!("{}/chat/completions", target.base_url.trim_end_matches('/'));
+    let mut request = client.post(&url).json(&body);
+    if !target.api_key.is_empty() {
+        request = request.bearer_auth(target.api_key);
+    }
+    let response = request
         .send()
         .await
-        .map_err(|e| format!("OpenAI request failed: {e}"))?;
-    let response = ensure_success(response, "OpenAI").await?;
+        .map_err(|e| format!("{} request failed: {e}", target.label))?;
+    let response = ensure_success(response, target.label).await?;
 
     let mut text = String::new();
     let mut tool_accs: BTreeMap<u64, ToolCallAcc> = BTreeMap::new();
@@ -128,9 +140,9 @@ pub async fn stream_chat(
             return Ok(false);
         }
         let data: Value = serde_json::from_str(&event.data)
-            .map_err(|e| format!("OpenAI sent invalid JSON: {e}"))?;
+            .map_err(|e| format!("{} sent invalid JSON: {e}", target.label))?;
         if let Some(error) = data.get("error") {
-            return Err(format!("OpenAI stream error: {error}"));
+            return Err(format!("{} stream error: {error}", target.label));
         }
         let delta = &data["choices"][0]["delta"];
         if let Some(t) = delta["content"].as_str() {

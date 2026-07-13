@@ -117,6 +117,27 @@ export function ProviderSettingsModal({ isOpen, onClose, settings, onSaved }: Pr
               onValueChange={(v) => set({ google_model: v })}
             />
           </div>
+
+          <div className="flex flex-col gap-2">
+            <p className="text-small font-semibold">LM Studio (local)</p>
+            <p className="text-tiny text-default-500">
+              No API key needed. Start the LM Studio server (Developer tab), load a model, and enter
+              its model id below. Works with any OpenAI-compatible server, e.g. Ollama at
+              http://localhost:11434/v1.
+            </p>
+            <Input
+              label="Server URL"
+              value={draft.lmstudio_base_url}
+              onValueChange={(v) => set({ lmstudio_base_url: v })}
+              placeholder="http://localhost:1234/v1"
+            />
+            <Input
+              label="Model"
+              value={draft.lmstudio_model}
+              onValueChange={(v) => set({ lmstudio_model: v })}
+              placeholder="e.g. qwen/qwen3-32b — the model id shown in LM Studio"
+            />
+          </div>
         </ModalBody>
         <ModalFooter>
           <Button variant="flat" onPress={onClose}>

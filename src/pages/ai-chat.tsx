@@ -18,6 +18,7 @@ import {
   modelFor,
   prepareChatAttachment,
   PROVIDER_LABELS,
+  providerNeedsApiKey,
   streamChat,
   type AiChatEvent,
   type AiProvider,
@@ -199,7 +200,7 @@ function AiChat() {
   const handleSend = async () => {
     const text = input.trim();
     if (streaming || (!text && attachments.length === 0)) return;
-    if (!settings || !apiKeyFor(settings, provider)) {
+    if (!settings || (providerNeedsApiKey(provider) && !apiKeyFor(settings, provider))) {
       toast.warning(
         "No API key configured",
         `Add your ${PROVIDER_LABELS[provider]} API key in the AI settings first.`
@@ -208,7 +209,12 @@ function AiChat() {
       return;
     }
     if (!model.trim()) {
-      toast.warning("No model set", "Enter a model id in the header first.");
+      const hint =
+        provider === "lmstudio"
+          ? "Enter the model id loaded in LM Studio (settings or the header field)."
+          : "Enter a model id in the header first.";
+      toast.warning("No model set", hint);
+      if (provider === "lmstudio") setSettingsOpen(true);
       return;
     }
 
@@ -268,7 +274,9 @@ function AiChat() {
     }
   };
 
-  const hasApiKey = settings ? Boolean(apiKeyFor(settings, provider)) : false;
+  const needsSetup = settings
+    ? providerNeedsApiKey(provider) && !apiKeyFor(settings, provider)
+    : true;
 
   return (
     <div className="flex h-full gap-4">
@@ -370,7 +378,7 @@ function AiChat() {
                   The assistant queries your Supabase data with read-only tools and can analyze CSV,
                   Excel and PDF files you attach.
                 </p>
-                {!hasApiKey && (
+                {needsSetup && (
                   <Button size="sm" variant="flat" onPress={() => setSettingsOpen(true)}>
                     Configure API keys
                   </Button>

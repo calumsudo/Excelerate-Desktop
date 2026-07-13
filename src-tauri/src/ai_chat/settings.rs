@@ -10,6 +10,7 @@ use tauri::Manager;
 pub const DEFAULT_ANTHROPIC_MODEL: &str = "claude-opus-4-8";
 pub const DEFAULT_OPENAI_MODEL: &str = "gpt-5.1";
 pub const DEFAULT_GOOGLE_MODEL: &str = "gemini-2.5-pro";
+pub const DEFAULT_LMSTUDIO_BASE_URL: &str = "http://localhost:1234/v1";
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(default)]
@@ -21,6 +22,10 @@ pub struct AiSettings {
     pub anthropic_model: String,
     pub openai_model: String,
     pub google_model: String,
+    /// OpenAI-compatible local server (LM Studio / Ollama). No API key needed.
+    pub lmstudio_base_url: String,
+    /// Model id as shown in LM Studio; empty until the user sets one.
+    pub lmstudio_model: String,
 }
 
 impl AiSettings {
@@ -36,6 +41,9 @@ impl AiSettings {
         }
         if self.google_model.is_empty() {
             self.google_model = DEFAULT_GOOGLE_MODEL.into();
+        }
+        if self.lmstudio_base_url.is_empty() {
+            self.lmstudio_base_url = DEFAULT_LMSTUDIO_BASE_URL.into();
         }
         self
     }

@@ -29,6 +29,7 @@ struct TurnCtx<'a> {
     model: &'a str,
     system: &'a str,
     tools: &'a [ToolDef],
+    lmstudio_base_url: &'a str,
 }
 
 impl TurnCtx<'_> {
@@ -44,8 +45,26 @@ impl TurnCtx<'_> {
                     .await
             }
             "openai" => {
-                openai::stream_chat(client, key, model, system, messages, self.tools, on_event)
-                    .await
+                let target = openai::OpenAiCompat {
+                    base_url: openai::OPENAI_BASE_URL,
+                    api_key: key,
+                    label: "OpenAI",
+                };
+                openai::stream_chat(
+                    client, &target, model, system, messages, self.tools, on_event,
+                )
+                .await
+            }
+            "lmstudio" => {
+                let target = openai::OpenAiCompat {
+                    base_url: self.lmstudio_base_url,
+                    api_key: key,
+                    label: "LM Studio",
+                };
+                openai::stream_chat(
+                    client, &target, model, system, messages, self.tools, on_event,
+                )
+                .await
             }
             "google" => {
                 gemini::stream_chat(client, key, model, system, messages, self.tools, on_event)
@@ -78,7 +97,8 @@ pub async fn ai_chat_stream(
 ) -> Result<Vec<ChatMessage>, String> {
     let ai_settings = settings::load(&app)?;
     let api_key = ai_settings.api_key_for(&request.provider).to_string();
-    if api_key.is_empty() {
+    // Local servers (LM Studio) don't authenticate; every cloud provider does.
+    if api_key.is_empty() && request.provider != "lmstudio" {
         return Err(format!(
             "No API key configured for {}. Add one in the chat settings.",
             request.provider
@@ -101,6 +121,7 @@ pub async fn ai_chat_stream(
         model: &request.model,
         system: &system,
         tools: &tool_defs,
+        lmstudio_base_url: &ai_settings.lmstudio_base_url,
     };
 
     let mut conversation = request.messages.clone();
