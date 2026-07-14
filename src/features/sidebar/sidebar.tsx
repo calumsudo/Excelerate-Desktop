@@ -90,10 +90,12 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
           delete item.href;
         }
 
+        const { key, ...itemProps } = item;
+
         return (
           <ListboxItem
-            {...item}
-            key={item.key}
+            key={key}
+            {...itemProps}
             classNames={{
               base: cn(
                 {
@@ -204,10 +206,12 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
           return renderNestItem(item);
         }
 
+        const { key, ...itemProps } = item;
+
         return (
           <ListboxItem
-            {...item}
-            key={item.key}
+            key={key}
+            {...itemProps}
             endContent={isCompact || hideEndContent ? null : (item.endContent ?? null)}
             startContent={
               isCompact ? null : item.icon ? (
