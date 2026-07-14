@@ -1,5 +1,36 @@
 # Changelog
 
+## [1.0.0](https://github.com/calumsudo/Excelerate-Desktop/compare/v0.1.1...v1.0.0) (2026-07-14)
+
+
+### ⚠ BREAKING CHANGES
+
+* release-please now follows standard semver regardless of pre-1.0 status, so this release moves to 1.0.0.
+
+### Features
+
+* add combined portfolio view and funder drill-down to dashboard ([#19](https://github.com/calumsudo/Excelerate-Desktop/issues/19)) ([9bd06fd](https://github.com/calumsudo/Excelerate-Desktop/commit/9bd06fd5149905a0da8f1799dc2b6c0b1c2c5b50))
+* add Deal Lookup page — filter/pivot/chart/export, deal CRUD, unmatched reconciliation ([#20](https://github.com/calumsudo/Excelerate-Desktop/issues/20)) ([71cc662](https://github.com/calumsudo/Excelerate-Desktop/commit/71cc662faee92e1d4cac2d9bfe7c3290d43c2f61))
+* add Phase 2 cloud saves — pivot commit RPC, Storage uploads, reconciliation UI ([#15](https://github.com/calumsudo/Excelerate-Desktop/issues/15)) ([a785425](https://github.com/calumsudo/Excelerate-Desktop/commit/a7854254b4bd7ae3c9816331fb31fcf0eae13bbb))
+* add Phase 3 one-time workbook import — Rust parser, import RPC, wizard UI ([#16](https://github.com/calumsudo/Excelerate-Desktop/issues/16)) ([a49b63d](https://github.com/calumsudo/Excelerate-Desktop/commit/a49b63dd6e927f98c0ac5c6e877fea797ad37bd2))
+* add Phase 4 dashboard — Supabase view-backed charts, KPI cards, portfolio switcher ([#17](https://github.com/calumsudo/Excelerate-Desktop/issues/17)) ([0662f31](https://github.com/calumsudo/Excelerate-Desktop/commit/0662f31a60b9cda2ac9415682ed1e5cbf1ea7fcc))
+* add Phase 5 workbook export, retire SQLite/Pyodide local machinery ([#18](https://github.com/calumsudo/Excelerate-Desktop/issues/18)) ([a22c43f](https://github.com/calumsudo/Excelerate-Desktop/commit/a22c43f6ef1709fe8971b3410e92795518422f1a))
+* AI chat page with database tools, file uploads, and multiple providers ([#21](https://github.com/calumsudo/Excelerate-Desktop/issues/21)) ([b2eed53](https://github.com/calumsudo/Excelerate-Desktop/commit/b2eed53b1f0f0909f59969dbe76242e4bf07af81))
+* complete Phase 1 Supabase schema — payments tables, access RLS, analytics views ([#14](https://github.com/calumsudo/Excelerate-Desktop/issues/14)) ([ffaba65](https://github.com/calumsudo/Excelerate-Desktop/commit/ffaba65992716c30842bc646d45f9b150d5dab25))
+* improve unmatched deals handling and parser refinements ([#12](https://github.com/calumsudo/Excelerate-Desktop/issues/12)) ([000e9ec](https://github.com/calumsudo/Excelerate-Desktop/commit/000e9ec3dc9b69ca90767bfc6bba4b2b884fa4b8))
+* show release notes modal on update and from settings ([#23](https://github.com/calumsudo/Excelerate-Desktop/issues/23)) ([4313d4b](https://github.com/calumsudo/Excelerate-Desktop/commit/4313d4b4ed76d4a8ebfbf1b5a71793ff45ba0fcf))
+
+
+### Bug Fixes
+
+* baseline supabase schema, remove dead code, make clearview re-uploads idempotent ([#13](https://github.com/calumsudo/Excelerate-Desktop/issues/13)) ([4da69eb](https://github.com/calumsudo/Excelerate-Desktop/commit/4da69eb2e77e2c94b62eac020c10ab38bd6cec7d))
+* scope BIG parser to report month, fix ClearView sheet names, pass CalendarDate ([#10](https://github.com/calumsudo/Excelerate-Desktop/issues/10)) ([d0cd584](https://github.com/calumsudo/Excelerate-Desktop/commit/d0cd584b9838534f7f4d66ff28710b5ddae76e24))
+
+
+### Miscellaneous Chores
+
+* use standard semver bumps for release-please ([#24](https://github.com/calumsudo/Excelerate-Desktop/issues/24)) ([af98edc](https://github.com/calumsudo/Excelerate-Desktop/commit/af98edce757ddf1173580aa64bb0131d4a3d2a1f))
+
 ## [0.1.1](https://github.com/calumsudo/Excelerate-Desktop/compare/v0.1.0...v0.1.1) (2026-05-06)
 
 
