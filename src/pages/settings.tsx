@@ -1,8 +1,8 @@
 import { InviteUser } from "@components/auth/invite-user";
 import { useAuth } from "@/contexts/auth-context";
 import { Card, CardBody, CardHeader, Select, SelectItem, Checkbox, Button } from "@heroui/react";
-import { useTheme } from "@/contexts/theme-context";
-import { useReleaseNotes } from "@/contexts/release-notes-context";
+import { useTheme } from "@/contexts/theme-context-value";
+import { useReleaseNotes } from "@/contexts/release-notes-context-value";
 import { Icon } from "@iconify/react";
 import { useState } from "react";
 

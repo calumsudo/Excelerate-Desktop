@@ -276,9 +276,9 @@ const ChartBuilder = ({
           singleKeySelect(
             "Aggregation",
             config.agg,
-            Object.entries(AGGREGATION_LABELS)
-              .filter(([key]) => key !== "count")
-              .map(([key, label]) => ({ key, label })),
+            Object.entries(AGGREGATION_LABELS).flatMap(([key, label]) =>
+              key === "count" ? [] : [{ key, label }]
+            ),
             (agg) => onConfigChange({ ...config, agg: agg as Aggregation }),
             "w-full sm:max-w-[130px]"
           )}

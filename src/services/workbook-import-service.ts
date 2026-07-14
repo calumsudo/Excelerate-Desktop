@@ -179,21 +179,14 @@ export class WorkbookImportService {
     const results = new Map<string, SheetImportResult>();
     const total = preview.sheets.length;
     for (const [index, sheetPreview] of preview.sheets.entries()) {
-      onProgress?.({
-        phase: "importing",
-        index,
-        total,
-        sheetName: sheetPreview.sheet.sheet_name,
-      });
+      const sheetName = sheetPreview.sheet.sheet_name;
+      onProgress?.({ phase: "importing", index, total, sheetName });
+      // Sequential by design (see doc comment): each sheet is its own transaction
+      // and progress is reported per sheet, so parallelising would break both.
+      // react-doctor-disable-next-line react-doctor/async-await-in-loop
       const result = await this.importSheet(preview.portfolioId, sheetPreview);
-      results.set(sheetPreview.sheet.sheet_name, result);
-      onProgress?.({
-        phase: "done",
-        index,
-        total,
-        sheetName: sheetPreview.sheet.sheet_name,
-        result,
-      });
+      results.set(sheetName, result);
+      onProgress?.({ phase: "done", index, total, sheetName, result });
     }
     return results;
   }

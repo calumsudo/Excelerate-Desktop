@@ -1,4 +1,4 @@
-import { Toast } from "@/contexts/toast-context";
+import { Toast } from "@/contexts/toast-context-value";
 
 type ShowToastFn = (toast: Omit<Toast, "id">) => void;
 

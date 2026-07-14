@@ -1,24 +1,10 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { getVersion } from "@tauri-apps/api/app";
 import { getChangelogEntries, type ChangelogEntry } from "@utils/changelog";
 import { ReleaseNotesModal } from "@components/release-notes/release-notes-modal";
+import { ReleaseNotesContext } from "./release-notes-context-value";
 
 const SEEN_VERSION_KEY = "excelerate:releaseNotesSeenVersion";
-
-interface ReleaseNotesContextType {
-  currentVersion: string;
-  openReleaseNotes: () => void;
-}
-
-const ReleaseNotesContext = createContext<ReleaseNotesContextType | undefined>(undefined);
-
-export const useReleaseNotes = () => {
-  const context = useContext(ReleaseNotesContext);
-  if (!context) {
-    throw new Error("useReleaseNotes must be used within a ReleaseNotesProvider");
-  }
-  return context;
-};
 
 interface ReleaseNotesProviderProps {
   children: React.ReactNode;
@@ -70,13 +56,18 @@ export const ReleaseNotesProvider: React.FC<ReleaseNotesProviderProps> = ({ chil
     if (currentVersion) localStorage.setItem(SEEN_VERSION_KEY, currentVersion);
   };
 
-  const openReleaseNotes = () => {
+  const openReleaseNotes = useCallback(() => {
     setEntries(getChangelogEntries());
     setIsOpen(true);
-  };
+  }, []);
+
+  const value = useMemo(
+    () => ({ currentVersion, openReleaseNotes }),
+    [currentVersion, openReleaseNotes]
+  );
 
   return (
-    <ReleaseNotesContext.Provider value={{ currentVersion, openReleaseNotes }}>
+    <ReleaseNotesContext.Provider value={value}>
       {children}
       <ReleaseNotesModal isOpen={isOpen} onClose={closeModal} entries={entries} />
     </ReleaseNotesContext.Provider>

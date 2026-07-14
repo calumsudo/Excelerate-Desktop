@@ -262,8 +262,10 @@ export function buildFunderSheets(inputs: FunderSheetInputs): FunderSheetExport[
         // The unique (deal_id, payment_date) constraint guarantees one cell
         // per date, so the sparse pairs never collide.
         const payments: [number, number][] = dealPayments
-          .map((p): [number, number] => [dateIndex.get(p.payment_date) ?? -1, p.net])
-          .filter(([idx]) => idx >= 0)
+          .flatMap((p): [number, number][] => {
+            const idx = dateIndex.get(p.payment_date) ?? -1;
+            return idx >= 0 ? [[idx, p.net]] : [];
+          })
           .sort((a, b) => a[0] - b[0]);
         return {
           date_funded: deal.date_funded,
@@ -335,9 +337,10 @@ export function buildRtrExport(
   }
   return {
     dates,
-    funders: funderOrder
-      .filter((f) => valuesByFunder.has(f.id))
-      .map((f) => ({ name: f.name, values: valuesByFunder.get(f.id)! })),
+    funders: funderOrder.flatMap((f) => {
+      const values = valuesByFunder.get(f.id);
+      return values ? [{ name: f.name, values }] : [];
+    }),
   };
 }
 
@@ -472,17 +475,17 @@ async function fetchWorkbookData(portfolioName: string): Promise<WorkbookExportD
     list.push(v);
     vintagesByFunder.set(v.funder_id, list);
   }
-  const vintageSheets = funderSheets
-    .map((sheet) => {
-      const funder = funders.find((f) => (f.sheet_name ?? f.name) === sheet.sheet_name);
-      const rows = funder ? (vintagesByFunder.get(funder.id) ?? []) : [];
-      return { sheet_name: `${sheet.sheet_name}-P`, rows: rows.map(vintageRow) };
-    })
-    .filter((sheet) => sheet.rows.length > 0);
+  const vintageSheets = funderSheets.flatMap((sheet) => {
+    const funder = funders.find((f) => (f.sheet_name ?? f.name) === sheet.sheet_name);
+    const rows = funder ? (vintagesByFunder.get(funder.id) ?? []) : [];
+    if (rows.length === 0) return [];
+    return [{ sheet_name: `${sheet.sheet_name}-P`, rows: rows.map(vintageRow) }];
+  });
 
-  const funderOrder = funders
-    .filter((f) => funderSheets.some((s) => s.sheet_name === (f.sheet_name ?? f.name)))
-    .map((f) => ({ id: f.id, name: f.name }));
+  const sheetNames = new Set(funderSheets.map((s) => s.sheet_name));
+  const funderOrder = funders.flatMap((f) =>
+    sheetNames.has(f.sheet_name ?? f.name) ? [{ id: f.id, name: f.name }] : []
+  );
 
   const funderNameById = new Map(funders.map((f) => [f.id, f.name]));
 
