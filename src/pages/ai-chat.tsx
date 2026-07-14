@@ -38,11 +38,11 @@ import {
 } from "@services/chat-store-service";
 import { toast } from "@services/toast-service";
 import {
-  isToolResultMessage,
   LiveMessageView,
   MessageView,
   type LiveSegment,
 } from "@components/ai-chat/chat-message-view";
+import { isToolResultMessage } from "@components/ai-chat/message-utils";
 import { ProviderSettingsModal } from "@components/ai-chat/provider-settings-modal";
 
 const ATTACHMENT_EXTENSIONS = [

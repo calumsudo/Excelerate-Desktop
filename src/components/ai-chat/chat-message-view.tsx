@@ -4,6 +4,7 @@ import remarkGfm from "remark-gfm";
 import { Button, Chip, Spinner, Tooltip } from "@heroui/react";
 import { Icon } from "@iconify/react";
 import type { ChatBlock, ChatMessage } from "@services/ai-chat-service";
+import { isToolResultMessage } from "./message-utils";
 
 /** react-markdown passes a `node` prop that must not reach the DOM. */
 function strip<T extends { node?: unknown }>(props: T) {
@@ -123,15 +124,6 @@ function UserBlock({ block }: { block: ChatBlock }) {
     );
   }
   return null;
-}
-
-/** True when a user-role message only carries tool results (loop plumbing). */
-export function isToolResultMessage(message: ChatMessage): boolean {
-  return (
-    message.role === "user" &&
-    message.blocks.length > 0 &&
-    message.blocks.every((block) => block.kind === "tool_result")
-  );
 }
 
 /** Concatenated text of an assistant message, for copying to the clipboard. */
