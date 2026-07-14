@@ -303,6 +303,12 @@ const FileUpload: React.FC<FileUploadProps> = ({
           onDragOver={handleDragOver}
           onDrop={handleDrop}
           onClick={triggerFileSelect}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              triggerFileSelect();
+            }
+          }}
           role="button"
           tabIndex={0}
           data-upload-id={uploadId}

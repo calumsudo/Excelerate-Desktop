@@ -105,7 +105,7 @@ function UserBlock({ block }: { block: ChatBlock }) {
     return (
       <img
         src={`data:${block.media_type};base64,${block.data}`}
-        alt="Attached image"
+        alt="Attachment"
         className="max-h-48 rounded-medium"
       />
     );
