@@ -99,8 +99,8 @@ export const DIMENSION_FIELDS = DEAL_FIELDS.filter((f) => f.dimension);
 export const NUMERIC_FIELDS = DEAL_FIELDS.filter(
   (f) => f.type === "number" || f.type === "money" || f.type === "percent"
 );
-export const DEFAULT_VISIBLE_FIELDS = DEAL_FIELDS.filter((f) => f.defaultVisible).map(
-  (f) => f.key as string
+export const DEFAULT_VISIBLE_FIELDS = DEAL_FIELDS.flatMap((f) =>
+  f.defaultVisible ? [f.key as string] : []
 );
 
 const moneyFormat = new Intl.NumberFormat("en-US", {
@@ -368,6 +368,14 @@ export function applyFilters(records: DealRecord[], filters: ExplorerFilters): D
   const needle = filters.search.trim().toLowerCase();
   const monthOf = (r: DealRecord) => r.vintage_month?.slice(0, 7) ?? null;
 
+  // Build Sets once so each record's membership check is O(1) instead of
+  // re-scanning the filter arrays for every deal.
+  const portfolios = new Set(filters.portfolios);
+  const funders = new Set(filters.funders);
+  const industries = new Set(filters.industries);
+  const states = new Set(filters.states);
+  const statuses = new Set(filters.statuses);
+
   return records.filter((r) => {
     if (needle) {
       const haystack = [r.merchant_name, r.funder_advance_id, r.advance_id, r.industry, r.state]
@@ -376,13 +384,11 @@ export function applyFilters(records: DealRecord[], filters: ExplorerFilters): D
         .toLowerCase();
       if (!haystack.includes(needle)) return false;
     }
-    if (filters.portfolios.length > 0 && !filters.portfolios.includes(r.portfolio_name ?? ""))
-      return false;
-    if (filters.funders.length > 0 && !filters.funders.includes(r.funder_name ?? "")) return false;
-    if (filters.industries.length > 0 && !filters.industries.includes(r.industry ?? ""))
-      return false;
-    if (filters.states.length > 0 && !filters.states.includes(r.state ?? "")) return false;
-    if (filters.statuses.length > 0 && !filters.statuses.includes(r.status)) return false;
+    if (portfolios.size > 0 && !portfolios.has(r.portfolio_name ?? "")) return false;
+    if (funders.size > 0 && !funders.has(r.funder_name ?? "")) return false;
+    if (industries.size > 0 && !industries.has(r.industry ?? "")) return false;
+    if (states.size > 0 && !states.has(r.state ?? "")) return false;
+    if (statuses.size > 0 && !statuses.has(r.status)) return false;
     const month = monthOf(r);
     if (filters.monthFrom != null && (month == null || month < filters.monthFrom)) return false;
     if (filters.monthTo != null && (month == null || month > filters.monthTo)) return false;
@@ -631,11 +637,10 @@ export function buildChartData(records: DealRecord[], config: ChartConfig): Char
 /** Pie slices from chart rows: one slice per category, top slices + "Other". */
 export function chartRowsToPie(data: ChartData, maxSlices = 11): { name: string; value: number }[] {
   const slices = data.rows
-    .map((row) => ({
-      name: row.category,
-      value: data.series.reduce((acc, s) => acc + Math.max(row[s] as number, 0), 0),
-    }))
-    .filter((s) => s.value > 0)
+    .flatMap((row) => {
+      const value = data.series.reduce((acc, s) => acc + Math.max(row[s] as number, 0), 0);
+      return value > 0 ? [{ name: row.category, value }] : [];
+    })
     .sort((a, b) => b.value - a.value);
   if (slices.length <= maxSlices) return slices;
   const rest = slices.slice(maxSlices).reduce((acc, s) => acc + s.value, 0);

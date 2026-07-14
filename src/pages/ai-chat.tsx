@@ -165,10 +165,10 @@ function AiChat() {
       });
       if (!selected) return;
       const paths = Array.isArray(selected) ? selected : [selected];
-      for (const path of paths) {
-        const prepared = await prepareChatAttachment(path);
-        setAttachments((prev) => [...prev, prepared]);
-      }
+      // The picks are independent, so prepare them together instead of
+      // awaiting each one in turn.
+      const prepared = await Promise.all(paths.map((path) => prepareChatAttachment(path)));
+      setAttachments((prev) => [...prev, ...prepared]);
     } catch (error) {
       toast.error("Could not attach file", String(error));
     } finally {

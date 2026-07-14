@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Button,
   Card,
@@ -110,8 +110,11 @@ function DealLookup() {
   const [unresolvedRows, setUnresolvedRows] = useState<UnresolvedPivotRow[]>([]);
   const [unresolvedLoading, setUnresolvedLoading] = useState(true);
   const [busyRowId, setBusyRowId] = useState<string | null>(null);
-  /** When set, the next saved deal also resolves this pivot row. */
-  const [pendingResolveRowId, setPendingResolveRowId] = useState<string | null>(null);
+  /**
+   * When set, the next saved deal also resolves this pivot row. A ref, not
+   * state: it is only ever read inside handlers, never rendered.
+   */
+  const pendingResolveRowIdRef = useRef<string | null>(null);
 
   const fetchLookups = useCallback(() => {
     getEditorLookups()
@@ -155,7 +158,7 @@ function DealLookup() {
   const openCreate = () => {
     setEditing(null);
     setCreateDefaults(null);
-    setPendingResolveRowId(null);
+    pendingResolveRowIdRef.current = null;
     setFormOpen(true);
   };
 
@@ -164,7 +167,7 @@ function DealLookup() {
       const values = await getDealFormValues(record.id);
       setEditing({ dealId: record.id, values });
       setCreateDefaults(null);
-      setPendingResolveRowId(null);
+      pendingResolveRowIdRef.current = null;
       setFormOpen(true);
     } catch (err) {
       showToast({
@@ -208,15 +211,16 @@ function DealLookup() {
       funderAdvanceId: row.advance_id ?? "",
       dateFunded: row.report_date,
     });
-    setPendingResolveRowId(row.row_id);
+    pendingResolveRowIdRef.current = row.row_id;
     setFormOpen(true);
   };
 
   const handleSaved = async (dealId: string) => {
     showToast({ title: editing != null ? "Deal updated" : "Deal created", type: "success" });
-    if (pendingResolveRowId != null) {
-      const row = unresolvedRows.find((r) => r.row_id === pendingResolveRowId);
-      setPendingResolveRowId(null);
+    const pendingRowId = pendingResolveRowIdRef.current;
+    if (pendingRowId != null) {
+      const row = unresolvedRows.find((r) => r.row_id === pendingRowId);
+      pendingResolveRowIdRef.current = null;
       if (row != null) {
         await resolveRow(row, dealId);
         fetchLookups();

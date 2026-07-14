@@ -74,17 +74,15 @@ const ExplorerTable = ({
   });
 
   // Keep registry order so the table layout is stable however columns are picked.
-  const columns = useMemo(
-    () => [
-      ...DEAL_FIELDS.filter((f) => visibleFields.includes(f.key as string)).map((f) => ({
-        key: f.key as string,
-        label: f.label,
-        type: f.type,
-      })),
+  const columns = useMemo(() => {
+    const visible = new Set(visibleFields);
+    return [
+      ...DEAL_FIELDS.flatMap((f) =>
+        visible.has(f.key as string) ? [{ key: f.key as string, label: f.label, type: f.type }] : []
+      ),
       { key: ACTIONS_KEY, label: "", type: "text" as FieldType },
-    ],
-    [visibleFields]
-  );
+    ];
+  }, [visibleFields]);
 
   const sorted = useMemo(() => {
     const key = String(sort.column) as keyof DealRecord;

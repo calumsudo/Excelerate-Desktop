@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
+import React, { createContext, useContext, useState, useCallback, useEffect, useMemo } from "react";
 import { AnimatePresence } from "framer-motion";
 import ToastNotification from "@components/toast-notification";
 import { toast } from "@services/toast-service";
@@ -48,8 +48,10 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     toast.setToastFunction(showToast);
   }, [showToast]);
 
+  const value = useMemo(() => ({ showToast, hideToast }), [showToast, hideToast]);
+
   return (
-    <ToastContext.Provider value={{ showToast, hideToast }}>
+    <ToastContext.Provider value={value}>
       {children}
       <div className="fixed top-4 right-4 z-50 flex flex-col gap-2 pointer-events-none">
         <AnimatePresence>

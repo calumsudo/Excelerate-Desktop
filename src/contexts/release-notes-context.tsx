@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from "react";
 import { getVersion } from "@tauri-apps/api/app";
 import { getChangelogEntries, type ChangelogEntry } from "@utils/changelog";
 import { ReleaseNotesModal } from "@components/release-notes/release-notes-modal";
@@ -70,13 +70,18 @@ export const ReleaseNotesProvider: React.FC<ReleaseNotesProviderProps> = ({ chil
     if (currentVersion) localStorage.setItem(SEEN_VERSION_KEY, currentVersion);
   };
 
-  const openReleaseNotes = () => {
+  const openReleaseNotes = useCallback(() => {
     setEntries(getChangelogEntries());
     setIsOpen(true);
-  };
+  }, []);
+
+  const value = useMemo(
+    () => ({ currentVersion, openReleaseNotes }),
+    [currentVersion, openReleaseNotes]
+  );
 
   return (
-    <ReleaseNotesContext.Provider value={{ currentVersion, openReleaseNotes }}>
+    <ReleaseNotesContext.Provider value={value}>
       {children}
       <ReleaseNotesModal isOpen={isOpen} onClose={closeModal} entries={entries} />
     </ReleaseNotesContext.Provider>
