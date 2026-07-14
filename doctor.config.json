@@ -1,0 +1,13 @@
+{
+  "$schema": "https://react.doctor/schema/config.json",
+  "ignore": {
+    // react-doctor/no-impure-state-updater (v0.7.7) over-flags any multi-statement
+    // callback that contains a setState — event handlers, .then() promise callbacks,
+    // and effect bodies with several independent setState calls. It targets the
+    // impure updater-function form `setX(prev => { sideEffect(); return next })`,
+    // which this codebase does not use. Every hit was a confirmed false positive
+    // (see issue #29), so the rule is disabled project-wide rather than suppressed
+    // at 16 correct call sites.
+    "rules": ["react-doctor/no-impure-state-updater"]
+  }
+}

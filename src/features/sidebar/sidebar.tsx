@@ -92,8 +92,8 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
 
         return (
           <ListboxItem
-            {...item}
             key={item.key}
+            {...item}
             classNames={{
               base: cn(
                 {
@@ -206,8 +206,8 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
 
         return (
           <ListboxItem
-            {...item}
             key={item.key}
+            {...item}
             endContent={isCompact || hideEndContent ? null : (item.endContent ?? null)}
             startContent={
               isCompact ? null : item.icon ? (
