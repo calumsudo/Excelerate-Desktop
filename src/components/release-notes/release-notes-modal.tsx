@@ -28,8 +28,8 @@ export function ReleaseNotesModal({ isOpen, onClose, entries }: Props) {
                     {section.heading}
                   </p>
                   <ul className="list-disc list-inside space-y-1 text-small text-default-600">
-                    {section.items.map((item, i) => (
-                      <li key={i}>{item}</li>
+                    {section.items.map((item) => (
+                      <li key={item}>{item}</li>
                     ))}
                   </ul>
                 </div>

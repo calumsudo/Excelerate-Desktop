@@ -58,7 +58,9 @@ const EMPTY_LOOKUPS: EditorLookups = {
   merchants: [],
 };
 
-const VIEWS_STORAGE_KEY = "excelerate.deal-lookup.views";
+// Versioned so a future change to the SavedView shape can bump the suffix and
+// ignore incompatible saved data instead of crashing on parse.
+const VIEWS_STORAGE_KEY = "excelerate.deal-lookup.views:v1";
 
 interface SavedView {
   id: string;
@@ -81,6 +83,7 @@ function loadSavedViews(): SavedView[] {
 const uniqueSorted = (values: (string | null)[]): string[] =>
   [...new Set(values.filter((v): v is string => v != null && v !== ""))].sort();
 
+// react-doctor-disable-next-line react-doctor/prefer-useReducer -- these hold largely independent concerns (records, load status, filters, visible fields, pivot/chart config, saved views) that change at different times, so a single reducer would not improve consistency
 function DealLookup() {
   const { showToast } = useToast();
   const [records, setRecords] = useState<DealRecord[]>([]);

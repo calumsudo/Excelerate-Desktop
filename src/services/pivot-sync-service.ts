@@ -211,8 +211,10 @@ export class PivotSyncService {
     file: File,
     reportDate: string
   ): Promise<CloudSyncPreview> {
-    const portfolioId = await this.getPortfolioId(portfolioName);
-    const funderId = await this.getFunderId(funderName);
+    const [portfolioId, funderId] = await Promise.all([
+      this.getPortfolioId(portfolioName),
+      this.getFunderId(funderName),
+    ]);
 
     const storagePath = `${portfolioId}/${funderId}/${reportDate}/${file.name}`;
     const { error: storageError } = await supabase.storage
@@ -386,8 +388,10 @@ export class PivotSyncService {
     uiFunderName: string,
     reportDate: string
   ): Promise<boolean> {
-    const portfolioId = await this.getPortfolioId(portfolioName);
-    const funderId = await this.getFunderId(uiFunderName);
+    const [portfolioId, funderId] = await Promise.all([
+      this.getPortfolioId(portfolioName),
+      this.getFunderId(uiFunderName),
+    ]);
     const { count, error } = await supabase
       .from("funder_uploads")
       .select("id", { count: "exact", head: true })

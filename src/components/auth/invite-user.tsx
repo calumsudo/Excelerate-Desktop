@@ -3,6 +3,7 @@ import { Button, Input, Card, CardBody, CardHeader, Select, SelectItem } from "@
 import { useAuth } from "@/contexts/auth-context";
 import { AuthService } from "@services/auth-service";
 
+// react-doctor-disable-next-line react-doctor/prefer-useReducer -- these hold largely independent concerns (form fields, per-field validation errors, async submit status) that change at different times, so a single reducer would not improve consistency
 export function InviteUser() {
   const { profile } = useAuth();
   const [email, setEmail] = useState("");

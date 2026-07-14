@@ -241,8 +241,8 @@ export function WorkbookImportWizard({ portfolioName }: WorkbookImportWizardProp
                           {allWarnings.length} parser warning{allWarnings.length === 1 ? "" : "s"}
                         </p>
                         <ul className="text-xs text-warning-700 list-disc pl-4 max-h-24 overflow-y-auto">
-                          {allWarnings.map((w, i) => (
-                            <li key={i}>{w}</li>
+                          {allWarnings.map((w) => (
+                            <li key={w}>{w}</li>
                           ))}
                         </ul>
                       </div>

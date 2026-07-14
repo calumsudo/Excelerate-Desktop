@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { DateValue } from "@internationalized/date";
 import BasePortfolio from "@components/portfolio/base-portfolio";
+import { getMostRecentCompletedMonth } from "@utils/report-month";
 import { FunderData } from "@components/portfolio/funder-upload-section";
 import PivotSyncService, { CloudUploadInfo, uiFunderName } from "@services/pivot-sync-service";
 import WorkbookExportService from "@services/workbook-export-service";
@@ -71,7 +72,7 @@ const monthlyFunderList: FunderData[] = [
 
 function AlderPortfolio() {
   const [monthlyFiles, setMonthlyFiles] = useState<Record<string, File>>({});
-  const [selectedDate, setSelectedDate] = useState<DateValue | null>(null);
+  const [selectedDate, setSelectedDate] = useState<DateValue | null>(getMostRecentCompletedMonth);
   const [funderUploads, setFunderUploads] = useState<CloudUploadInfo[]>([]);
   const [isExporting, setIsExporting] = useState(false);
   const { monthlyErrorStates, setFunderErrorState } = useFileErrorState();
@@ -101,16 +102,21 @@ function AlderPortfolio() {
     }
   }, []);
 
+  // Load the default month's uploads once on mount. Later changes are handled
+  // synchronously in handleDateChange, so no effect reacts to selectedDate.
   useEffect(() => {
-    if (!selectedDate) {
+    refreshUploads(getMostRecentCompletedMonth().toString());
+  }, [refreshUploads]);
+
+  const handleDateChange = (date: DateValue | null) => {
+    setSelectedDate(date);
+    if (date) {
+      refreshUploads(date.toString());
+    } else {
       setFunderUploads([]);
       setMonthlyFiles({});
-      return;
     }
-    refreshUploads(selectedDate.toString());
-  }, [selectedDate, refreshUploads]);
-
-  const handleDateChange = (date: DateValue | null) => setSelectedDate(date);
+  };
 
   const handleMonthlyFunderUpload = async (funderName: string, file: File) => {
     if (!selectedDate) return;
@@ -193,6 +199,7 @@ function AlderPortfolio() {
     <>
       <BasePortfolio
         portfolioName={PORTFOLIO}
+        selectedDate={selectedDate}
         onDateChange={handleDateChange}
         monthlyFunders={monthlyFunderList}
         onMonthlyFunderUpload={handleMonthlyFunderUpload}
