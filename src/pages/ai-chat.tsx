@@ -38,11 +38,11 @@ import {
 } from "@services/chat-store-service";
 import { toast } from "@services/toast-service";
 import {
-  isToolResultMessage,
   LiveMessageView,
   MessageView,
   type LiveSegment,
 } from "@components/ai-chat/chat-message-view";
+import { isToolResultMessage } from "@components/ai-chat/message-utils";
 import { ProviderSettingsModal } from "@components/ai-chat/provider-settings-modal";
 
 const ATTACHMENT_EXTENSIONS = [
@@ -354,12 +354,17 @@ function AiChat() {
             {conversations.map((conversation) => (
               <div
                 key={conversation.id}
-                className={`group flex cursor-pointer items-center gap-1 rounded-medium px-2 py-2 text-small hover:bg-default-100 ${
+                className={`group flex items-center gap-1 rounded-medium px-2 py-2 text-small hover:bg-default-100 ${
                   conversation.id === activeId ? "bg-default-100 font-medium" : ""
                 }`}
-                onClick={() => handleSelectConversation(conversation)}
               >
-                <span className="flex-1 truncate">{conversation.title}</span>
+                <button
+                  type="button"
+                  className="flex-1 cursor-pointer truncate text-left"
+                  onClick={() => handleSelectConversation(conversation)}
+                >
+                  {conversation.title}
+                </button>
                 <Button
                   isIconOnly
                   size="sm"
