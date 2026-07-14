@@ -2,12 +2,14 @@ import { InviteUser } from "@components/auth/invite-user";
 import { useAuth } from "@/contexts/auth-context";
 import { Card, CardBody, CardHeader, Select, SelectItem, Checkbox, Button } from "@heroui/react";
 import { useTheme } from "@/contexts/theme-context";
+import { useReleaseNotes } from "@/contexts/release-notes-context";
 import { Icon } from "@iconify/react";
 import { useState } from "react";
 
 function Settings() {
   const { profile } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const { currentVersion, openReleaseNotes } = useReleaseNotes();
   const [exportFormat, setExportFormat] = useState("csv");
   const [autoSave, setAutoSave] = useState(false);
 
@@ -89,7 +91,17 @@ function Settings() {
           </CardHeader>
           <CardBody>
             <div className="space-y-2 text-sm text-default-600">
-              <p>Version: 0.1.0</p>
+              <div className="flex items-center gap-2">
+                <p>Version: {currentVersion || "—"}</p>
+                <Button
+                  size="sm"
+                  variant="light"
+                  startContent={<Icon icon="heroicons:sparkles" width={16} />}
+                  onPress={openReleaseNotes}
+                >
+                  Release Notes
+                </Button>
+              </div>
               <p>Excelerate</p>
             </div>
           </CardBody>

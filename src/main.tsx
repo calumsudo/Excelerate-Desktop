@@ -4,6 +4,7 @@ import { HeroUIProvider } from "@heroui/react";
 import { AuthProvider } from "@/contexts/auth-context";
 import { ToastProvider } from "@/contexts/toast-context";
 import { ThemeProvider } from "@/contexts/theme-context";
+import { ReleaseNotesProvider } from "@/contexts/release-notes-context";
 import App from "./app";
 import "./index.css";
 
@@ -33,9 +34,11 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
       <HeroUIProvider>
         <ToastProvider>
           <AuthProvider>
-            <main className="text-foreground bg-background">
-              <App />
-            </main>
+            <ReleaseNotesProvider>
+              <main className="text-foreground bg-background">
+                <App />
+              </main>
+            </ReleaseNotesProvider>
           </AuthProvider>
         </ToastProvider>
       </HeroUIProvider>
