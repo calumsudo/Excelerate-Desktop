@@ -16,12 +16,8 @@ import {
   CartesianGrid,
   Tooltip,
 } from "recharts";
-import {
-  funderColor,
-  EmptyChart,
-  FunderLegend,
-  StackedTooltip,
-} from "@components/dashboard/charts";
+import { EmptyChart, FunderLegend, StackedTooltip } from "@components/dashboard/charts";
+import { funderColor } from "@components/dashboard/chart-colors";
 import { formatMoney } from "@services/analytics-service";
 import {
   buildChartData,
@@ -55,6 +51,36 @@ const axisFormatter = (valueType: FieldType) => (value: number) =>
       ? `${(value * 100).toFixed(0)}%`
       : value.toLocaleString("en-US", { maximumFractionDigits: 2 });
 
+const axisProps = {
+  strokeOpacity: 0.25,
+  style: { fontSize: "var(--heroui-font-size-tiny)" },
+  tickLine: false,
+};
+
+const singleKeySelect = (
+  label: string,
+  selected: string,
+  items: { key: string; label: string }[],
+  onSelect: (key: string) => void,
+  width = "w-full sm:max-w-[200px]"
+) => (
+  <Select
+    aria-label={label}
+    label={label}
+    size="sm"
+    className={width}
+    selectedKeys={[selected]}
+    onSelectionChange={(keys) => {
+      const key = Array.from(keys)[0];
+      if (key != null) onSelect(String(key));
+    }}
+  >
+    {items.map((item) => (
+      <SelectItem key={item.key}>{item.label}</SelectItem>
+    ))}
+  </Select>
+);
+
 const ChartBuilder = ({
   records,
   config,
@@ -71,41 +97,12 @@ const ChartBuilder = ({
   );
   const tooltipFormat = (value: number) => formatFieldValue(value, data.valueType);
 
-  const singleKeySelect = (
-    label: string,
-    selected: string,
-    items: { key: string; label: string }[],
-    onSelect: (key: string) => void,
-    width = "w-full sm:max-w-[200px]"
-  ) => (
-    <Select
-      aria-label={label}
-      label={label}
-      size="sm"
-      className={width}
-      selectedKeys={[selected]}
-      onSelectionChange={(keys) => {
-        const key = Array.from(keys)[0];
-        if (key != null) onSelect(String(key));
-      }}
-    >
-      {items.map((item) => (
-        <SelectItem key={item.key}>{item.label}</SelectItem>
-      ))}
-    </Select>
-  );
-
   const dimensionItems = DIMENSION_FIELDS.map((f) => ({ key: f.key as string, label: f.label }));
   const metricItems = [
     { key: COUNT_METRIC, label: "Deal Count" },
     ...NUMERIC_FIELDS.map((f) => ({ key: f.key as string, label: f.label })),
   ];
 
-  const axisProps = {
-    strokeOpacity: 0.25,
-    style: { fontSize: "var(--heroui-font-size-tiny)" },
-    tickLine: false,
-  };
   const grid = (
     <CartesianGrid stroke="hsl(var(--heroui-default-200))" strokeDasharray="3 3" vertical={false} />
   );

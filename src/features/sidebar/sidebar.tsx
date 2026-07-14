@@ -1,41 +1,9 @@
-import {
-  Accordion,
-  AccordionItem,
-  type ListboxProps,
-  type ListboxSectionProps,
-  type Selection,
-} from "@heroui/react";
+import { Accordion, AccordionItem, type Selection } from "@heroui/react";
 import React from "react";
 import { Listbox, Tooltip, ListboxItem, ListboxSection } from "@heroui/react";
 import { Icon } from "@iconify/react";
 import { cn } from "@heroui/react";
-
-export enum SidebarItemType {
-  Nest = "nest",
-}
-
-export type SidebarItem = {
-  key: string;
-  title: string;
-  icon?: string;
-  href?: string;
-  type?: SidebarItemType.Nest;
-  startContent?: React.ReactNode;
-  endContent?: React.ReactNode;
-  items?: SidebarItem[];
-  className?: string;
-};
-
-export type SidebarProps = Omit<ListboxProps<SidebarItem>, "children" | "onSelect"> & {
-  items: SidebarItem[];
-  isCompact?: boolean;
-  hideEndContent?: boolean;
-  iconClassName?: string;
-  sectionClasses?: ListboxSectionProps["classNames"];
-  classNames?: ListboxProps["classNames"];
-  defaultSelectedKey: string;
-  onSelect?: (key: string) => void;
-};
+import { SidebarItemType, type SidebarItem, type SidebarProps } from "./sidebar-types";
 
 const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
   (

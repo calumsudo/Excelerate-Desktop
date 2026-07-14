@@ -48,7 +48,7 @@ const markdownComponents: Components = {
   ),
 };
 
-export function Markdown({ text }: { text: string }) {
+function Markdown({ text }: { text: string }) {
   return (
     <div className="text-small leading-relaxed">
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>

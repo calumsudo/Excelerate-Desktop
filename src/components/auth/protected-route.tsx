@@ -1,5 +1,5 @@
 import { Navigate } from "react-router-dom";
-import { useAuth } from "@/contexts/auth-context";
+import { useAuth } from "@/contexts/auth-context-value";
 import { Spinner } from "@heroui/react";
 
 interface ProtectedRouteProps {

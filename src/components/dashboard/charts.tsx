@@ -27,29 +27,12 @@ import {
   type CommissionsMonthRow,
   type VintagePerformanceRow,
 } from "@services/analytics-service";
-
-// Enough distinct colors for the 11 workbook funders.
-const CHART_COLORS = [
-  "hsl(var(--heroui-primary-500))",
-  "hsl(var(--heroui-secondary-500))",
-  "hsl(var(--heroui-success-500))",
-  "hsl(var(--heroui-warning-500))",
-  "hsl(var(--heroui-danger-500))",
-  "hsl(var(--heroui-primary-300))",
-  "hsl(var(--heroui-secondary-300))",
-  "hsl(var(--heroui-success-600))",
-  "hsl(var(--heroui-warning-600))",
-  "hsl(var(--heroui-danger-300))",
-  "hsl(var(--heroui-default-500))",
-  "hsl(var(--heroui-default-300))",
-];
-
-export const funderColor = (index: number) => CHART_COLORS[index % CHART_COLORS.length];
+import { funderColor } from "./chart-colors";
 
 /** Fired with the funder's display name when a legend entry / slice / bar is clicked. */
 export type FunderClickHandler = (funderName: string) => void;
 
-export const ChartSkeleton = ({ height = 250 }: { height?: number }) => (
+const ChartSkeleton = ({ height = 250 }: { height?: number }) => (
   <div className="p-4">
     <Skeleton className="rounded-lg mb-4">
       <div className="h-4 w-48 bg-default-200"></div>

@@ -9,7 +9,7 @@ import AiChat from "@pages/ai-chat";
 import Settings from "@pages/settings";
 import Login from "@pages/login";
 import { ProtectedRoute } from "@components/auth/protected-route";
-import { useAuth } from "@/contexts/auth-context";
+import { useAuth } from "@/contexts/auth-context-value";
 import { backendNotifications } from "@services/notification-service";
 
 function App() {

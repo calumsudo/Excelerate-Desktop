@@ -19,6 +19,13 @@ interface FileUploadProps {
   errorMessage?: string; // Optional error message to display
 }
 
+// Browser drag and drop handlers (kept as fallback for non-Tauri environments).
+// In Tauri, drops are handled by onDragDropEvent instead.
+const preventDragDefault = (e: React.DragEvent) => {
+  e.preventDefault();
+  e.stopPropagation();
+};
+
 const FileUpload: React.FC<FileUploadProps> = ({
   onFileUpload,
   acceptedTypes = [
@@ -240,28 +247,6 @@ const FileUpload: React.FC<FileUploadProps> = ({
     }
   };
 
-  // Browser drag and drop handlers (kept as fallback for non-Tauri environments)
-  const handleDragEnter = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-  };
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-  };
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    // In Tauri, this will be handled by onDragDropEvent
-  };
-
   // Clear file - FIXED
   const clearFile = () => {
     if (selectedFile === undefined) {
@@ -309,10 +294,10 @@ const FileUpload: React.FC<FileUploadProps> = ({
                   : "border-default-300 hover:border-primary hover:bg-default-100"
             }
           `}
-          onDragEnter={handleDragEnter}
-          onDragLeave={handleDragLeave}
-          onDragOver={handleDragOver}
-          onDrop={handleDrop}
+          onDragEnter={preventDragDefault}
+          onDragLeave={preventDragDefault}
+          onDragOver={preventDragDefault}
+          onDrop={preventDragDefault}
           onClick={triggerFileSelect}
           onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === " ") {

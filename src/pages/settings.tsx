@@ -1,10 +1,16 @@
 import { InviteUser } from "@components/auth/invite-user";
-import { useAuth } from "@/contexts/auth-context";
+import { useAuth } from "@/contexts/auth-context-value";
 import { Card, CardBody, CardHeader, Select, SelectItem, Checkbox, Button } from "@heroui/react";
 import { useTheme } from "@/contexts/theme-context-value";
 import { useReleaseNotes } from "@/contexts/release-notes-context-value";
 import { Icon } from "@iconify/react";
 import { useState } from "react";
+
+const exportFormats = [
+  { value: "csv", label: "CSV" },
+  { value: "excel", label: "Excel" },
+  { value: "json", label: "JSON" },
+];
 
 function Settings() {
   const { profile } = useAuth();
@@ -12,12 +18,6 @@ function Settings() {
   const { currentVersion, openReleaseNotes } = useReleaseNotes();
   const [exportFormat, setExportFormat] = useState("csv");
   const [autoSave, setAutoSave] = useState(false);
-
-  const exportFormats = [
-    { value: "csv", label: "CSV" },
-    { value: "excel", label: "Excel" },
-    { value: "json", label: "JSON" },
-  ];
 
   return (
     <div className="p-6">

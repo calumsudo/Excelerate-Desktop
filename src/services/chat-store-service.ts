@@ -38,17 +38,6 @@ export async function createConversation(
   return data;
 }
 
-export async function updateConversation(
-  id: string,
-  patch: Partial<Pick<Conversation, "title" | "provider" | "model">>
-): Promise<void> {
-  const { error } = await supabase
-    .from("chat_conversations")
-    .update({ ...patch, updated_at: new Date().toISOString() })
-    .eq("id", id);
-  if (error) throw new Error(`Failed to update conversation: ${error.message}`);
-}
-
 export async function deleteConversation(id: string): Promise<void> {
   const { error } = await supabase.from("chat_conversations").delete().eq("id", id);
   if (error) throw new Error(`Failed to delete conversation: ${error.message}`);

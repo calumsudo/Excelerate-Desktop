@@ -11,6 +11,14 @@ interface MonthlyDatePickerProps {
   className?: string;
 }
 
+// Only allow the last day of each month.
+const isDateUnavailable = (date: DateValue): boolean => {
+  const jsDate = date.toDate(getLocalTimeZone());
+  const nextDay = new Date(jsDate);
+  nextDay.setDate(jsDate.getDate() + 1);
+  return nextDay.getMonth() === jsDate.getMonth();
+};
+
 const MonthlyDatePicker: React.FC<MonthlyDatePickerProps> = ({
   value,
   onDateChange,
@@ -18,14 +26,6 @@ const MonthlyDatePicker: React.FC<MonthlyDatePickerProps> = ({
   description = "Choose a report month",
   className,
 }) => {
-  const isDateUnavailable = (date: DateValue): boolean => {
-    // Only allow the last day of each month.
-    const jsDate = date.toDate(getLocalTimeZone());
-    const nextDay = new Date(jsDate);
-    nextDay.setDate(jsDate.getDate() + 1);
-    return nextDay.getMonth() === jsDate.getMonth();
-  };
-
   const handleDateChange = (date: DateValue | null) => {
     if (date && !isDateUnavailable(date)) {
       onDateChange(date);

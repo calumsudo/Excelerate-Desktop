@@ -1,5 +1,5 @@
 import { Dropdown, DropdownTrigger, DropdownMenu, DropdownItem, User } from "@heroui/react";
-import { useAuth } from "@/contexts/auth-context";
+import { useAuth } from "@/contexts/auth-context-value";
 import { useNavigate } from "react-router-dom";
 
 export function UserMenu() {

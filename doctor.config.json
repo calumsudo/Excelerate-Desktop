@@ -8,6 +8,11 @@
     // which this codebase does not use. Every hit was a confirmed false positive
     // (see issue #29), so the rule is disabled project-wide rather than suppressed
     // at 16 correct call sites.
-    "rules": ["react-doctor/no-impure-state-updater"]
+    "rules": ["react-doctor/no-impure-state-updater"],
+    // src/hero.ts is the HeroUI Tailwind v4 plugin entry. It is loaded by
+    // src/index.css via `@plugin './hero.ts';`, a CSS directive the dead-code
+    // analyzer does not parse, so its default export is reported as unused when
+    // it is in fact a build entry point. Ignore the file rather than the export.
+    "files": ["src/hero.ts"]
   }
 }
