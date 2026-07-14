@@ -106,4 +106,4 @@ Supabase client: `src/services/supabase.ts`. Auth service: `src/services/auth-se
 ## Do NOT Touch
 - `dist/`, `node_modules/`, `target/` — build artifacts
 - `src/services/supabase.types.ts` — manually maintained, not auto-generated; edit intentionally
-- `pro-examples/`, `examples/`, `monthlys/` — gitignored data directories
+- `examples/`, `monthlys/` — gitignored data directories

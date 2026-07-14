@@ -80,6 +80,8 @@ function loadSavedViews(): SavedView[] {
   }
 }
 
+const today = () => new Date().toISOString().slice(0, 10);
+
 const uniqueSorted = (values: (string | null)[]): string[] =>
   [...new Set(values.filter((v): v is string => v != null && v !== ""))].sort();
 
@@ -339,7 +341,6 @@ function DealLookup() {
     }
   };
 
-  const today = () => new Date().toISOString().slice(0, 10);
   const exportTable = () =>
     exportCsv(`deals-${today()}.csv`, recordsToCsv(filtered, visibleFields));
   const exportPivot = (pivot: PivotData) =>

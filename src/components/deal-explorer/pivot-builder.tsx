@@ -14,6 +14,30 @@ import {
 
 const NO_COLUMN_KEY = "__none__";
 
+const singleKeySelect = (
+  label: string,
+  selected: string,
+  items: { key: string; label: string }[],
+  onSelect: (key: string) => void,
+  width = "w-full sm:max-w-[200px]"
+) => (
+  <Select
+    aria-label={label}
+    label={label}
+    size="sm"
+    className={width}
+    selectedKeys={[selected]}
+    onSelectionChange={(keys) => {
+      const key = Array.from(keys)[0];
+      if (key != null) onSelect(String(key));
+    }}
+  >
+    {items.map((item) => (
+      <SelectItem key={item.key}>{item.label}</SelectItem>
+    ))}
+  </Select>
+);
+
 const PivotBuilder = ({
   records,
   config,
@@ -30,30 +54,6 @@ const PivotBuilder = ({
   const pivot = useMemo(() => buildPivot(records, config), [records, config]);
   const format = (value: number | null) =>
     value == null ? "—" : formatFieldValue(value, pivot.valueType);
-
-  const singleKeySelect = (
-    label: string,
-    selected: string,
-    items: { key: string; label: string }[],
-    onSelect: (key: string) => void,
-    width = "w-full sm:max-w-[200px]"
-  ) => (
-    <Select
-      aria-label={label}
-      label={label}
-      size="sm"
-      className={width}
-      selectedKeys={[selected]}
-      onSelectionChange={(keys) => {
-        const key = Array.from(keys)[0];
-        if (key != null) onSelect(String(key));
-      }}
-    >
-      {items.map((item) => (
-        <SelectItem key={item.key}>{item.label}</SelectItem>
-      ))}
-    </Select>
-  );
 
   const dimensionItems = DIMENSION_FIELDS.map((f) => ({
     key: f.key as string,
