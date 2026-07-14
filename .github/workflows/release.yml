@@ -3,6 +3,13 @@ name: release
 on:
   release:
     types: [published]
+  # Manual fallback: attach installers to an existing release (runs the
+  # workflow from the selected branch instead of the tag's commit).
+  workflow_dispatch:
+    inputs:
+      release_id:
+        description: "ID of an existing GitHub release to attach installers to"
+        required: true
 
 permissions:
   contents: write
@@ -46,7 +53,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -91,5 +97,5 @@ jobs:
           # WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }} # base64-encoded .pfx
           # WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
         with:
-          releaseId: ${{ github.event.release.id }}
+          releaseId: ${{ github.event.release.id || inputs.release_id }}
           args: ${{ matrix.args }}
