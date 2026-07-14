@@ -29,6 +29,11 @@ export const items: SidebarItem[] = [
     icon: "solar:magnifer-zoom-in-outline",
     title: "Deal Lookup",
   },
+  {
+    key: "ai-chat",
+    icon: "solar:chat-round-line-duotone",
+    title: "AI Chat",
+  },
 ];
 
 export const settingsItem: SidebarItem = {

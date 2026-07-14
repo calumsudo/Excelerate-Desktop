@@ -5,6 +5,7 @@ import Dashboard from "@pages/dashboard";
 import AlderPortfolio from "@pages/alder-portfolio";
 import WhiteRabbitPortfolio from "@pages/white-rabbit-portfolio";
 import DealLookup from "@pages/deal-lookup";
+import AiChat from "@pages/ai-chat";
 import Settings from "@pages/settings";
 import Login from "@pages/login";
 import { ProtectedRoute } from "@components/auth/protected-route";
@@ -42,6 +43,7 @@ function App() {
         <Route path="alder-portfolio" element={<AlderPortfolio />} />
         <Route path="white-rabbit-portfolio" element={<WhiteRabbitPortfolio />} />
         <Route path="deal-lookup" element={<DealLookup />} />
+        <Route path="ai-chat" element={<AiChat />} />
         <Route path="settings" element={<Settings />} />
       </Route>
     </Routes>

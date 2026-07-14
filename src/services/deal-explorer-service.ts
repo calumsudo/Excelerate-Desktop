@@ -215,7 +215,16 @@ export async function getDealRecords(): Promise<DealRecord[]> {
 // ---------------------------------------------------------------------------
 
 export type FilterOperator =
-  "contains" | "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "between" | "is_true" | "is_false";
+  | "contains"
+  | "eq"
+  | "neq"
+  | "gt"
+  | "gte"
+  | "lt"
+  | "lte"
+  | "between"
+  | "is_true"
+  | "is_false";
 
 export const OPERATORS_BY_TYPE: Record<FieldType, FilterOperator[]> = {
   text: ["contains", "eq", "neq"],

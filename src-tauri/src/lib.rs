@@ -1,3 +1,4 @@
+mod ai_chat;
 mod funder_pivot;
 mod notification;
 pub mod parsers;
@@ -13,7 +14,11 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             funder_pivot::parse_funder_pivot,
             workbook_import::parse_portfolio_workbook,
-            workbook_export::export_portfolio_workbook
+            workbook_export::export_portfolio_workbook,
+            ai_chat::ai_chat_stream,
+            ai_chat::settings::get_ai_settings,
+            ai_chat::settings::save_ai_settings,
+            ai_chat::attachments::prepare_chat_attachment
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
