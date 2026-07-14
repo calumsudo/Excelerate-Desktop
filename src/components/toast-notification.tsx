@@ -1,7 +1,7 @@
 import { LazyMotion, domAnimation, m } from "framer-motion";
 import { Card, CardBody, Button } from "@heroui/react";
 import { Icon } from "@iconify/react";
-import { Toast } from "@/contexts/toast-context";
+import { Toast } from "@/contexts/toast-context-value";
 
 interface ToastNotificationProps extends Toast {
   onClose: () => void;

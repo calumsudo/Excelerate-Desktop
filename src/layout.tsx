@@ -5,7 +5,7 @@ import { items, settingsItem } from "@features/sidebar/sidebar-items";
 import { UserMenu } from "@components/auth/user-menu";
 import { useEffect, useState, useRef } from "react";
 import { Icon } from "@iconify/react";
-import { useTheme } from "@/contexts/theme-context";
+import { useTheme } from "@/contexts/theme-context-value";
 
 function Layout() {
   const navigate = useNavigate();

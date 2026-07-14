@@ -1,48 +1,35 @@
-import React, { createContext, useContext, useState, useCallback, useEffect, useMemo } from "react";
+import React, { useState, useCallback, useEffect, useMemo } from "react";
 import { AnimatePresence } from "framer-motion";
 import ToastNotification from "@components/toast-notification";
 import { toast } from "@services/toast-service";
-
-export type ToastType = "success" | "error" | "warning" | "info";
-
-export interface Toast {
-  id: string;
-  title: string;
-  description?: string;
-  type: ToastType;
-  duration?: number;
-}
-
-interface ToastContextType {
-  showToast: (toast: Omit<Toast, "id">) => void;
-  hideToast: (id: string) => void;
-}
-
-const ToastContext = createContext<ToastContextType | undefined>(undefined);
+import { ToastContext, type Toast } from "./toast-context-value";
 
 export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
-  const showToast = useCallback((toast: Omit<Toast, "id">) => {
-    const id = Date.now().toString();
-    const newToast = { ...toast, id };
-
-    setToasts((prev) => [...prev, newToast]);
-
-    // Don't auto-dismiss error toasts - require manual dismissal
-    if (toast.type !== "error") {
-      const duration = toast.duration ?? 5000;
-      if (duration > 0) {
-        setTimeout(() => {
-          hideToast(id);
-        }, duration);
-      }
-    }
-  }, []);
-
   const hideToast = useCallback((id: string) => {
     setToasts((prev) => prev.filter((toast) => toast.id !== id));
   }, []);
+
+  const showToast = useCallback(
+    (toast: Omit<Toast, "id">) => {
+      const id = Date.now().toString();
+      const newToast = { ...toast, id };
+
+      setToasts((prev) => [...prev, newToast]);
+
+      // Don't auto-dismiss error toasts - require manual dismissal
+      if (toast.type !== "error") {
+        const duration = toast.duration ?? 5000;
+        if (duration > 0) {
+          setTimeout(() => {
+            hideToast(id);
+          }, duration);
+        }
+      }
+    },
+    [hideToast]
+  );
 
   useEffect(() => {
     toast.setToastFunction(showToast);
@@ -62,12 +49,4 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       </div>
     </ToastContext.Provider>
   );
-};
-
-export const useToast = () => {
-  const context = useContext(ToastContext);
-  if (!context) {
-    throw new Error("useToast must be used within a ToastProvider");
-  }
-  return context;
 };

@@ -16,7 +16,7 @@ import {
   Tabs,
 } from "@heroui/react";
 import { Icon } from "@iconify/react";
-import { useToast } from "@/contexts/toast-context";
+import { useToast } from "@/contexts/toast-context-value";
 import { formatMoney } from "@services/analytics-service";
 import {
   applyFilters,
