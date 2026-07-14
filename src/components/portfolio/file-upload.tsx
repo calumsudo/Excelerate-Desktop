@@ -108,6 +108,13 @@ const FileUpload: React.FC<FileUploadProps> = ({
     }
   };
 
+  // Keep a stable ref to the latest handler so the listener below can register
+  // once and still call the current closure (deps otherwise force re-registration).
+  const handleTauriFileDropRef = useRef(handleTauriFileDrop);
+  useEffect(() => {
+    handleTauriFileDropRef.current = handleTauriFileDrop;
+  });
+
   // Handle Tauri-specific drag and drop events
   useEffect(() => {
     let unlisten: (() => void) | undefined;
@@ -127,12 +134,16 @@ const FileUpload: React.FC<FileUploadProps> = ({
           // Only process if this specific drop zone is being hovered
           if (!dropZoneRef.current) return;
 
-          const hasPosition = (payload: any): payload is { position: { x: number; y: number } } => {
+          const hasPosition = (
+            payload: unknown
+          ): payload is { position: { x: number; y: number } } => {
+            if (typeof payload !== "object" || payload === null) return false;
+            const pos = (payload as { position?: unknown }).position;
             return (
-              payload &&
-              typeof payload.position === "object" &&
-              typeof payload.position.x === "number" &&
-              typeof payload.position.y === "number"
+              typeof pos === "object" &&
+              pos !== null &&
+              typeof (pos as { x?: unknown }).x === "number" &&
+              typeof (pos as { y?: unknown }).y === "number"
             );
           };
 
@@ -163,7 +174,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
               if (event.payload.paths && event.payload.paths.length > 0) {
                 const filePath = event.payload.paths[0];
                 console.warn(`Processing file for ${uploadId}:`, filePath);
-                handleTauriFileDrop(filePath);
+                handleTauriFileDropRef.current(filePath);
               }
             }
             setIsDragging(false);
@@ -189,7 +200,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
         listenerRegisteredRef.current = false;
       }
     };
-  }, [acceptedExtensions, maxSizeKB, uploadId]); // Removed onFileUpload and selectedFile from deps
+  }, [uploadId]); // Register once per drop zone; dynamic values are read via refs
 
   // Check if file is valid based on props
   const isValidFile = (file: File): boolean => {
