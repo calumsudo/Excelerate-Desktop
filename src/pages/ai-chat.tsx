@@ -70,6 +70,15 @@ function titleFrom(text: string, fallback: string): string {
   return trimmed.length > 60 ? `${trimmed.slice(0, 60)}…` : trimmed;
 }
 
+/**
+ * A prepared attachment plus a client-generated id, so the pending-attachment
+ * chips have a stable key while the user adds and removes them before sending.
+ */
+interface LocalAttachment extends PreparedAttachment {
+  id: string;
+}
+
+// react-doctor-disable-next-line react-doctor/prefer-useReducer -- these hold largely independent concerns (settings, conversation list, active messages, composer input, attachments, streaming status) that change at different times, so a single reducer would not improve consistency
 function AiChat() {
   const [settings, setSettings] = useState<AiSettings | null>(null);
   const [provider, setProvider] = useState<AiProvider>("anthropic");
@@ -81,7 +90,7 @@ function AiChat() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
 
   const [input, setInput] = useState("");
-  const [attachments, setAttachments] = useState<PreparedAttachment[]>([]);
+  const [attachments, setAttachments] = useState<LocalAttachment[]>([]);
   const [attaching, setAttaching] = useState(false);
   const [streaming, setStreaming] = useState(false);
   const [liveSegments, setLiveSegments] = useState<LiveSegment[]>([]);
@@ -168,7 +177,11 @@ function AiChat() {
       // The picks are independent, so prepare them together instead of
       // awaiting each one in turn.
       const prepared = await Promise.all(paths.map((path) => prepareChatAttachment(path)));
-      setAttachments((prev) => [...prev, ...prepared]);
+      const withIds: LocalAttachment[] = prepared.map((attachment) => ({
+        ...attachment,
+        id: crypto.randomUUID(),
+      }));
+      setAttachments((prev) => [...prev, ...withIds]);
     } catch (error) {
       toast.error("Could not attach file", String(error));
     } finally {
@@ -449,6 +462,7 @@ function AiChat() {
               </div>
             )}
             {messages.map((message, i) => (
+              // react-doctor-disable-next-line react-doctor/no-array-index-as-key -- the conversation log is append-only and only ever truncated from the end (retry), so it never reorders or filters mid-list
               <MessageView
                 key={i}
                 message={message}
@@ -467,13 +481,15 @@ function AiChat() {
         <div className="mx-auto w-full max-w-3xl pt-3">
           {attachments.length > 0 && (
             <div className="mb-2 flex flex-wrap gap-2">
-              {attachments.map((attachment, i) => (
+              {attachments.map((attachment) => (
                 <Chip
-                  key={i}
+                  key={attachment.id}
                   size="sm"
                   variant="flat"
                   color="secondary"
-                  onClose={() => setAttachments((prev) => prev.filter((_, j) => j !== i))}
+                  onClose={() =>
+                    setAttachments((prev) => prev.filter((a) => a.id !== attachment.id))
+                  }
                 >
                   {attachment.name}
                 </Chip>

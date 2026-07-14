@@ -126,6 +126,18 @@ function UserBlock({ block }: { block: ChatBlock }) {
   return null;
 }
 
+function AssistantBlock({ block }: { block: ChatBlock }) {
+  if (block.kind === "text") return <Markdown text={block.text} />;
+  if (block.kind === "tool_use") {
+    return (
+      <div>
+        <ToolChip name={block.name} detail={summarizeToolInput(block.input)} />
+      </div>
+    );
+  }
+  return null;
+}
+
 /** Concatenated text of an assistant message, for copying to the clipboard. */
 function assistantText(message: ChatMessage): string {
   return message.blocks
@@ -201,6 +213,7 @@ export function MessageView({
       <div className="flex justify-end">
         <div className="flex max-w-[75%] flex-col items-end gap-1 rounded-large bg-primary-50 px-4 py-2">
           {message.blocks.map((block, i) => (
+            // react-doctor-disable-next-line react-doctor/no-array-index-as-key -- a message's blocks are fixed at creation and never reorder or filter, so the position is a stable key
             <UserBlock key={i} block={block} />
           ))}
         </div>
@@ -211,17 +224,10 @@ export function MessageView({
   return (
     <div className="group flex justify-start">
       <div className="flex max-w-[85%] flex-col gap-2">
-        {message.blocks.map((block, i) => {
-          if (block.kind === "text") return <Markdown key={i} text={block.text} />;
-          if (block.kind === "tool_use") {
-            return (
-              <div key={i}>
-                <ToolChip name={block.name} detail={summarizeToolInput(block.input)} />
-              </div>
-            );
-          }
-          return null;
-        })}
+        {message.blocks.map((block, i) => (
+          // react-doctor-disable-next-line react-doctor/no-array-index-as-key -- a message's blocks are fixed at creation and never reorder or filter, so the position is a stable key
+          <AssistantBlock key={i} block={block} />
+        ))}
         <MessageActions text={assistantText(message)} onRetry={onRetry} />
       </div>
     </div>
@@ -232,19 +238,24 @@ export type LiveSegment =
   | { type: "text"; text: string }
   | { type: "tool"; id: string; name: string; status: "running" | "done" | "error" };
 
+function LiveSegmentItem({ segment }: { segment: LiveSegment }) {
+  if (segment.type === "text") return <Markdown text={segment.text} />;
+  return (
+    <div className="flex items-center gap-2">
+      <ToolChip name={segment.name} isError={segment.status === "error"} />
+      {segment.status === "running" && <Spinner size="sm" />}
+    </div>
+  );
+}
+
 export function LiveMessageView({ segments }: { segments: LiveSegment[] }) {
   return (
     <div className="flex justify-start">
       <div className="flex max-w-[85%] flex-col gap-2">
-        {segments.map((segment, i) => {
-          if (segment.type === "text") return <Markdown key={i} text={segment.text} />;
-          return (
-            <div key={i} className="flex items-center gap-2">
-              <ToolChip name={segment.name} isError={segment.status === "error"} />
-              {segment.status === "running" && <Spinner size="sm" />}
-            </div>
-          );
-        })}
+        {segments.map((segment, i) => (
+          // react-doctor-disable-next-line react-doctor/no-array-index-as-key -- streamed segments are appended in order and never reorder or filter, so the position is a stable key
+          <LiveSegmentItem key={i} segment={segment} />
+        ))}
         {segments.length === 0 && <Spinner size="sm" label="Thinking…" labelColor="foreground" />}
       </div>
     </div>

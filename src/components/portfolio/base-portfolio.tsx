@@ -7,7 +7,8 @@ import FunderUploadSection, { FunderData } from "./funder-upload-section";
 
 interface BasePortfolioProps {
   portfolioName: string;
-  onDateChange?: (date: DateValue | null) => void;
+  selectedDate: DateValue | null;
+  onDateChange: (date: DateValue | null) => void;
   monthlyFunders?: FunderData[];
   onMonthlyFunderUpload?: (funderName: string, file: File) => void;
   onMonthlyClearFile?: (funderName: string) => void;
@@ -20,6 +21,7 @@ interface BasePortfolioProps {
 
 const BasePortfolio: React.FC<BasePortfolioProps> = ({
   portfolioName,
+  selectedDate,
   onDateChange,
   monthlyFunders,
   onMonthlyFunderUpload,
@@ -47,6 +49,7 @@ const BasePortfolio: React.FC<BasePortfolioProps> = ({
             <MonthlyDatePicker
               label="Report Month"
               description="Select the month for this portfolio report"
+              value={selectedDate}
               onDateChange={onDateChange}
             />
           </div>

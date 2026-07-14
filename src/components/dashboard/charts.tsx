@@ -328,8 +328,8 @@ export const AllocationPieCard = ({
                   if (!payload || payload.length === 0) return null;
                   return (
                     <div className="rounded-medium bg-background text-tiny shadow-small p-2">
-                      {payload.map((entry, index) => (
-                        <div key={index} className="flex items-center gap-x-2">
+                      {payload.map((entry) => (
+                        <div key={entry.name} className="flex items-center gap-x-2">
                           <div
                             className="h-2 w-2 rounded-full"
                             style={{ backgroundColor: entry.payload.fill }}

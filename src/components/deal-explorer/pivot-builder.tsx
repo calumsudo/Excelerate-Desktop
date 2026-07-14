@@ -133,7 +133,7 @@ const PivotBuilder = ({
                   </td>
                   {row.values.map((value, index) => (
                     <td
-                      key={index}
+                      key={pivot.colLabels[index]}
                       className="text-right px-2 py-1.5 border-b border-divider whitespace-nowrap tabular-nums"
                     >
                       {format(value)}
@@ -147,7 +147,10 @@ const PivotBuilder = ({
               <tr className="font-semibold">
                 <td className="px-2 py-2">Total</td>
                 {pivot.colTotals.map((value, index) => (
-                  <td key={index} className="text-right px-2 py-2 whitespace-nowrap tabular-nums">
+                  <td
+                    key={pivot.colLabels[index]}
+                    className="text-right px-2 py-2 whitespace-nowrap tabular-nums"
+                  >
                     {format(value)}
                   </td>
                 ))}
