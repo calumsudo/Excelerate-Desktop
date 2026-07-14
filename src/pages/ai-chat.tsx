@@ -33,10 +33,12 @@ import {
   deleteConversation,
   listConversations,
   listMessages,
+  replaceMessages,
   type Conversation,
 } from "@services/chat-store-service";
 import { toast } from "@services/toast-service";
 import {
+  isToolResultMessage,
   LiveMessageView,
   MessageView,
   type LiveSegment,
@@ -197,16 +199,15 @@ function AiChat() {
     });
   }, []);
 
-  const handleSend = async () => {
-    const text = input.trim();
-    if (streaming || (!text && attachments.length === 0)) return;
+  /** Validates provider/model setup, surfacing a toast and returning false if not ready. */
+  const ensureConfigured = (): boolean => {
     if (!settings || (providerNeedsApiKey(provider) && !apiKeyFor(settings, provider))) {
       toast.warning(
         "No API key configured",
         `Add your ${PROVIDER_LABELS[provider]} API key in the AI settings first.`
       );
       setSettingsOpen(true);
-      return;
+      return false;
     }
     if (!model.trim()) {
       const hint =
@@ -215,8 +216,24 @@ function AiChat() {
           : "Enter a model id in the header first.";
       toast.warning("No model set", hint);
       if (provider === "lmstudio") setSettingsOpen(true);
-      return;
+      return false;
     }
+    return true;
+  };
+
+  /** Moves a conversation to the top of the list after a new turn. */
+  const bumpConversation = (id: string) => {
+    setConversations((prev) => {
+      const bumped = prev.find((c) => c.id === id);
+      if (!bumped) return prev;
+      return [bumped, ...prev.filter((c) => c.id !== id)];
+    });
+  };
+
+  const handleSend = async () => {
+    const text = input.trim();
+    if (streaming || (!text && attachments.length === 0)) return;
+    if (!ensureConfigured()) return;
 
     const blocks: ChatBlock[] = [
       ...attachments.flatMap((attachment) => attachment.blocks),
@@ -257,17 +274,58 @@ function AiChat() {
       if (!persistenceBroken.current && conversationId) {
         try {
           await appendMessages(conversationId, newMessages);
-          setConversations((prev) => {
-            const bumped = prev.find((c) => c.id === conversationId);
-            if (!bumped) return prev;
-            return [bumped, ...prev.filter((c) => c.id !== conversationId)];
-          });
+          bumpConversation(conversationId);
         } catch (error) {
           warnPersistence(error);
         }
       }
     } catch (error) {
       toast.error("AI request failed", String(error));
+    } finally {
+      setStreaming(false);
+      setLiveSegments([]);
+    }
+  };
+
+  /**
+   * Regenerates the assistant turn that produced `messages[index]`. Everything
+   * from the start of that turn onward is dropped and re-streamed from the
+   * user prompt that triggered it.
+   */
+  const handleRetry = async (index: number) => {
+    if (streaming || !ensureConfigured()) return;
+
+    // Walk back to the genuine user prompt that started this assistant turn,
+    // skipping the assistant messages and tool-result plumbing in between.
+    let cut = index;
+    while (cut > 0) {
+      const prev = messages[cut - 1];
+      if (prev.role === "user" && !isToolResultMessage(prev)) break;
+      cut--;
+    }
+    const history = messages.slice(0, cut);
+    if (history.length === 0) return;
+
+    const previousMessages = messages;
+    setMessages(history);
+    setStreaming(true);
+    setLiveSegments([]);
+
+    try {
+      const newMessages = await streamChat({ provider, model, messages: history, onEvent });
+      const finalMessages = [...history, ...newMessages];
+      setMessages(finalMessages);
+      if (!persistenceBroken.current && activeId) {
+        try {
+          await replaceMessages(activeId, finalMessages);
+          bumpConversation(activeId);
+        } catch (error) {
+          warnPersistence(error);
+        }
+      }
+    } catch (error) {
+      toast.error("AI request failed", String(error));
+      setMessages(previousMessages); // restore the response we tried to replace
     } finally {
       setStreaming(false);
       setLiveSegments([]);
@@ -386,7 +444,15 @@ function AiChat() {
               </div>
             )}
             {messages.map((message, i) => (
-              <MessageView key={i} message={message} />
+              <MessageView
+                key={i}
+                message={message}
+                onRetry={
+                  !streaming && message.role === "assistant" && i === messages.length - 1
+                    ? () => handleRetry(i)
+                    : undefined
+                }
+              />
             ))}
             {streaming && <LiveMessageView segments={liveSegments} />}
           </div>

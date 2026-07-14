@@ -1,6 +1,7 @@
+import { useState } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Chip, Spinner } from "@heroui/react";
+import { Button, Chip, Spinner, Tooltip } from "@heroui/react";
 import { Icon } from "@iconify/react";
 import type { ChatBlock, ChatMessage } from "@services/ai-chat-service";
 
@@ -133,7 +134,72 @@ export function isToolResultMessage(message: ChatMessage): boolean {
   );
 }
 
-export function MessageView({ message }: { message: ChatMessage }) {
+/** Concatenated text of an assistant message, for copying to the clipboard. */
+function assistantText(message: ChatMessage): string {
+  return message.blocks
+    .filter((block): block is Extract<ChatBlock, { kind: "text" }> => block.kind === "text")
+    .map((block) => block.text)
+    .join("\n\n")
+    .trim();
+}
+
+function MessageActions({ text, onRetry }: { text: string; onRetry?: () => void }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // Clipboard access can fail silently; nothing actionable for the user.
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+      {text && (
+        <Tooltip content={copied ? "Copied" : "Copy"}>
+          <Button
+            isIconOnly
+            size="sm"
+            variant="light"
+            onPress={handleCopy}
+            aria-label="Copy response"
+          >
+            <Icon
+              icon={copied ? "solar:check-read-outline" : "solar:copy-outline"}
+              width={16}
+              className={copied ? "text-success" : "text-default-500"}
+            />
+          </Button>
+        </Tooltip>
+      )}
+      {onRetry && (
+        <Tooltip content="Retry">
+          <Button
+            isIconOnly
+            size="sm"
+            variant="light"
+            onPress={onRetry}
+            aria-label="Retry response"
+          >
+            <Icon icon="solar:refresh-outline" width={16} className="text-default-500" />
+          </Button>
+        </Tooltip>
+      )}
+    </div>
+  );
+}
+
+export function MessageView({
+  message,
+  onRetry,
+}: {
+  message: ChatMessage;
+  /** When provided, renders a Retry button that regenerates this response. */
+  onRetry?: () => void;
+}) {
   if (isToolResultMessage(message)) {
     return null; // tool activity is already shown via the assistant's chips
   }
@@ -151,7 +217,7 @@ export function MessageView({ message }: { message: ChatMessage }) {
   }
 
   return (
-    <div className="flex justify-start">
+    <div className="group flex justify-start">
       <div className="flex max-w-[85%] flex-col gap-2">
         {message.blocks.map((block, i) => {
           if (block.kind === "text") return <Markdown key={i} text={block.text} />;
@@ -164,6 +230,7 @@ export function MessageView({ message }: { message: ChatMessage }) {
           }
           return null;
         })}
+        <MessageActions text={assistantText(message)} onRetry={onRetry} />
       </div>
     </div>
   );

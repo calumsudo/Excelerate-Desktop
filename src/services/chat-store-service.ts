@@ -84,3 +84,37 @@ export async function appendMessages(
     .update({ updated_at: new Date().toISOString() })
     .eq("id", conversationId);
 }
+
+/**
+ * Replaces the entire message history for a conversation. Used when a response
+ * is retried: the old assistant turn (and anything after it) is dropped and the
+ * regenerated turn takes its place. Timestamps are spaced by index so the
+ * `created_at` ordering read back by {@link listMessages} matches insertion order.
+ */
+export async function replaceMessages(
+  conversationId: string,
+  messages: ChatMessage[]
+): Promise<void> {
+  const { error: deleteError } = await supabase
+    .from("chat_messages")
+    .delete()
+    .eq("conversation_id", conversationId);
+  if (deleteError) throw new Error(`Failed to clear messages: ${deleteError.message}`);
+
+  if (messages.length > 0) {
+    const base = Date.now();
+    const rows = messages.map((message, i) => ({
+      conversation_id: conversationId,
+      role: message.role,
+      content: message.blocks as unknown as Json,
+      created_at: new Date(base + i).toISOString(),
+    }));
+    const { error } = await supabase.from("chat_messages").insert(rows);
+    if (error) throw new Error(`Failed to save messages: ${error.message}`);
+  }
+
+  await supabase
+    .from("chat_conversations")
+    .update({ updated_at: new Date().toISOString() })
+    .eq("id", conversationId);
+}
