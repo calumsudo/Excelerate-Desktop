@@ -154,19 +154,6 @@ const ExplorerTable = ({
             setSort(descriptor);
             setPage(1);
           }}
-          bottomContent={
-            pages > 1 ? (
-              <div className="flex justify-center">
-                <Pagination
-                  size="sm"
-                  showControls
-                  page={currentPage}
-                  total={pages}
-                  onChange={setPage}
-                />
-              </div>
-            ) : null
-          }
         >
           <TableHeader columns={columns}>
             {(column) => (
@@ -232,6 +219,12 @@ const ExplorerTable = ({
           </TableBody>
         </Table>
       </div>
+
+      {pages > 1 && (
+        <div className="flex justify-center p-4 pt-2">
+          <Pagination size="sm" showControls page={currentPage} total={pages} onChange={setPage} />
+        </div>
+      )}
     </Card>
   );
 };
