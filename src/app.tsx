@@ -5,6 +5,7 @@ import Dashboard from "@pages/dashboard";
 import AlderPortfolio from "@pages/alder-portfolio";
 import WhiteRabbitPortfolio from "@pages/white-rabbit-portfolio";
 import DealLookup from "@pages/deal-lookup";
+import PivotTables from "@pages/pivot-tables";
 import AiChat from "@pages/ai-chat";
 import Settings from "@pages/settings";
 import Login from "@pages/login";
@@ -45,6 +46,7 @@ function App() {
           <Route path="alder-portfolio" element={<AlderPortfolio />} />
           <Route path="white-rabbit-portfolio" element={<WhiteRabbitPortfolio />} />
           <Route path="deal-lookup" element={<DealLookup />} />
+          <Route path="pivot-tables" element={<PivotTables />} />
           <Route path="ai-chat" element={<AiChat />} />
           <Route path="settings" element={<Settings />} />
         </Route>

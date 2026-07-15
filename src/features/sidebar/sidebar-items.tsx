@@ -26,6 +26,11 @@ export const items: SidebarItem[] = [
     title: "Deal Lookup",
   },
   {
+    key: "pivot-tables",
+    icon: "solar:widget-5-outline",
+    title: "Pivot Tables",
+  },
+  {
     key: "ai-chat",
     icon: "solar:chat-round-line-duotone",
     title: "AI Chat",

@@ -94,6 +94,31 @@ export interface UnresolvedPivotRow {
   report_date: string;
 }
 
+/** One committed pivot row as stored in funder_pivot_rows. */
+export interface CommittedPivotRow {
+  id: string;
+  advance_id: string | null;
+  merchant_name: string;
+  gross: number;
+  fee: number;
+  net: number;
+  originator_fee: number | null;
+  rb_fee: number | null;
+  fee_discrepancy: number | null;
+  matched_deal_id: string | null;
+}
+
+/** A committed pivot: the funder_pivot_tables totals row plus its rows. */
+export interface CommittedPivot {
+  id: string;
+  report_date: string;
+  total_gross: number;
+  total_fee: number;
+  total_net: number;
+  row_count: number;
+  rows: CommittedPivotRow[];
+}
+
 /** One funder_uploads row, resolved for display. */
 export interface CloudUploadInfo {
   id: string;
@@ -370,6 +395,74 @@ export class PivotSyncService {
           b.report_date.localeCompare(a.report_date) ||
           a.merchant_name.localeCompare(b.merchant_name)
       );
+  }
+
+  /** All funder UI labels known to Supabase, alphabetically. */
+  static async listFunders(): Promise<string[]> {
+    const names = await this.getFunderNames();
+    return [...names.values()].map(uiFunderName).sort((a, b) => a.localeCompare(b));
+  }
+
+  /**
+   * Distinct report dates that have a committed pivot for one portfolio +
+   * funder, newest first. Drives the year/month selectors on the Pivot Tables
+   * page so only periods with data are offered.
+   */
+  static async listPivotMonths(portfolioName: string, funderName: string): Promise<string[]> {
+    const [portfolioId, funderId] = await Promise.all([
+      this.getPortfolioId(portfolioName),
+      this.getFunderId(funderName),
+    ]);
+    const { data, error } = await supabase
+      .from("funder_pivot_tables")
+      .select("report_date")
+      .eq("portfolio_id", portfolioId)
+      .eq("funder_id", funderId)
+      .order("report_date", { ascending: false });
+    if (error) throw new Error(`Failed to load pivot months: ${error.message}`);
+    return [...new Set((data ?? []).map((r) => r.report_date))];
+  }
+
+  /**
+   * The committed pivot (totals + every row) for one portfolio + funder +
+   * report date, or null if none was committed for that combination.
+   */
+  static async getPivotTable(
+    portfolioName: string,
+    funderName: string,
+    reportDate: string
+  ): Promise<CommittedPivot | null> {
+    const [portfolioId, funderId] = await Promise.all([
+      this.getPortfolioId(portfolioName),
+      this.getFunderId(funderName),
+    ]);
+    const { data: table, error: tableError } = await supabase
+      .from("funder_pivot_tables")
+      .select("id, report_date, total_gross, total_fee, total_net, row_count")
+      .eq("portfolio_id", portfolioId)
+      .eq("funder_id", funderId)
+      .eq("report_date", reportDate)
+      .maybeSingle();
+    if (tableError) throw new Error(`Failed to load pivot table: ${tableError.message}`);
+    if (!table) return null;
+
+    const PAGE = 1000; // PostgREST response cap
+    const rows: CommittedPivotRow[] = [];
+    for (let from = 0; ; from += PAGE) {
+      const { data, error } = await supabase
+        .from("funder_pivot_rows")
+        .select(
+          "id, advance_id, merchant_name, gross, fee, net, originator_fee, rb_fee, fee_discrepancy, matched_deal_id"
+        )
+        .eq("pivot_table_id", table.id)
+        .order("merchant_name")
+        .range(from, from + PAGE - 1);
+      if (error) throw new Error(`Failed to load pivot rows: ${error.message}`);
+      if (!data || data.length === 0) break;
+      rows.push(...data);
+      if (data.length < PAGE) break;
+    }
+    return { ...table, rows };
   }
 
   /** All funder uploads recorded in Supabase for one portfolio + report date. */
