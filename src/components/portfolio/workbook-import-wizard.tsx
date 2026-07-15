@@ -32,6 +32,157 @@ const money = (value: number) =>
 
 const pct = (value: number | null) => (value === null ? "—" : `${(value * 100).toFixed(1)}%`);
 
+interface ImportPreviewBodyProps {
+  preview: WorkbookImportPreview;
+  totalDeals: number;
+  totalPayments: number;
+  totalNet: number;
+  allWarnings: string[];
+}
+
+// "preview" step: parsed per-sheet counts shown before anything is written.
+function ImportPreviewBody({
+  preview,
+  totalDeals,
+  totalPayments,
+  totalNet,
+  allWarnings,
+}: ImportPreviewBodyProps) {
+  return (
+    <>
+      <Table aria-label="Parsed funder sheets" isStriped removeWrapper>
+        <TableHeader>
+          <TableColumn>SHEET</TableColumn>
+          <TableColumn>FUNDER</TableColumn>
+          <TableColumn align="end">MGMT FEE</TableColumn>
+          <TableColumn align="end">DEALS</TableColumn>
+          <TableColumn align="end">PAYMENTS</TableColumn>
+          <TableColumn align="end">NET RTR TOTAL</TableColumn>
+        </TableHeader>
+        <TableBody>
+          {preview.sheets.map((s) => (
+            <TableRow key={s.sheet.sheet_name}>
+              <TableCell className="font-mono text-sm">{s.sheet.sheet_name}</TableCell>
+              <TableCell className="font-medium">{s.funderName}</TableCell>
+              <TableCell className="text-right font-mono text-sm">
+                {pct(s.sheet.management_fee_rate)}
+                {s.currentFeeRate !== null &&
+                  s.sheet.management_fee_rate !== null &&
+                  s.currentFeeRate !== s.sheet.management_fee_rate && (
+                    <span className="text-warning-600"> (was {pct(s.currentFeeRate)})</span>
+                  )}
+              </TableCell>
+              <TableCell className="text-right font-mono text-sm">{s.sheet.deals.length}</TableCell>
+              <TableCell className="text-right font-mono text-sm">
+                {s.sheet.payment_count}
+              </TableCell>
+              <TableCell className="text-right font-mono text-sm">
+                {money(s.sheet.total_net_payments)}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+
+      <div className="flex items-center gap-4 text-sm font-medium px-1">
+        <span>Total: {totalDeals} deals</span>
+        <span>{totalPayments} payments</span>
+        <span>{money(totalNet)} net RTR</span>
+      </div>
+
+      {preview.missingSheets.length > 0 && (
+        <p className="text-xs text-default-500">
+          Not in this workbook: {preview.missingSheets.join(", ")}
+        </p>
+      )}
+      {allWarnings.length > 0 && (
+        <div className="p-3 bg-warning-50 border border-warning-200 rounded-lg">
+          <p className="text-sm font-medium text-warning-700 mb-1">
+            {allWarnings.length} parser warning{allWarnings.length === 1 ? "" : "s"}
+          </p>
+          <ul className="text-xs text-warning-700 list-disc pl-4 max-h-24 overflow-y-auto">
+            {allWarnings.map((w) => (
+              <li key={w}>{w}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </>
+  );
+}
+
+interface ImportSummaryBodyProps {
+  results: Map<string, SheetImportResult>;
+  unmatchedIndustries: string[];
+  unmatchedStates: string[];
+  error: string | null;
+}
+
+// "summary" step: per-sheet import results plus any unmatched lookups.
+function ImportSummaryBody({
+  results,
+  unmatchedIndustries,
+  unmatchedStates,
+  error,
+}: ImportSummaryBodyProps) {
+  return (
+    <>
+      <Table aria-label="Import results" isStriped removeWrapper>
+        <TableHeader>
+          <TableColumn>SHEET</TableColumn>
+          <TableColumn align="end">DEALS</TableColumn>
+          <TableColumn align="end">MERCHANTS</TableColumn>
+          <TableColumn align="end">PAYMENTS</TableColumn>
+          <TableColumn align="end">NET WRITTEN</TableColumn>
+          <TableColumn align="end">SKIPPED</TableColumn>
+        </TableHeader>
+        <TableBody>
+          {[...results.entries()].map(([sheetName, r]) => (
+            <TableRow key={sheetName}>
+              <TableCell className="font-mono text-sm">{sheetName}</TableCell>
+              <TableCell className="text-right font-mono text-sm">{r.deals_imported}</TableCell>
+              <TableCell className="text-right font-mono text-sm">{r.merchants_upserted}</TableCell>
+              <TableCell className="text-right font-mono text-sm">{r.payments_inserted}</TableCell>
+              <TableCell className="text-right font-mono text-sm">
+                {money(r.payments_net_inserted)}
+              </TableCell>
+              <TableCell className="text-right font-mono text-sm">
+                {r.rows_skipped + r.duplicate_rows_dropped || ""}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+
+      {(unmatchedIndustries.length > 0 || unmatchedStates.length > 0) && (
+        <div className="p-3 bg-default-100 rounded-lg text-xs text-default-600 space-y-2">
+          {unmatchedIndustries.length > 0 && (
+            <p>
+              <span className="font-medium">{unmatchedIndustries.length} industries</span> had no
+              match in the lookup table (merchants imported without an industry):{" "}
+              {unmatchedIndustries.slice(0, 12).join(", ")}
+              {unmatchedIndustries.length > 12 && " …"}
+            </p>
+          )}
+          {unmatchedStates.length > 0 && (
+            <p>
+              <span className="font-medium">{unmatchedStates.length} states</span> unmatched:{" "}
+              {unmatchedStates.slice(0, 12).join(", ")}
+              {unmatchedStates.length > 12 && " …"}
+            </p>
+          )}
+        </div>
+      )}
+      {!error && (
+        <div className="flex items-center gap-2 text-success-600 text-sm">
+          <Icon icon="material-symbols:check-circle" className="w-5 h-5" />
+          Workbook imported. Monthly funder uploads take it from here.
+        </div>
+      )}
+    </>
+  );
+}
+
 /**
  * Phase 3 one-time onboarding: parse a portfolio workbook locally (Rust),
  * preview per-sheet deal/payment counts, then import each funder sheet into
@@ -182,72 +333,13 @@ export function WorkbookImportWizard({ portfolioName }: WorkbookImportWizardProp
                 )}
 
                 {step === "preview" && preview && (
-                  <>
-                    <Table aria-label="Parsed funder sheets" isStriped removeWrapper>
-                      <TableHeader>
-                        <TableColumn>SHEET</TableColumn>
-                        <TableColumn>FUNDER</TableColumn>
-                        <TableColumn align="end">MGMT FEE</TableColumn>
-                        <TableColumn align="end">DEALS</TableColumn>
-                        <TableColumn align="end">PAYMENTS</TableColumn>
-                        <TableColumn align="end">NET RTR TOTAL</TableColumn>
-                      </TableHeader>
-                      <TableBody>
-                        {preview.sheets.map((s) => (
-                          <TableRow key={s.sheet.sheet_name}>
-                            <TableCell className="font-mono text-sm">
-                              {s.sheet.sheet_name}
-                            </TableCell>
-                            <TableCell className="font-medium">{s.funderName}</TableCell>
-                            <TableCell className="text-right font-mono text-sm">
-                              {pct(s.sheet.management_fee_rate)}
-                              {s.currentFeeRate !== null &&
-                                s.sheet.management_fee_rate !== null &&
-                                s.currentFeeRate !== s.sheet.management_fee_rate && (
-                                  <span className="text-warning-600">
-                                    {" "}
-                                    (was {pct(s.currentFeeRate)})
-                                  </span>
-                                )}
-                            </TableCell>
-                            <TableCell className="text-right font-mono text-sm">
-                              {s.sheet.deals.length}
-                            </TableCell>
-                            <TableCell className="text-right font-mono text-sm">
-                              {s.sheet.payment_count}
-                            </TableCell>
-                            <TableCell className="text-right font-mono text-sm">
-                              {money(s.sheet.total_net_payments)}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-
-                    <div className="flex items-center gap-4 text-sm font-medium px-1">
-                      <span>Total: {totalDeals} deals</span>
-                      <span>{totalPayments} payments</span>
-                      <span>{money(totalNet)} net RTR</span>
-                    </div>
-
-                    {preview.missingSheets.length > 0 && (
-                      <p className="text-xs text-default-500">
-                        Not in this workbook: {preview.missingSheets.join(", ")}
-                      </p>
-                    )}
-                    {allWarnings.length > 0 && (
-                      <div className="p-3 bg-warning-50 border border-warning-200 rounded-lg">
-                        <p className="text-sm font-medium text-warning-700 mb-1">
-                          {allWarnings.length} parser warning{allWarnings.length === 1 ? "" : "s"}
-                        </p>
-                        <ul className="text-xs text-warning-700 list-disc pl-4 max-h-24 overflow-y-auto">
-                          {allWarnings.map((w) => (
-                            <li key={w}>{w}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                  </>
+                  <ImportPreviewBody
+                    preview={preview}
+                    totalDeals={totalDeals}
+                    totalPayments={totalPayments}
+                    totalNet={totalNet}
+                    allWarnings={allWarnings}
+                  />
                 )}
 
                 {step === "importing" && preview && (
@@ -266,68 +358,12 @@ export function WorkbookImportWizard({ portfolioName }: WorkbookImportWizardProp
                 )}
 
                 {step === "summary" && (
-                  <>
-                    <Table aria-label="Import results" isStriped removeWrapper>
-                      <TableHeader>
-                        <TableColumn>SHEET</TableColumn>
-                        <TableColumn align="end">DEALS</TableColumn>
-                        <TableColumn align="end">MERCHANTS</TableColumn>
-                        <TableColumn align="end">PAYMENTS</TableColumn>
-                        <TableColumn align="end">NET WRITTEN</TableColumn>
-                        <TableColumn align="end">SKIPPED</TableColumn>
-                      </TableHeader>
-                      <TableBody>
-                        {[...results.entries()].map(([sheetName, r]) => (
-                          <TableRow key={sheetName}>
-                            <TableCell className="font-mono text-sm">{sheetName}</TableCell>
-                            <TableCell className="text-right font-mono text-sm">
-                              {r.deals_imported}
-                            </TableCell>
-                            <TableCell className="text-right font-mono text-sm">
-                              {r.merchants_upserted}
-                            </TableCell>
-                            <TableCell className="text-right font-mono text-sm">
-                              {r.payments_inserted}
-                            </TableCell>
-                            <TableCell className="text-right font-mono text-sm">
-                              {money(r.payments_net_inserted)}
-                            </TableCell>
-                            <TableCell className="text-right font-mono text-sm">
-                              {r.rows_skipped + r.duplicate_rows_dropped || ""}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-
-                    {(unmatchedIndustries.length > 0 || unmatchedStates.length > 0) && (
-                      <div className="p-3 bg-default-100 rounded-lg text-xs text-default-600 space-y-2">
-                        {unmatchedIndustries.length > 0 && (
-                          <p>
-                            <span className="font-medium">
-                              {unmatchedIndustries.length} industries
-                            </span>{" "}
-                            had no match in the lookup table (merchants imported without an
-                            industry): {unmatchedIndustries.slice(0, 12).join(", ")}
-                            {unmatchedIndustries.length > 12 && " …"}
-                          </p>
-                        )}
-                        {unmatchedStates.length > 0 && (
-                          <p>
-                            <span className="font-medium">{unmatchedStates.length} states</span>{" "}
-                            unmatched: {unmatchedStates.slice(0, 12).join(", ")}
-                            {unmatchedStates.length > 12 && " …"}
-                          </p>
-                        )}
-                      </div>
-                    )}
-                    {!error && (
-                      <div className="flex items-center gap-2 text-success-600 text-sm">
-                        <Icon icon="material-symbols:check-circle" className="w-5 h-5" />
-                        Workbook imported. Monthly funder uploads take it from here.
-                      </div>
-                    )}
-                  </>
+                  <ImportSummaryBody
+                    results={results}
+                    unmatchedIndustries={unmatchedIndustries}
+                    unmatchedStates={unmatchedStates}
+                    error={error}
+                  />
                 )}
               </ModalBody>
               <ModalFooter>
