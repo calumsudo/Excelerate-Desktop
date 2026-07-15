@@ -10,7 +10,7 @@
 use crate::notification::{NotificationManager, ValidationResult};
 use crate::parsers::{
     BaseParser, BhbParser, BigParser, BoomParser, ClearViewMonthlyParser, EfinParser, InAdvParser,
-    KingsParser, PivotTable,
+    KingsParser, PivotTable, ReceivabullParser,
 };
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -24,6 +24,15 @@ pub struct PivotRowData {
     pub gross_amount: f64,
     pub management_fee: f64,
     pub net_amount: f64,
+    /// Fee breakdown for funders that split the servicing fee (Receivabull).
+    /// `None` for every other funder. `fee_discrepancy` is
+    /// gross - (originator + rb) - net.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub originator_fee: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rb_fee: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fee_discrepancy: Option<f64>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -60,6 +69,9 @@ fn pivot_to_export(pivot: PivotTable) -> PivotExport {
                 gross_amount: row.sum_of_syn_gross_amount,
                 management_fee: row.total_servicing_fee,
                 net_amount: row.sum_of_syn_net_amount,
+                originator_fee: row.originator_fee,
+                rb_fee: row.rb_fee,
+                fee_discrepancy: row.fee_discrepancy,
             })
             .collect(),
     }
@@ -81,6 +93,7 @@ fn parse_file(
         "InAdvance" => InAdvParser::new().process(path),
         "Kings" => KingsParser::new().process(path),
         "Boom" => BoomParser::new().process(path),
+        "Receivabull" => ReceivabullParser::new().process(path),
         _ => return Ok(None),
     };
     pivot
@@ -96,6 +109,7 @@ fn validate_file(funder_name: &str, path: &Path) -> ValidationResult {
         "InAdvance" => InAdvParser::new().validate_file_structure(path),
         "Kings" => KingsParser::new().validate_file_structure(path),
         "Boom" => BoomParser::new().validate_file_structure(path),
+        "Receivabull" => ReceivabullParser::new().validate_file_structure(path),
         // Clear View validates during parsing (portfolio-dependent columns)
         _ => ValidationResult::valid(),
     }

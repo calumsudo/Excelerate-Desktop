@@ -107,6 +107,7 @@ impl BaseParser for BhbParser {
             gross_payment: gross_amount,
             fees: fee,
             net: net_amount,
+            ..Default::default()
         }))
     }
 

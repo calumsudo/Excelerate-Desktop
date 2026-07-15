@@ -49,6 +49,12 @@ export function PivotReconciliationModal({
             <ModalBody>
               {previews.map((preview) => {
                 const r = preview.reconciliation;
+                // Rows whose fee breakdown does not reconcile:
+                // gross - (originator + rb) != net (Receivabull only).
+                const discrepancies = preview.pivot.rows.filter(
+                  (row) =>
+                    row.fee_discrepancy !== undefined && Math.abs(row.fee_discrepancy) >= 0.01
+                );
                 return (
                   <div
                     key={`${preview.portfolioName}-${preview.funderName}`}
@@ -80,6 +86,62 @@ export function PivotReconciliationModal({
                         <p className="font-semibold text-danger-600">{money(r.duplicate_net)}</p>
                       </div>
                     </div>
+
+                    {discrepancies.length > 0 && (
+                      <div className="mb-3 overflow-x-auto">
+                        <div className="flex items-center gap-1.5 mb-2 text-warning-600">
+                          <Icon icon="material-symbols:warning-outline" className="w-4 h-4" />
+                          <span className="text-sm font-medium">
+                            {discrepancies.length} deal{discrepancies.length === 1 ? "" : "s"} where
+                            gross − (originator + RB) fees ≠ net
+                          </span>
+                        </div>
+                        <Table
+                          aria-label={`Fee discrepancies for ${preview.portfolioName} ${preview.funderName}`}
+                          isStriped
+                          removeWrapper
+                        >
+                          <TableHeader>
+                            <TableColumn>ADVANCE ID</TableColumn>
+                            <TableColumn>MERCHANT</TableColumn>
+                            <TableColumn align="end">GROSS</TableColumn>
+                            <TableColumn align="end">ORIG. FEE</TableColumn>
+                            <TableColumn align="end">RB FEE</TableColumn>
+                            <TableColumn align="end">NET</TableColumn>
+                            <TableColumn align="end">DISCREPANCY</TableColumn>
+                          </TableHeader>
+                          <TableBody>
+                            {discrepancies.map((row) => (
+                              <TableRow key={`disc-${row.advance_id}-${row.merchant_name}`}>
+                                <TableCell className="font-mono text-sm">
+                                  {row.advance_id || "—"}
+                                </TableCell>
+                                <TableCell className="font-medium">{row.merchant_name}</TableCell>
+                                <TableCell className="text-right font-mono text-sm">
+                                  {money(row.gross_amount)}
+                                </TableCell>
+                                <TableCell className="text-right font-mono text-sm">
+                                  {money(row.originator_fee ?? 0)}
+                                </TableCell>
+                                <TableCell className="text-right font-mono text-sm">
+                                  {money(row.rb_fee ?? 0)}
+                                </TableCell>
+                                <TableCell className="text-right font-mono text-sm">
+                                  {money(row.net_amount)}
+                                </TableCell>
+                                <TableCell className="text-right font-mono text-sm text-warning-600">
+                                  {money(row.fee_discrepancy ?? 0)}
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                        <p className="text-xs text-default-500 mt-2">
+                          The funder&apos;s stated net is saved as-is. These deals&apos; net does
+                          not equal gross minus the two servicing fees — flagged for review.
+                        </p>
+                      </div>
+                    )}
 
                     {r.unmatched_count > 0 && (
                       <div className="overflow-x-auto">

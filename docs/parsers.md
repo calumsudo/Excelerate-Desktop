@@ -164,6 +164,24 @@ Required columns: `Advance ID`, `Business Name`, `Payable Amt (Gross)`, `Servici
 
 ---
 
+## Receivabull (`receivabull_parser.rs`)
+
+Portfolio: Alder. Format: XLSX (first sheet — named after the month, e.g. `June`/`July`, so read by index not name) or CSV. Multiple rows per Deal Id are grouped/summed. Rows with a blank or non-numeric Deal Id are skipped.
+
+| Output | Source column |
+|--------|--------------|
+| advance_id | Deal Id |
+| merchant_name | Merchant_name |
+| gross | Payable Amt (Gross) |
+| fee | Orginator servicing fee (porportionally) + RB Servicing Fee $ (both abs) |
+| net | Payable Amt (Net) — trusted as given, **not** derived |
+
+Required columns: `Funding Date`, `Deal Id`, `Merchant_name`, `Deal status`, `Payable Amt (Gross)`, `Orginator servicing fee (porportionally)` (funder's spelling), `RB Servicing Fee $`, `Payable Amt (Net)`
+
+**Fee split + discrepancy:** Receivabull splits the servicing fee into two columns and, on some rows, `gross − (originator + RB) ≠ net` (real discrepancy). `fee` holds the total `originator + RB` (drives reconciliation) and `net` is the funder's stated net. In addition, each row carries `originator_fee`, `rb_fee`, and `fee_discrepancy = gross − (originator + rb) − net` all the way through to the `funder_pivot_rows` columns of the same name (NULL for every other funder). The reconciliation modal flags deals with a non-zero discrepancy.
+
+---
+
 ## Workbook import (`src-tauri/src/workbook_import.rs`)
 
 Not a funder report parser (and not in `parsers/`). One-time onboarding

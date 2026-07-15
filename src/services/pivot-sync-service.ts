@@ -8,6 +8,14 @@ export interface PivotRowData {
   gross_amount: number;
   management_fee: number;
   net_amount: number;
+  /**
+   * Fee breakdown for funders that split the servicing fee (Receivabull).
+   * Omitted for every other funder. `fee_discrepancy` is
+   * gross - (originator_fee + rb_fee) - net.
+   */
+  originator_fee?: number;
+  rb_fee?: number;
+  fee_discrepancy?: number;
 }
 
 export interface PivotExport {
@@ -103,15 +111,17 @@ const FUNDER_NAME_MAP: Record<string, string> = {
   InAdvance: "In Advance",
   Payva: "PayVa",
   ClearView: "Clear View",
+  Receivabull: "R'bull",
 };
 
 const dbFunderName = (uiName: string) => FUNDER_NAME_MAP[uiName] ?? uiName;
 
 // funders.name in Supabase → the label the portfolio pages use ("Clear View"
-// is spelled the same in both, so only these two need mapping back)
+// is spelled the same in both, so only these need mapping back)
 const DB_TO_UI_FUNDER: Record<string, string> = {
   "In Advance": "InAdvance",
   PayVa: "Payva",
+  "R'bull": "Receivabull",
 };
 
 export const uiFunderName = (dbName: string) => DB_TO_UI_FUNDER[dbName] ?? dbName;
@@ -188,6 +198,10 @@ export class PivotSyncService {
         gross: r.gross_amount,
         fee: r.management_fee,
         net: r.net_amount,
+        // Only present for Receivabull; the RPC stores NULL when omitted.
+        ...(r.originator_fee !== undefined && { originator_fee: r.originator_fee }),
+        ...(r.rb_fee !== undefined && { rb_fee: r.rb_fee }),
+        ...(r.fee_discrepancy !== undefined && { fee_discrepancy: r.fee_discrepancy }),
       })),
       p_total_gross: pivot.total_gross,
       p_total_fee: pivot.total_fee,

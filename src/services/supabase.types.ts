@@ -474,6 +474,9 @@ export interface Database {
           gross: number;
           fee: number;
           net: number;
+          originator_fee: number | null;
+          rb_fee: number | null;
+          fee_discrepancy: number | null;
           matched_deal_id: string | null;
           created_at: string;
         };
@@ -485,6 +488,9 @@ export interface Database {
           gross?: number;
           fee?: number;
           net?: number;
+          originator_fee?: number | null;
+          rb_fee?: number | null;
+          fee_discrepancy?: number | null;
           matched_deal_id?: string | null;
           created_at?: string;
         };
@@ -496,6 +502,9 @@ export interface Database {
           gross?: number;
           fee?: number;
           net?: number;
+          originator_fee?: number | null;
+          rb_fee?: number | null;
+          fee_discrepancy?: number | null;
           matched_deal_id?: string | null;
           created_at?: string;
         };

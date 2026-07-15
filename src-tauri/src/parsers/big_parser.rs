@@ -329,6 +329,7 @@ impl BigParser {
                 gross_payment: gross_amount,
                 fees: management_fee,
                 net: net_amount,
+                ..Default::default()
             });
         }
 

@@ -29,7 +29,7 @@ Schema is managed by CLI migrations in `supabase/migrations/` (`supabase migrati
 
 **funder_pivot_tables** — one per upload (`upload_id` unique): `total_gross/fee/net, row_count`.
 
-**funder_pivot_rows** — parser output rows: `advance_id, merchant_name, gross, fee, net, matched_deal_id`.
+**funder_pivot_rows** — parser output rows: `advance_id, merchant_name, gross, fee, net, matched_deal_id`. Plus optional Receivabull fee-split columns `originator_fee, rb_fee, fee_discrepancy` (NULL for single-fee funders; `fee_discrepancy = gross − (originator + rb) − net`).
 
 **portfolio_access** — `(user_id, portfolio_id)` grants; drives RLS.
 
