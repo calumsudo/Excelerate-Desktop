@@ -11,6 +11,7 @@ import Login from "@pages/login";
 import { ProtectedRoute } from "@components/auth/protected-route";
 import { useAuth } from "@/contexts/auth-context-value";
 import { backendNotifications } from "@services/notification-service";
+import ErrorBoundary from "@components/error-boundary";
 
 function App() {
   const { user } = useAuth();
@@ -25,28 +26,30 @@ function App() {
   }, []);
 
   return (
-    <Routes>
-      {/* Public routes */}
-      <Route path="/login" element={!user ? <Login /> : <Navigate to="/dashboard" replace />} />
+    <ErrorBoundary title="The app ran into a problem">
+      <Routes>
+        {/* Public routes */}
+        <Route path="/login" element={!user ? <Login /> : <Navigate to="/dashboard" replace />} />
 
-      {/* Protected routes */}
-      <Route
-        path="/"
-        element={
-          <ProtectedRoute>
-            <Layout />
-          </ProtectedRoute>
-        }
-      >
-        <Route index element={<Navigate to="/dashboard" replace />} />
-        <Route path="dashboard" element={<Dashboard />} />
-        <Route path="alder-portfolio" element={<AlderPortfolio />} />
-        <Route path="white-rabbit-portfolio" element={<WhiteRabbitPortfolio />} />
-        <Route path="deal-lookup" element={<DealLookup />} />
-        <Route path="ai-chat" element={<AiChat />} />
-        <Route path="settings" element={<Settings />} />
-      </Route>
-    </Routes>
+        {/* Protected routes */}
+        <Route
+          path="/"
+          element={
+            <ProtectedRoute>
+              <Layout />
+            </ProtectedRoute>
+          }
+        >
+          <Route index element={<Navigate to="/dashboard" replace />} />
+          <Route path="dashboard" element={<Dashboard />} />
+          <Route path="alder-portfolio" element={<AlderPortfolio />} />
+          <Route path="white-rabbit-portfolio" element={<WhiteRabbitPortfolio />} />
+          <Route path="deal-lookup" element={<DealLookup />} />
+          <Route path="ai-chat" element={<AiChat />} />
+          <Route path="settings" element={<Settings />} />
+        </Route>
+      </Routes>
+    </ErrorBoundary>
   );
 }
 

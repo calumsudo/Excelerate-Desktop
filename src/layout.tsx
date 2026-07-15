@@ -3,6 +3,7 @@ import { ScrollShadow, Button, Listbox, ListboxItem, Tooltip } from "@heroui/rea
 import Sidebar from "@features/sidebar/sidebar";
 import { items, settingsItem } from "@features/sidebar/sidebar-items";
 import { UserMenu } from "@components/auth/user-menu";
+import ErrorBoundary from "@components/error-boundary";
 import { useEffect, useState, useRef } from "react";
 import { Icon } from "@iconify/react";
 import { useTheme } from "@/contexts/theme-context-value";
@@ -191,7 +192,9 @@ function Layout() {
         </div>
       </div>
       <div className="flex-1 overflow-auto p-4">
-        <Outlet />
+        <ErrorBoundary resetKey={location.pathname}>
+          <Outlet />
+        </ErrorBoundary>
       </div>
     </div>
   );
