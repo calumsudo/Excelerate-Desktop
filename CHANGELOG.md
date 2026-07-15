@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.2.0](https://github.com/calumsudo/Excelerate-Desktop/compare/v1.1.0...v1.2.0) (2026-07-15)
+
+
+### Features
+
+* add Pivot Tables page to browse & export committed funder pivots ([#51](https://github.com/calumsudo/Excelerate-Desktop/issues/51)) ([d9e77fe](https://github.com/calumsudo/Excelerate-Desktop/commit/d9e77fe6373e7ee80530039e50c76c55161bc960)), closes [#49](https://github.com/calumsudo/Excelerate-Desktop/issues/49)
+* add Receivabull (R'bull) funder parser with fee-split capture ([#50](https://github.com/calumsudo/Excelerate-Desktop/issues/50)) ([1d23c8f](https://github.com/calumsudo/Excelerate-Desktop/commit/1d23c8f773e135acc51f690dc0647cb0a8a37f93))
+
+
+### Bug Fixes
+
+* keep deal table pagination fixed outside horizontal scroll ([#47](https://github.com/calumsudo/Excelerate-Desktop/issues/47)) ([f47e0fa](https://github.com/calumsudo/Excelerate-Desktop/commit/f47e0fac68216a2d8394e3c3f0975fae427d0032))
+
 ## [1.1.0](https://github.com/calumsudo/Excelerate-Desktop/compare/v1.0.0...v1.1.0) (2026-07-15)
 
 
