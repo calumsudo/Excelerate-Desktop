@@ -118,6 +118,7 @@ impl BaseParser for InAdvParser {
             gross_payment: gross_amount,
             fees: fee,
             net: net_amount,
+            ..Default::default()
         }))
     }
 

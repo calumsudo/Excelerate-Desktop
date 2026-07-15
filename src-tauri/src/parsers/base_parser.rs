@@ -37,6 +37,16 @@ pub struct PivotTableRow {
     pub sum_of_syn_gross_amount: f64,
     pub total_servicing_fee: f64,
     pub sum_of_syn_net_amount: f64,
+    /// Optional fee breakdown for funders (e.g. Receivabull) that split the
+    /// servicing fee into an originator share and their own share, and can
+    /// carry a gross - (originator + rb) != net discrepancy. `None` for
+    /// funders whose report has a single fee column.
+    #[serde(default)]
+    pub originator_fee: Option<f64>,
+    #[serde(default)]
+    pub rb_fee: Option<f64>,
+    #[serde(default)]
+    pub fee_discrepancy: Option<f64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -71,12 +81,33 @@ impl PivotTable {
         fee: f64,
         net: f64,
     ) {
+        self.add_row_detailed(advance_id, merchant_name, gross, fee, net, None, None, None);
+    }
+
+    /// Like `add_row` but also records a per-row fee breakdown (originator vs.
+    /// funder fee) and the gross - (originator + rb) - net discrepancy. Totals
+    /// still track gross/fee/net only.
+    #[allow(clippy::too_many_arguments)]
+    pub fn add_row_detailed(
+        &mut self,
+        advance_id: String,
+        merchant_name: String,
+        gross: f64,
+        fee: f64,
+        net: f64,
+        originator_fee: Option<f64>,
+        rb_fee: Option<f64>,
+        fee_discrepancy: Option<f64>,
+    ) {
         self.rows.push(PivotTableRow {
             advance_id,
             merchant_name,
             sum_of_syn_gross_amount: gross,
             total_servicing_fee: fee,
             sum_of_syn_net_amount: net,
+            originator_fee,
+            rb_fee,
+            fee_discrepancy,
         });
         self.total_gross += gross;
         self.total_fee += fee;
@@ -90,6 +121,9 @@ impl PivotTable {
             sum_of_syn_gross_amount: self.total_gross,
             total_servicing_fee: self.total_fee,
             sum_of_syn_net_amount: self.total_net,
+            originator_fee: None,
+            rb_fee: None,
+            fee_discrepancy: None,
         });
     }
 
@@ -126,13 +160,19 @@ impl PivotTable {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct ProcessedData {
     pub advance_id: String,
     pub merchant_name: String,
     pub gross_payment: f64,
+    /// Total servicing fee for the row. For funders that split the fee,
+    /// this is the sum of `originator_fee` + `rb_fee`.
     pub fees: f64,
     pub net: f64,
+    /// Optional split of `fees` for funders (e.g. Receivabull) that report an
+    /// originator servicing fee and their own servicing fee separately.
+    pub originator_fee: Option<f64>,
+    pub rb_fee: Option<f64>,
 }
 
 pub trait BaseParser {

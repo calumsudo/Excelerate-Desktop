@@ -116,6 +116,7 @@ impl BaseParser for EfinParser {
             gross_payment,
             fees,
             net,
+            ..Default::default()
         }))
     }
 

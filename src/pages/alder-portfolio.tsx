@@ -63,6 +63,15 @@ const monthlyFunderList: FunderData[] = [
     maxSizeKB: 10240,
   },
   {
+    name: "Receivabull",
+    acceptedTypes: [
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "text/csv",
+    ],
+    acceptedExtensions: [".xlsx", ".csv"],
+    maxSizeKB: 10240,
+  },
+  {
     name: "Payva",
     acceptedTypes: [],
     acceptedExtensions: [],

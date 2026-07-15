@@ -184,6 +184,7 @@ impl BoomParser {
                 gross_payment,
                 fees,
                 net,
+                ..Default::default()
             });
         }
 

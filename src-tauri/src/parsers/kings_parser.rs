@@ -82,6 +82,7 @@ impl BaseParser for KingsParser {
             gross_payment,
             fees,
             net,
+            ..Default::default()
         }))
     }
 
