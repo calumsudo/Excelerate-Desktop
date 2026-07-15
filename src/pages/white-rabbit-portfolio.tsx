@@ -213,26 +213,25 @@ function WhiteRabbitPortfolio() {
             Uploaded Files for {selectedDate.toString()}
           </h3>
           <div className="space-y-2">
-            {monthlyFunderList
-              .filter((f) => !f.disabled)
-              .map((funder) => {
-                const uploaded = funderUploads.find(
-                  (u) => uiFunderName(u.funder_name) === funder.name
-                );
-                return (
-                  <div
-                    key={funder.name}
-                    className="flex items-center justify-between p-2 bg-default-100 rounded"
-                  >
-                    <span className="text-sm">{funder.name}</span>
-                    {uploaded ? (
-                      <span className="text-xs text-success-600">{uploaded.original_filename}</span>
-                    ) : (
-                      <span className="text-xs text-default-400">Not uploaded</span>
-                    )}
-                  </div>
-                );
-              })}
+            {monthlyFunderList.flatMap((funder) => {
+              if (funder.disabled) return [];
+              const uploaded = funderUploads.find(
+                (u) => uiFunderName(u.funder_name) === funder.name
+              );
+              return (
+                <div
+                  key={funder.name}
+                  className="flex items-center justify-between p-2 bg-default-100 rounded"
+                >
+                  <span className="text-sm">{funder.name}</span>
+                  {uploaded ? (
+                    <span className="text-xs text-success-600">{uploaded.original_filename}</span>
+                  ) : (
+                    <span className="text-xs text-default-400">Not uploaded</span>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
