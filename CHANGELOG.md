@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.1.0](https://github.com/calumsudo/Excelerate-Desktop/compare/v1.0.0...v1.1.0) (2026-07-15)
+
+
+### Features
+
+* add React error boundary so one crash doesn't blank the app ([#46](https://github.com/calumsudo/Excelerate-Desktop/issues/46)) ([155d5e3](https://github.com/calumsudo/Excelerate-Desktop/commit/155d5e35dc94a448e0c67c5126772965effd28fe)), closes [#44](https://github.com/calumsudo/Excelerate-Desktop/issues/44)
+
+
+### Bug Fixes
+
+* **a11y:** resolve react-doctor accessibility findings ([#33](https://github.com/calumsudo/Excelerate-Desktop/issues/33)) ([#38](https://github.com/calumsudo/Excelerate-Desktop/issues/38)) ([872baac](https://github.com/calumsudo/Excelerate-Desktop/commit/872baaceecfa34c92433bf84506f6d9eb21a3270))
+* **deps:** bump @internationalized/date to 3.12.0 to match HeroUI ([#45](https://github.com/calumsudo/Excelerate-Desktop/issues/45)) ([633b1c3](https://github.com/calumsudo/Excelerate-Desktop/commit/633b1c3513f58b8eb86c3d00a4f4cc89bc2c5878))
+* **react-doctor:** resolve bug-level warnings ([#30](https://github.com/calumsudo/Excelerate-Desktop/issues/30)) ([#40](https://github.com/calumsudo/Excelerate-Desktop/issues/40)) ([8283105](https://github.com/calumsudo/Excelerate-Desktop/commit/8283105324a8816088cda933c9293e7edaf88dcd))
+* **rls:** restrict funders/industries lookup-table writes to admins ([#35](https://github.com/calumsudo/Excelerate-Desktop/issues/35)) ([4c4dcb0](https://github.com/calumsudo/Excelerate-Desktop/commit/4c4dcb0e1b6a1b97cde4888cdf0f5aa605febf09)), closes [#28](https://github.com/calumsudo/Excelerate-Desktop/issues/28)
+
+
+### Performance Improvements
+
+* resolve react-doctor performance findings ([#31](https://github.com/calumsudo/Excelerate-Desktop/issues/31)) ([#39](https://github.com/calumsudo/Excelerate-Desktop/issues/39)) ([d136791](https://github.com/calumsudo/Excelerate-Desktop/commit/d1367910cd99ef56e1ab4785b09b99c4f58b1199))
+
 ## [1.0.0](https://github.com/calumsudo/Excelerate-Desktop/compare/v0.1.1...v1.0.0) (2026-07-14)
 
 
