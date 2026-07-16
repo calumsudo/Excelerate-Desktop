@@ -177,7 +177,12 @@ export class PivotSyncService {
     const cached = this.funderIds.get(name);
     if (cached !== undefined) return cached;
 
-    const { data, error } = await supabase.from("funders").select("id").eq("name", name).single();
+    const { data, error } = await supabase
+      .from("funders")
+      .select("id")
+      .eq("name", name)
+      .eq("is_deleted", false)
+      .single();
     if (error || !data) {
       throw new Error(`Funder "${name}" not found in Supabase: ${error?.message}`);
     }

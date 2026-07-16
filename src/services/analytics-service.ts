@@ -72,7 +72,11 @@ async function fetchAllPages<T>(
 
 /** Portfolios visible to the signed-in user — RLS filters by portfolio_access. */
 export async function listPortfolios(): Promise<PortfolioOption[]> {
-  const { data, error } = await supabase.from("portfolios").select("id, name").order("name");
+  const { data, error } = await supabase
+    .from("portfolios")
+    .select("id, name")
+    .eq("is_deleted", false)
+    .order("name");
   if (error) throw new Error(`Failed to load portfolios: ${error.message}`);
   return data ?? [];
 }

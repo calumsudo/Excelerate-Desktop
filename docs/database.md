@@ -33,7 +33,31 @@ Schema is managed by CLI migrations in `supabase/migrations/` (`supabase migrati
 
 **portfolio_access** — `(user_id, portfolio_id)` grants; drives RLS.
 
-**industries** (seeded from the workbook's curated Keep list, 171 rows), **states** (51 rows) — lookups.
+**industries** (seeded from the workbook's curated Keep list, 171 rows), **states** (51 rows + PR) — lookups.
+
+## Soft delete (deletion protection)
+
+`industries`, `states`, `funders`, `portfolios`, `merchants`, `deals` carry
+`is_deleted` + `deleted_at`; the app never hard-deletes them (the client
+DELETE policies on deals/merchants are dropped — RLS blocks hard deletes
+entirely). "Deleting" flips `is_deleted`; a trigger
+(`sync_soft_delete_timestamp`) stamps/clears `deleted_at`. Deleted rows stay
+SELECTable — the Database page's Recently Deleted tab lists them with a
+restore button — but are excluded from the analytics views (`deal_computed`
+filters `deals`, the rollup views inherit it; `weekly_rtr_matrix` /
+`deal_payments` filter their own join), from pivot matching in
+`commit_funder_pivot` / `resolve_pivot_row`, and from selection dropdowns.
+Unique keys (`industries.name`, `states.code/name`,
+`funders.name/code/sheet_name`, `portfolios.name`) are partial (`WHERE NOT
+is_deleted`) so a deleted name can be re-created — which also means restore
+fails while a live twin holds the name. `import_funder_sheet`'s upserts
+resurrect soft-deleted merchants/deals they hit.
+
+`purge_soft_deleted()` (SECURITY DEFINER, not client-executable) hard-deletes
+rows soft-deleted 30+ days, skipping rows still referenced by anything;
+a daily pg_cron job (`purge-soft-deleted-daily`, 08:00 UTC) runs it. Derived
+data (`net_rtr_payments`, pivots, uploads) keeps real deletes — it is rebuilt
+from uploads and replace-on-re-upload depends on them.
 
 ## Views (workbook formulas in SQL, all `security_invoker`)
 
@@ -50,7 +74,7 @@ Schema is managed by CLI migrations in `supabase/migrations/` (`supabase migrati
 - **resolve_pivot_row(row_id, deal_id)** — resolves one unmatched pivot row to a deal and (re)writes that deal's payment for the pivot's report date; idempotent. Unmatched rows live in `funder_pivot_rows` with `matched_deal_id IS NULL` (their dollars are excluded from `net_rtr_payments` until resolved); the Deal Lookup page's Unmatched tab lists them all for later reconciliation — match to an existing deal or create the deal and auto-resolve.
 - **import_funder_sheet(portfolio_id, funder_id, management_fee_rate, deals jsonb, total_net_payments)** — one-time onboarding import of a workbook funder sheet (merchants, deals, import-sourced payments); idempotent per sheet.
 
-Deal CRUD from the Deal Lookup page (`deal-editor-service.ts`) writes `deals`/`merchants` directly — the phase 1 RLS policies allow insert/update/delete for users with portfolio access. Deleting a deal cascades its `net_rtr_payments`.
+Deal CRUD from the Deal Lookup page (`deal-editor-service.ts`) writes `deals`/`merchants` directly — the phase 1 RLS policies allow insert/update for users with portfolio access. Deleting a deal soft-deletes it (see Soft delete above); its payments are hidden by the views until it's restored or purged. Lookup CRUD lives on the Database page (`database-admin-service.ts`, admin-only writes).
 
 ## Monthly flow (cloud-only since Phase 5)
 
