@@ -32,7 +32,7 @@ interface DeleteDealModalProps {
   onConfirm: () => void;
 }
 
-// Confirmation dialog for deleting a deal (and its recorded payments).
+// Confirmation dialog for soft-deleting a deal (and hiding its payments).
 function DeleteDealModal({ deal, busy, onClose, onConfirm }: DeleteDealModalProps) {
   return (
     <Modal isOpen={deal != null} onOpenChange={(open) => !open && onClose()} size="sm">
@@ -49,10 +49,12 @@ function DeleteDealModal({ deal, busy, onClose, onConfirm }: DeleteDealModalProp
           </p>
           {deal != null && deal.total_net_received > 0 && (
             <p className="text-small text-danger">
-              {formatMoney(deal.total_net_received)} of recorded payments will be deleted with it.
+              {formatMoney(deal.total_net_received)} of recorded payments will be hidden with it.
             </p>
           )}
-          <p className="text-tiny text-default-400">This cannot be undone.</p>
+          <p className="text-tiny text-default-400">
+            It moves to Recently Deleted on the Database page and can be restored for 30 days.
+          </p>
         </ModalBody>
         <ModalFooter>
           <Button size="sm" variant="light" onPress={onClose} isDisabled={busy}>

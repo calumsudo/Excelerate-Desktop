@@ -43,18 +43,24 @@ export interface Database {
           name: string;
           profit_share_rate: number;
           dividend_rate: number;
+          is_deleted: boolean;
+          deleted_at: string | null;
         };
         Insert: {
           id?: never;
           name: string;
           profit_share_rate?: number;
           dividend_rate?: number;
+          is_deleted?: boolean;
+          deleted_at?: string | null;
         };
         Update: {
           id?: never;
           name?: string;
           profit_share_rate?: number;
           dividend_rate?: number;
+          is_deleted?: boolean;
+          deleted_at?: string | null;
         };
         Relationships: [];
       };
@@ -64,18 +70,24 @@ export interface Database {
           name: string;
           code: string | null;
           sheet_name: string | null;
+          is_deleted: boolean;
+          deleted_at: string | null;
         };
         Insert: {
           id?: never;
           name: string;
           code?: string | null;
           sheet_name?: string | null;
+          is_deleted?: boolean;
+          deleted_at?: string | null;
         };
         Update: {
           id?: never;
           name?: string;
           code?: string | null;
           sheet_name?: string | null;
+          is_deleted?: boolean;
+          deleted_at?: string | null;
         };
         Relationships: [];
       };
@@ -116,14 +128,20 @@ export interface Database {
         Row: {
           id: number;
           name: string;
+          is_deleted: boolean;
+          deleted_at: string | null;
         };
         Insert: {
           id?: never;
           name: string;
+          is_deleted?: boolean;
+          deleted_at?: string | null;
         };
         Update: {
           id?: never;
           name?: string;
+          is_deleted?: boolean;
+          deleted_at?: string | null;
         };
         Relationships: [];
       };
@@ -132,16 +150,22 @@ export interface Database {
           id: number;
           code: string;
           name: string;
+          is_deleted: boolean;
+          deleted_at: string | null;
         };
         Insert: {
           id?: never;
           code: string;
           name: string;
+          is_deleted?: boolean;
+          deleted_at?: string | null;
         };
         Update: {
           id?: never;
           code?: string;
           name?: string;
+          is_deleted?: boolean;
+          deleted_at?: string | null;
         };
         Relationships: [];
       };
@@ -154,6 +178,8 @@ export interface Database {
           website: string | null;
           funder_id: number | null;
           portfolio_id: number | null;
+          is_deleted: boolean;
+          deleted_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -165,6 +191,8 @@ export interface Database {
           website?: string | null;
           funder_id?: number | null;
           portfolio_id?: number | null;
+          is_deleted?: boolean;
+          deleted_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -176,6 +204,8 @@ export interface Database {
           website?: string | null;
           funder_id?: number | null;
           portfolio_id?: number | null;
+          is_deleted?: boolean;
+          deleted_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -233,6 +263,8 @@ export interface Database {
           date_closed: string | null;
           default_date: string | null;
           default_notes: Json | null;
+          is_deleted: boolean;
+          deleted_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -258,6 +290,8 @@ export interface Database {
           date_closed?: string | null;
           default_date?: string | null;
           default_notes?: Json | null;
+          is_deleted?: boolean;
+          deleted_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -283,6 +317,8 @@ export interface Database {
           date_closed?: string | null;
           default_date?: string | null;
           default_notes?: Json | null;
+          is_deleted?: boolean;
+          deleted_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };

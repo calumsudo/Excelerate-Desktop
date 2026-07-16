@@ -20,7 +20,7 @@ INSERT INTO public.funders (name, code, sheet_name) VALUES
   ('BIG',        'BIG',  'BIG'),
   ('eFin',       'EFin', 'EFin'),
   ('In Advance', 'InAd', 'InAd')
-ON CONFLICT (name) DO UPDATE SET sheet_name = EXCLUDED.sheet_name;
+ON CONFLICT (name) WHERE NOT is_deleted DO UPDATE SET sheet_name = EXCLUDED.sheet_name;
 
 -- Re-run the Phase 1 portfolio↔funder fee seeding now that all 11 funders
 -- exist (same values as 20260710013530_phase1_portfolio_funder_config.sql).

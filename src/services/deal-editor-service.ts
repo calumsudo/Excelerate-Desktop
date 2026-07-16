@@ -34,11 +34,13 @@ export interface EditorLookups {
 const PAGE_SIZE = 1000; // PostgREST response cap; merchants can exceed it
 
 export async function getEditorLookups(): Promise<EditorLookups> {
+  // Selection dropdowns: soft-deleted rows are hidden (they live in the
+  // Database page's Recently Deleted tab until purged).
   const [portfolios, funders, industries, states] = await Promise.all([
-    supabase.from("portfolios").select("id, name").order("name"),
-    supabase.from("funders").select("id, name").order("name"),
-    supabase.from("industries").select("id, name").order("name"),
-    supabase.from("states").select("id, code").order("code"),
+    supabase.from("portfolios").select("id, name").eq("is_deleted", false).order("name"),
+    supabase.from("funders").select("id, name").eq("is_deleted", false).order("name"),
+    supabase.from("industries").select("id, name").eq("is_deleted", false).order("name"),
+    supabase.from("states").select("id, code").eq("is_deleted", false).order("code"),
   ]);
   for (const lookup of [portfolios, funders, industries, states]) {
     if (lookup.error) throw new Error(`Failed to load lookups: ${lookup.error.message}`);
@@ -49,6 +51,7 @@ export async function getEditorLookups(): Promise<EditorLookups> {
     const { data, error } = await supabase
       .from("merchants")
       .select("id, name, portfolio_id, funder_id, industry_id, state_id, website")
+      .eq("is_deleted", false)
       .order("name")
       .range(from, from + PAGE_SIZE - 1);
     if (error) throw new Error(`Failed to load merchants: ${error.message}`);
@@ -278,8 +281,12 @@ export async function updateDeal(dealId: string, values: DealFormValues): Promis
   if (error) throw new Error(`Failed to update deal: ${error.message}`);
 }
 
-/** Deletes the deal; its net_rtr_payments rows cascade with it. */
+/**
+ * Soft-deletes the deal: it moves to the Database page's Recently Deleted tab
+ * (restorable for 30 days, then purged along with its payments). Hard deletes
+ * are blocked at the RLS level.
+ */
 export async function deleteDeal(dealId: string): Promise<void> {
-  const { error } = await supabase.from("deals").delete().eq("id", dealId);
+  const { error } = await supabase.from("deals").update({ is_deleted: true }).eq("id", dealId);
   if (error) throw new Error(`Failed to delete deal: ${error.message}`);
 }

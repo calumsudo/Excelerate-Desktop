@@ -41,6 +41,8 @@ const dealRow = (overrides: Partial<DealRow> = {}): DealRow => ({
   date_closed: null,
   default_date: null,
   default_notes: null,
+  is_deleted: false,
+  deleted_at: null,
   created_at: "2025-01-15T00:00:00Z",
   updated_at: "2025-01-15T00:00:00Z",
   ...overrides,
