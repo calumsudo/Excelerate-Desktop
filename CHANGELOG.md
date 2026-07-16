@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.3.0](https://github.com/calumsudo/Excelerate-Desktop/compare/v1.2.0...v1.3.0) (2026-07-16)
+
+
+### Features
+
+* add Database management page with soft-delete protection ([#54](https://github.com/calumsudo/Excelerate-Desktop/issues/54)) ([4a7510f](https://github.com/calumsudo/Excelerate-Desktop/commit/4a7510f7df79f0450fbace17469d6725cf8607a3))
+* enrich README with project overview, features, tech stack, and installation instructions ([#52](https://github.com/calumsudo/Excelerate-Desktop/issues/52)) ([46c94f8](https://github.com/calumsudo/Excelerate-Desktop/commit/46c94f8dde31cafb65eb1f9c08715e2d4585f4f6))
+
 ## [1.2.0](https://github.com/calumsudo/Excelerate-Desktop/compare/v1.1.0...v1.2.0) (2026-07-15)
 
 
