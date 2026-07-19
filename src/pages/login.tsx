@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button, Input, Card, CardBody, CardHeader } from "@heroui/react";
 import { useAuth } from "@/contexts/auth-context-value";
+import { PasswordInput } from "@components/ui/password-input";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -101,9 +102,8 @@ export default function Login() {
               variant="bordered"
             />
 
-            <Input
+            <PasswordInput
               label="Password"
-              type="password"
               placeholder="Enter your password"
               value={password}
               onChange={(e) => {

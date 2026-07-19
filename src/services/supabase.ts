@@ -18,3 +18,16 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     storage: window.localStorage,
   },
 });
+
+// Throwaway client for auth calls that must not touch the persisted session
+// (inviting a user calls signUp, which would otherwise replace the current
+// admin's session with the new account's).
+export function createStatelessAuthClient() {
+  return createClient<Database>(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    },
+  });
+}

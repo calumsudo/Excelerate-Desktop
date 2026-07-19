@@ -2,9 +2,10 @@ import { useState } from "react";
 import { Button, Input, Card, CardBody, CardHeader, Select, SelectItem } from "@heroui/react";
 import { useAuth } from "@/contexts/auth-context-value";
 import { AuthService } from "@services/auth-service";
+import { PasswordInput } from "@components/ui/password-input";
 
 // react-doctor-disable-next-line react-doctor/prefer-useReducer -- these hold largely independent concerns (form fields, per-field validation errors, async submit status) that change at different times, so a single reducer would not improve consistency
-export function InviteUser() {
+export function InviteUser({ onInvited }: { onInvited?: () => void }) {
   const { profile } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -83,24 +84,17 @@ export function InviteUser() {
     setLoading(true);
 
     try {
-      // Create the user account
-      const { user, error: signUpError } = await AuthService.signUp({
+      // Creates the account on an isolated auth client so the current
+      // admin session is not replaced by the new user's session.
+      const { error: inviteError } = await AuthService.inviteUser({
         email,
         password,
         fullName,
+        role,
       });
 
-      if (signUpError) {
-        throw signUpError;
-      }
-
-      if (!user) {
-        throw new Error("Failed to create user account");
-      }
-
-      // Update the user's role if not member
-      if (role !== "member") {
-        await AuthService.updateUserProfile(user.id, { role });
+      if (inviteError) {
+        throw inviteError;
       }
 
       setSuccess(`User ${fullName} (${email}) has been invited successfully!`);
@@ -110,6 +104,7 @@ export function InviteUser() {
       setPassword("");
       setFullName("");
       setRole("member");
+      onInvited?.();
     } catch (err) {
       console.error("Invite user error:", err);
       if (err instanceof Error) {
@@ -172,9 +167,8 @@ export function InviteUser() {
             variant="bordered"
           />
 
-          <Input
+          <PasswordInput
             label="Temporary Password"
-            type="password"
             placeholder="Create a temporary password"
             value={password}
             onChange={(e) => {

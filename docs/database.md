@@ -101,3 +101,5 @@ chosen so an exported workbook re-imports cleanly through
 ## RLS
 
 `has_portfolio_access(portfolio_id)` + `is_admin()` (both `SECURITY DEFINER`) gate all portfolio-scoped tables via `portfolio_access`. Tables without a `portfolio_id` scope through their parent (`net_rtr_payments` via `deals`, `funder_pivot_rows` via `funder_pivot_tables`). Lookups (`funders`, `industries`, `states`) remain readable by any authenticated user; anon sees nothing.
+
+`user_profiles`: users can view/update their own row; admins can view/update every row (drives the User Management page). A `BEFORE UPDATE OF role` trigger (`enforce_admin_role_change`) rejects role changes by non-admins, so a member cannot self-promote through the "update own profile" policy. New accounts are created from the app via a stateless auth client (`AuthService.inviteUser`) so signing up an invitee never replaces the admin's session; the profile row comes from `on_auth_user_created` with role `member` and is promoted afterwards if needed.
