@@ -10,7 +10,10 @@ import {
   buildRtrSeries,
   buildVintagePerformance,
   buildConcentration,
+  buildCollectionsForecast,
+  extendRtrWithForecast,
   UNKNOWN_BUCKET_KEY,
+  FORECAST_HORIZON_MONTHS,
   formatMoney,
   formatPct,
   type ConcentrationData,
@@ -19,6 +22,8 @@ import {
   type MonthlyVintageRow,
   type FunderAllocationRow,
   type WeeklyRtrRow,
+  type ForecastData,
+  type ForecastDealRow,
 } from "../services/analytics-service";
 
 const monthlyRow = (overrides: Partial<PortfolioMonthlyRow> = {}): PortfolioMonthlyRow => ({
@@ -266,6 +271,149 @@ describe("buildRtrSeries", () => {
     );
     expect(points.map((p) => p.date)).toEqual(["2025-01-03", "2025-02-07"]);
     expect(points[1].cumulative).toBe(30);
+  });
+});
+
+describe("buildCollectionsForecast", () => {
+  const TODAY = new Date(2026, 6, 19); // Jul 2026 → projection starts 2026-08-01
+
+  const forecastDeal = (overrides: Partial<ForecastDealRow> = {}): ForecastDealRow => ({
+    id: "d1",
+    funder_id: 1,
+    net_rtr_balance: 12000,
+    term_months: 12,
+    months_elapsed: 0,
+    health_status: "on_track",
+    ...overrides,
+  });
+
+  const data = (overrides: Partial<ForecastData> = {}): ForecastData => ({
+    deals: [forecastDeal()],
+    recentPayments: [],
+    windowDays: 91,
+    ...overrides,
+  });
+
+  it("falls back to straight-line over the remaining term without payment history", () => {
+    const { points, total, dealCount } = buildCollectionsForecast(data(), null, TODAY);
+    // 12,000 over 12 remaining months → 1,000/mo
+    expect(dealCount).toBe(1);
+    expect(points).toHaveLength(FORECAST_HORIZON_MONTHS);
+    expect(points[0]).toEqual({ month: "2026-08-01", projected: 1000 });
+    expect(points[11]).toEqual({ month: "2027-07-01", projected: 1000 });
+    expect(total).toBeCloseTo(12000);
+  });
+
+  it("uses the observed recent pace and caps at the remaining balance", () => {
+    const { points, total } = buildCollectionsForecast(
+      data({
+        deals: [forecastDeal({ net_rtr_balance: 2000 })],
+        recentPayments: [
+          { deal_id: "d1", payment_date: "2026-06-19", net: 1500 },
+          { deal_id: "d1", payment_date: "2026-07-10", net: 1500 },
+        ],
+      }),
+      null,
+      TODAY
+    );
+    // 3,000 over 91 days → ~1,003.5/mo; balance of 2,000 exhausts in month 2
+    const pace = 3000 / (91 / 30.44);
+    expect(points[0].projected).toBeCloseTo(pace);
+    expect(points[1].projected).toBeCloseTo(2000 - pace);
+    expect(points[2].projected).toBe(0);
+    expect(total).toBeCloseTo(2000);
+  });
+
+  it("ignores a single payment date — one payment is not a pace", () => {
+    const { points } = buildCollectionsForecast(
+      data({
+        recentPayments: [{ deal_id: "d1", payment_date: "2026-07-10", net: 9000 }],
+      }),
+      null,
+      TODAY
+    );
+    expect(points[0].projected).toBeCloseTo(1000); // straight-line fallback
+  });
+
+  it("excludes stale and past-term deals and settled balances", () => {
+    const { points, total, dealCount } = buildCollectionsForecast(
+      data({
+        deals: [
+          forecastDeal({ id: "d1", health_status: "stale" }),
+          forecastDeal({ id: "d2", health_status: "past_term" }),
+          forecastDeal({ id: "d3", net_rtr_balance: 0.5 }),
+        ],
+      }),
+      null,
+      TODAY
+    );
+    expect(dealCount).toBe(0);
+    expect(total).toBe(0);
+    expect(points).toEqual([]);
+  });
+
+  it("narrows to the funder drill-down", () => {
+    const { total } = buildCollectionsForecast(
+      data({
+        deals: [
+          forecastDeal({ id: "d1", funder_id: 1, net_rtr_balance: 12000 }),
+          forecastDeal({ id: "d2", funder_id: 2, net_rtr_balance: 6000 }),
+        ],
+      }),
+      2,
+      TODAY
+    );
+    expect(total).toBeCloseTo(6000);
+  });
+
+  it("includes slipping deals at their observed (slower) pace", () => {
+    const { dealCount, points } = buildCollectionsForecast(
+      data({
+        deals: [forecastDeal({ health_status: "slipping" })],
+        recentPayments: [
+          { deal_id: "d1", payment_date: "2026-06-19", net: 100 },
+          { deal_id: "d1", payment_date: "2026-07-10", net: 100 },
+        ],
+      }),
+      null,
+      TODAY
+    );
+    expect(dealCount).toBe(1);
+    expect(points[0].projected).toBeCloseTo(200 / (91 / 30.44));
+  });
+});
+
+describe("extendRtrWithForecast", () => {
+  it("appends cumulative projected points and bridges the seam", () => {
+    const series = buildRtrSeries(
+      [
+        rtrRow({ funder_id: 1, payment_date: "2026-07-10", total_net: 100 }),
+        rtrRow({ funder_id: 1, payment_date: "2026-07-17", total_net: 50 }),
+      ],
+      FUNDERS
+    );
+    const points = extendRtrWithForecast(series, [
+      { month: "2026-08-01", projected: 40 },
+      { month: "2026-09-01", projected: 10 },
+    ]);
+
+    expect(points).toHaveLength(4);
+    // last historical point carries both keys so the dashed line connects
+    expect(points[1]).toMatchObject({ date: "2026-07-17", cumulative: 150, projected: 150 });
+    expect(points[2]).toEqual({ date: "2026-08-01", projected: 190 });
+    expect(points[3]).toEqual({ date: "2026-09-01", projected: 200 });
+    expect(points[2].cumulative).toBeUndefined();
+  });
+
+  it("returns the series unchanged when either side is empty", () => {
+    const series = buildRtrSeries(
+      [rtrRow({ payment_date: "2026-07-10", total_net: 100 })],
+      FUNDERS
+    );
+    expect(extendRtrWithForecast(series, [])).toEqual(series.points);
+    expect(
+      extendRtrWithForecast({ funders: [], points: [] }, [{ month: "2026-08-01", projected: 1 }])
+    ).toEqual([]);
   });
 });
 

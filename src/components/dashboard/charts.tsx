@@ -21,9 +21,11 @@ import {
 import {
   formatMoney,
   formatMonth,
+  extendRtrWithForecast,
   type StackedByFunder,
   type PieSlice,
   type RtrSeries,
+  type CollectionsForecast,
   type CommissionsMonthRow,
   type VintagePerformanceRow,
 } from "@services/analytics-service";
@@ -396,10 +398,12 @@ const rtrDateLabel = (date: string) => formatMonth(date.slice(0, 7));
 
 export const RtrCard = ({
   series,
+  forecast,
   loading,
   onFunderClick,
 }: {
   series: RtrSeries;
+  forecast?: CollectionsForecast | null;
   loading: boolean;
   onFunderClick?: FunderClickHandler;
 }) => {
@@ -418,6 +422,11 @@ export const RtrCard = ({
   const showModeTabs = series.funders.length > 1;
   const effectiveMode = showModeTabs ? mode : "growth";
 
+  // Projection extends the growth view only — a stacked per-funder forecast
+  // would imply per-funder precision the estimate doesn't have.
+  const growthPoints = extendRtrWithForecast(series, forecast?.points ?? []);
+  const showForecast = effectiveMode === "growth" && growthPoints.length > series.points.length;
+
   return (
     <Card className="dark:border-default-100 border border-transparent mb-6">
       <div className="flex items-center justify-between p-4 pb-0">
@@ -428,6 +437,11 @@ export const RtrCard = ({
               {formatMoney(totalReceived)}
             </span>
             <span className="text-medium text-default-500 font-medium">to date</span>
+            {showForecast && forecast && (
+              <span className="text-medium text-default-400 font-medium">
+                &middot; +{formatMoney(forecast.total)} projected
+              </span>
+            )}
           </dd>
         </div>
         {showModeTabs && (
@@ -451,7 +465,7 @@ export const RtrCard = ({
           >
             <AreaChart
               accessibilityLayer
-              data={series.points}
+              data={effectiveMode === "growth" ? growthPoints : series.points}
               margin={{ top: 20, right: 14, left: 8, bottom: 5 }}
             >
               <defs>
@@ -461,6 +475,15 @@ export const RtrCard = ({
                     offset="100%"
                     stopColor="hsl(var(--heroui-primary-100))"
                     stopOpacity={0.1}
+                  />
+                </linearGradient>
+                {/* Same hue as the actuals (same entity), visibly fainter */}
+                <linearGradient id="rtrForecastGradient" x1="0" x2="0" y1="0" y2="1">
+                  <stop offset="10%" stopColor="hsl(var(--heroui-primary-500))" stopOpacity={0.1} />
+                  <stop
+                    offset="100%"
+                    stopColor="hsl(var(--heroui-primary-100))"
+                    stopOpacity={0.03}
                   />
                 </linearGradient>
               </defs>
@@ -498,16 +521,31 @@ export const RtrCard = ({
                 cursor={{ strokeWidth: 0 }}
               />
               {effectiveMode === "growth" ? (
-                <Area
-                  animationDuration={800}
-                  animationEasing="ease"
-                  dataKey="cumulative"
-                  name="Cumulative Net RTR"
-                  fill="url(#rtrGradient)"
-                  stroke="hsl(var(--heroui-primary-500))"
-                  strokeWidth={2}
-                  type="monotone"
-                />
+                <>
+                  <Area
+                    animationDuration={800}
+                    animationEasing="ease"
+                    dataKey="cumulative"
+                    name="Cumulative Net RTR"
+                    fill="url(#rtrGradient)"
+                    stroke="hsl(var(--heroui-primary-500))"
+                    strokeWidth={2}
+                    type="monotone"
+                  />
+                  {showForecast && (
+                    <Area
+                      animationDuration={800}
+                      animationEasing="ease"
+                      dataKey="projected"
+                      name="Projected (estimate)"
+                      fill="url(#rtrForecastGradient)"
+                      stroke="hsl(var(--heroui-primary-500))"
+                      strokeWidth={2}
+                      strokeDasharray="6 4"
+                      type="monotone"
+                    />
+                  )}
+                </>
               ) : (
                 series.funders.map((funder, index) => (
                   <Area
@@ -528,6 +566,24 @@ export const RtrCard = ({
           </ResponsiveContainer>
           {effectiveMode === "by-funder" && (
             <FunderLegend funders={series.funders} onFunderClick={onFunderClick} />
+          )}
+          {showForecast && forecast && (
+            <p className="text-tiny text-default-400 px-4 pb-3 flex items-center gap-2">
+              <svg width="22" height="2" aria-hidden="true" className="shrink-0">
+                <line
+                  x1="0"
+                  y1="1"
+                  x2="22"
+                  y2="1"
+                  stroke="hsl(var(--heroui-primary-500))"
+                  strokeWidth="2"
+                  strokeDasharray="6 4"
+                />
+              </svg>
+              Estimate only — next {forecast.points.length} months projected from{" "}
+              {forecast.dealCount.toLocaleString()} open deals&apos; remaining RTR at their recent
+              payment pace (straight-line when history is thin); stale and past-term deals excluded.
+            </p>
           )}
         </>
       ) : (

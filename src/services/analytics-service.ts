@@ -345,6 +345,180 @@ export function buildConcentration(
 }
 
 // ---------------------------------------------------------------------------
+// Collections forecast (projected net collections)
+// ---------------------------------------------------------------------------
+
+/** Days of payment history used to observe a deal's recent collection pace. */
+export const FORECAST_PACE_WINDOW_DAYS = 91;
+/** How far forward the projection runs. */
+export const FORECAST_HORIZON_MONTHS = 12;
+/** Calendar days per month — matches deal_health's months_elapsed math. */
+const DAYS_PER_MONTH = 30.44;
+
+/** Open-deal fields the forecast needs, straight off deal_health. */
+export type ForecastDealRow = Pick<
+  DealHealthRow,
+  "id" | "funder_id" | "net_rtr_balance" | "term_months" | "months_elapsed" | "health_status"
+>;
+
+export interface ForecastPaymentRow {
+  deal_id: string;
+  payment_date: string;
+  net: number;
+}
+
+/** Raw inputs for buildCollectionsForecast, fetched once per scope. */
+export interface ForecastData {
+  deals: ForecastDealRow[];
+  /** Payments inside the pace window only. */
+  recentPayments: ForecastPaymentRow[];
+  /** Days of history recentPayments covers — the observed-pace denominator. */
+  windowDays: number;
+}
+
+/**
+ * Open deals (deal_health already scopes to open, non-defaulted) plus each
+ * deal's recent payments, for the client-side collections projection.
+ */
+export async function getForecastData(selection: PortfolioSelection): Promise<ForecastData> {
+  const scope = <T extends { eq: (col: string, v: number) => T }>(query: T): T =>
+    selection === "all" ? query : query.eq("portfolio_id", selection);
+
+  const cutoff = new Date(Date.now() - FORECAST_PACE_WINDOW_DAYS * 86_400_000)
+    .toISOString()
+    .slice(0, 10);
+
+  const [deals, recentPayments] = await Promise.all([
+    fetchAllPages<ForecastDealRow>((from, to) =>
+      scope(
+        supabase
+          .from("deal_health")
+          .select("id, funder_id, net_rtr_balance, term_months, months_elapsed, health_status")
+      )
+        .order("id")
+        .range(from, to)
+    ),
+    fetchAllPages<ForecastPaymentRow>((from, to) =>
+      scope(supabase.from("deal_payments").select("deal_id, payment_date, net"))
+        .gte("payment_date", cutoff)
+        .order("payment_date")
+        .order("deal_id")
+        .range(from, to)
+    ),
+  ]);
+
+  return { deals, recentPayments, windowDays: FORECAST_PACE_WINDOW_DAYS };
+}
+
+/** Projected net collections for one future calendar month. */
+export interface ForecastPoint {
+  /** First of the month, "YYYY-MM-01". */
+  month: string;
+  projected: number;
+}
+
+export interface CollectionsForecast {
+  /** One point per horizon month, starting the month after `today`. */
+  points: ForecastPoint[];
+  /** Sum over the horizon. */
+  total: number;
+  /** Open deals that contributed to the projection. */
+  dealCount: number;
+}
+
+/**
+ * Spread each open deal's remaining net RTR over the coming months at its
+ * recent observed pace (net collected in the window, per month), falling back
+ * to straight-line over the remaining term when the payment history is too
+ * thin to read a pace from. Stale and past-term deals are excluded — they have
+ * no observable forward pace, and projecting them would overstate collections.
+ * Pass funderId to narrow to the dashboard's funder drill-down.
+ */
+export function buildCollectionsForecast(
+  data: ForecastData,
+  funderId?: number | null,
+  today: Date = new Date()
+): CollectionsForecast {
+  const recent = new Map<string, { net: number; dates: Set<string> }>();
+  for (const p of data.recentPayments) {
+    const acc = recent.get(p.deal_id) ?? { net: 0, dates: new Set<string>() };
+    acc.net += p.net;
+    acc.dates.add(p.payment_date);
+    recent.set(p.deal_id, acc);
+  }
+
+  const buckets = new Array<number>(FORECAST_HORIZON_MONTHS).fill(0);
+  let dealCount = 0;
+
+  for (const deal of data.deals) {
+    if (funderId != null && deal.funder_id !== funderId) continue;
+    if (deal.health_status === "stale" || deal.health_status === "past_term") continue;
+    let remaining = Math.max(deal.net_rtr_balance ?? 0, 0);
+    if (remaining <= 1) continue; // deal_health's BALANCE_EPSILON
+
+    // A single payment date says when a deal paid, not how fast it pays —
+    // require two before trusting the observed pace over the straight line.
+    const pay = recent.get(deal.id);
+    let monthlyPace: number;
+    if (pay && pay.dates.size >= 2 && pay.net > 0) {
+      monthlyPace = pay.net / (data.windowDays / DAYS_PER_MONTH);
+    } else {
+      const remainingTerm = Math.max((deal.term_months ?? 0) - (deal.months_elapsed ?? 0), 1);
+      monthlyPace = remaining / remainingTerm;
+    }
+    if (monthlyPace <= 0) continue;
+
+    dealCount += 1;
+    for (let i = 0; i < buckets.length && remaining > 0; i++) {
+      const take = Math.min(monthlyPace, remaining);
+      buckets[i] += take;
+      remaining -= take;
+    }
+  }
+
+  const points = buckets.map((projected, i) => {
+    const d = new Date(today.getFullYear(), today.getMonth() + i + 1, 1);
+    return {
+      month: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`,
+      projected,
+    };
+  });
+  const total = buckets.reduce((acc, v) => acc + v, 0);
+  return { points: total > 0 ? points : [], total, dealCount };
+}
+
+/** RtrPoint plus the projected continuation; funder keys stay for by-funder mode. */
+export interface RtrChartPoint {
+  date: string;
+  total?: number;
+  cumulative?: number;
+  projected?: number;
+  [funderName: string]: string | number | undefined;
+}
+
+/**
+ * Append the forecast to the historical series for the growth chart. The last
+ * historical point carries both keys so the dashed projection connects to the
+ * solid line; projected points omit `cumulative` so the historical area ends
+ * where the data does.
+ */
+export function extendRtrWithForecast(
+  series: RtrSeries,
+  forecast: ForecastPoint[]
+): RtrChartPoint[] {
+  if (series.points.length === 0 || forecast.length === 0) return series.points;
+  const last = series.points[series.points.length - 1];
+  const points: RtrChartPoint[] = [...series.points];
+  points[points.length - 1] = { ...last, projected: last.cumulative };
+  let cumulative = last.cumulative;
+  for (const f of forecast) {
+    cumulative += f.projected;
+    points.push({ date: f.month, projected: cumulative });
+  }
+  return points;
+}
+
+// ---------------------------------------------------------------------------
 // Pure transforms (chart/KPI shapes). Kept UI-free so they are unit-testable.
 // ---------------------------------------------------------------------------
 
