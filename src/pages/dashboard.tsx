@@ -37,6 +37,7 @@ function Dashboard() {
     currentAlloc,
     commissions,
     rtrSeries,
+    forecast,
     performance,
     deals,
     dealsLoading,
@@ -171,8 +172,13 @@ function Dashboard() {
       {/* Geographic + industry exposure with concentration-limit flags */}
       <ConcentrationSection breakdown={concentration} loading={concentrationLoading} />
 
-      {/* RTR received over time */}
-      <RtrCard series={rtrSeries} loading={loading} onFunderClick={onFunderClick} />
+      {/* RTR received over time, with the projected-collections continuation */}
+      <RtrCard
+        series={rtrSeries}
+        forecast={forecast}
+        loading={loading}
+        onFunderClick={onFunderClick}
+      />
 
       {/* Vintage performance */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">

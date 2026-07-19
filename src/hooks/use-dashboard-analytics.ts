@@ -15,6 +15,8 @@ import {
   buildCommissionsByMonth,
   buildRtrSeries,
   buildVintagePerformance,
+  getForecastData,
+  buildCollectionsForecast,
   formatMoney,
   formatPct,
   type PortfolioOption,
@@ -24,6 +26,7 @@ import {
   type FunderDealRow,
   type NeedsAttentionDeal,
   type ConcentrationData,
+  type ForecastData,
 } from "@services/analytics-service";
 
 /**
@@ -45,6 +48,9 @@ export function useDashboardAnalytics() {
   // State/industry exposure for the Concentration Risk section
   const [concentrationData, setConcentrationData] = useState<ConcentrationData | null>(null);
   const [concentrationLoading, setConcentrationLoading] = useState(true);
+
+  // Open-deal balances + recent payments for the collections projection
+  const [forecastData, setForecastData] = useState<ForecastData | null>(null);
 
   // Funder drill-down (set by clicking a funder in a legend / pie / bar)
   const [funderId, setFunderId] = useState<number | null>(null);
@@ -124,6 +130,23 @@ export function useDashboardAnalytics() {
       })
       .finally(() => {
         if (!cancelled) setConcentrationLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selection]);
+
+  useEffect(() => {
+    if (selection == null) return;
+    let cancelled = false;
+    getForecastData(selection)
+      .then((data) => {
+        if (!cancelled) setForecastData(data);
+      })
+      .catch(() => {
+        // Non-critical overlay — on failure the RTR chart simply renders
+        // without the projection rather than raising a second error banner.
+        if (!cancelled) setForecastData(null);
       });
     return () => {
       cancelled = true;
@@ -223,6 +246,11 @@ export function useDashboardAnalytics() {
   const rtrSeries = useMemo(
     () => buildRtrSeries(rtrInScope, analytics?.funderNames ?? {}),
     [rtrInScope, analytics]
+  );
+  // The projection follows the funder drill-down like every other chart.
+  const forecast = useMemo(
+    () => (forecastData ? buildCollectionsForecast(forecastData, funderId) : null),
+    [forecastData, funderId]
   );
   const performance = useMemo(() => buildVintagePerformance(monthlyRows), [monthlyRows]);
 
@@ -331,6 +359,7 @@ export function useDashboardAnalytics() {
     currentAlloc,
     commissions,
     rtrSeries,
+    forecast,
     performance,
     deals,
     dealsLoading,
