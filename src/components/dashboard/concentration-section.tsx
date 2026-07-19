@@ -73,6 +73,9 @@ interface MapHover {
   bucket: ConcentrationBucket;
   x: number;
   y: number;
+  /** Render the tooltip left of / above the cursor near the card edges, where it would clip. */
+  flipX: boolean;
+  flipY: boolean;
 }
 
 const StateMapCard = ({
@@ -108,7 +111,9 @@ const StateMapCard = ({
     const bucket = byCode.get(code);
     const rect = containerRef.current?.getBoundingClientRect();
     if (!bucket || !rect) return;
-    setHover({ bucket, x: event.clientX - rect.left, y: event.clientY - rect.top });
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    setHover({ bucket, x, y, flipX: x > rect.width - 200, flipY: y > rect.height - 110 });
   };
 
   if (loading) {
@@ -149,9 +154,7 @@ const StateMapCard = ({
                     }
                     strokeWidth={flagged ? 2 : 1}
                     onMouseMove={handleMove(code)}
-                  >
-                    <title>{byCode.get(code)?.name ?? code}</title>
-                  </path>
+                  />
                 );
               })}
               <circle
@@ -166,8 +169,14 @@ const StateMapCard = ({
             </svg>
             {hover && (
               <div
-                className="rounded-medium bg-background text-tiny shadow-small pointer-events-none absolute z-10 p-2"
-                style={{ left: hover.x + 12, top: hover.y + 12 }}
+                className="rounded-medium bg-background text-tiny shadow-small pointer-events-none absolute z-10 p-2 whitespace-nowrap"
+                style={{
+                  left: hover.x,
+                  top: hover.y,
+                  transform: `translate(${hover.flipX ? "calc(-100% - 12px)" : "12px"}, ${
+                    hover.flipY ? "calc(-100% - 12px)" : "12px"
+                  })`,
+                }}
               >
                 <p className="font-medium">{hover.bucket.name}</p>
                 <p className="text-default-500">
