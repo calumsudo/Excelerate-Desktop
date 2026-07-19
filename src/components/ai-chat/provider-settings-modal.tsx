@@ -17,6 +17,7 @@ import {
   type AiSettings,
 } from "@services/ai-chat-service";
 import { toast } from "@services/toast-service";
+import { PasswordInput } from "@components/ui/password-input";
 
 interface Props {
   isOpen: boolean;
@@ -72,9 +73,8 @@ export function ProviderSettingsModal({ isOpen, onClose, settings, onSaved }: Pr
 
           <div className="flex flex-col gap-2">
             <p className="text-small font-semibold">Anthropic</p>
-            <Input
+            <PasswordInput
               label="API key"
-              type="password"
               value={draft.anthropic_api_key}
               onValueChange={(v) => set({ anthropic_api_key: v })}
               placeholder="sk-ant-…"
@@ -88,9 +88,8 @@ export function ProviderSettingsModal({ isOpen, onClose, settings, onSaved }: Pr
 
           <div className="flex flex-col gap-2">
             <p className="text-small font-semibold">OpenAI</p>
-            <Input
+            <PasswordInput
               label="API key"
-              type="password"
               value={draft.openai_api_key}
               onValueChange={(v) => set({ openai_api_key: v })}
               placeholder="sk-…"
@@ -104,9 +103,8 @@ export function ProviderSettingsModal({ isOpen, onClose, settings, onSaved }: Pr
 
           <div className="flex flex-col gap-2">
             <p className="text-small font-semibold">Google</p>
-            <Input
+            <PasswordInput
               label="API key"
-              type="password"
               value={draft.google_api_key}
               onValueChange={(v) => set({ google_api_key: v })}
               placeholder="AIza…"
@@ -137,9 +135,8 @@ export function ProviderSettingsModal({ isOpen, onClose, settings, onSaved }: Pr
               onValueChange={(v) => set({ lmstudio_model: v })}
               placeholder="e.g. qwen/qwen3-32b — the model id shown in LM Studio"
             />
-            <Input
+            <PasswordInput
               label="API token (optional)"
-              type="password"
               value={draft.lmstudio_api_key}
               onValueChange={(v) => set({ lmstudio_api_key: v })}
               description="Only needed if your server requires an API token (LM Studio: Developer → Server Settings)."
