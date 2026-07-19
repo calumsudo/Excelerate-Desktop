@@ -12,6 +12,7 @@ import {
   TermVsFactorCard,
 } from "@components/dashboard/charts";
 import FunderDealsTable from "@components/dashboard/funder-deals-table";
+import NeedsAttentionCard from "@components/dashboard/needs-attention-card";
 import { useDashboardAnalytics } from "@/hooks/use-dashboard-analytics";
 
 const ALL_PORTFOLIOS_KEY = "all";
@@ -39,6 +40,8 @@ function Dashboard() {
     deals,
     dealsLoading,
     dealsError,
+    needsAttention,
+    attentionLoading,
     onFunderClick,
   } = useDashboardAnalytics();
 
@@ -123,6 +126,9 @@ function Dashboard() {
           <KpiCard key={item.title} {...item} loading={loading} />
         ))}
       </div>
+
+      {/* At-risk deals flagged by the deal_health view, worst first */}
+      <NeedsAttentionCard deals={needsAttention} loading={attentionLoading} />
 
       {/* Allocations / cost basis by vintage month */}
       <AllocationsByMonthCard

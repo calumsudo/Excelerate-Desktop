@@ -7,6 +7,8 @@ export type MonthlyVintageRow = Views["monthly_vintage_stats"]["Row"];
 export type FunderAllocationRow = Views["funder_allocation_current"]["Row"];
 export type WeeklyRtrRow = Views["weekly_rtr_matrix"]["Row"];
 export type DealComputedRow = Views["deal_computed"]["Row"];
+export type DealHealthRow = Views["deal_health"]["Row"];
+export type HealthStatus = DealHealthRow["health_status"];
 
 export interface PortfolioOption {
   id: number;
@@ -154,6 +156,42 @@ export async function getFunderDeals(
     ...d,
     merchant_name: d.merchant_id != null ? (names.get(d.merchant_id) ?? null) : null,
   }));
+}
+
+/** A flagged deal_health row with its lookups, for the Needs Attention card. */
+export interface NeedsAttentionDeal extends DealHealthRow {
+  merchant_name: string | null;
+  funder_name: string | null;
+}
+
+/**
+ * Flagged deals (severity > 0) in scope, worst first: past_term before stale
+ * before slipping, most dollars outstanding first within a status.
+ */
+export async function getNeedsAttention(
+  selection: PortfolioSelection
+): Promise<NeedsAttentionDeal[]> {
+  const scope = <T extends { eq: (col: string, v: number) => T }>(query: T): T =>
+    selection === "all" ? query : query.eq("portfolio_id", selection);
+
+  const [rows, merchants, funderNames] = await Promise.all([
+    fetchAllPages<DealHealthRow>((from, to) =>
+      scope(supabase.from("deal_health").select("*")).gt("severity", 0).order("id").range(from, to)
+    ),
+    fetchAllPages<{ id: string; name: string }>((from, to) =>
+      scope(supabase.from("merchants").select("id, name")).order("id").range(from, to)
+    ),
+    getFunderNames(),
+  ]);
+
+  const merchantNames = new Map(merchants.map((m) => [m.id, m.name]));
+  return rows
+    .map((row) => ({
+      ...row,
+      merchant_name: row.merchant_id != null ? (merchantNames.get(row.merchant_id) ?? null) : null,
+      funder_name: row.funder_id != null ? (funderNames[row.funder_id] ?? null) : null,
+    }))
+    .sort((a, b) => b.severity - a.severity || (b.net_rtr_balance ?? 0) - (a.net_rtr_balance ?? 0));
 }
 
 // ---------------------------------------------------------------------------
