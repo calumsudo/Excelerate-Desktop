@@ -9,8 +9,12 @@ import {
   buildCommissionsByMonth,
   buildRtrSeries,
   buildVintagePerformance,
+  buildConcentration,
+  UNKNOWN_BUCKET_KEY,
   formatMoney,
   formatPct,
+  type ConcentrationData,
+  type ConcentrationDealRow,
   type PortfolioMonthlyRow,
   type MonthlyVintageRow,
   type FunderAllocationRow,
@@ -277,6 +281,102 @@ describe("buildVintagePerformance", () => {
     expect(rows).toEqual([
       { month: "Jan 25", weightedAvgFactor: 1.32, termMonths: 6.5, pointsPerMonth: 4.9 },
     ]);
+  });
+});
+
+describe("buildConcentration", () => {
+  const data = (overrides: Partial<ConcentrationData> = {}): ConcentrationData => ({
+    deals: [],
+    merchants: [],
+    states: [
+      { id: 1, code: "CA", name: "California" },
+      { id: 2, code: "NY", name: "New York" },
+    ],
+    industries: [
+      { id: 1, name: "Restaurants" },
+      { id: 2, name: "Retail" },
+    ],
+    ...overrides,
+  });
+
+  const deal = (overrides: Partial<ConcentrationDealRow> = {}): ConcentrationDealRow => ({
+    funder_id: 1,
+    merchant_id: "m1",
+    new_dollars_at_work: 0,
+    rtr_dollars_at_work: 0,
+    ...overrides,
+  });
+
+  it("buckets dollars at work by merchant state and industry with shares", () => {
+    const result = buildConcentration(
+      data({
+        deals: [
+          deal({ merchant_id: "m1", new_dollars_at_work: 600, rtr_dollars_at_work: 150 }),
+          deal({ merchant_id: "m2", new_dollars_at_work: 250 }),
+        ],
+        merchants: [
+          { id: "m1", state_id: 1, industry_id: 1 },
+          { id: "m2", state_id: 2, industry_id: 1 },
+        ],
+      })
+    );
+
+    expect(result.total).toBe(1000);
+    expect(result.states).toEqual([
+      { key: "CA", name: "California", value: 750, dealCount: 1, share: 0.75 },
+      { key: "NY", name: "New York", value: 250, dealCount: 1, share: 0.25 },
+    ]);
+    expect(result.industries).toEqual([
+      { key: "Restaurants", name: "Restaurants", value: 1000, dealCount: 2, share: 1 },
+    ]);
+  });
+
+  it("sends unclassified merchants to an unknown bucket sorted last", () => {
+    const result = buildConcentration(
+      data({
+        deals: [
+          deal({ merchant_id: "m1", new_dollars_at_work: 100 }),
+          deal({ merchant_id: "m2", new_dollars_at_work: 900 }),
+          deal({ merchant_id: null, new_dollars_at_work: 500 }),
+        ],
+        merchants: [
+          { id: "m1", state_id: 1, industry_id: 1 },
+          { id: "m2", state_id: null, industry_id: null },
+        ],
+      })
+    );
+
+    expect(result.total).toBe(1500);
+    // Unknown holds the most dollars but still sorts after every named bucket.
+    expect(result.states.map((b) => b.key)).toEqual(["CA", UNKNOWN_BUCKET_KEY]);
+    expect(result.states[1]).toMatchObject({ value: 1400, dealCount: 2 });
+    expect(result.industries.map((b) => b.key)).toEqual(["Restaurants", UNKNOWN_BUCKET_KEY]);
+  });
+
+  it("narrows to a funder when funderId is passed", () => {
+    const result = buildConcentration(
+      data({
+        deals: [
+          deal({ funder_id: 1, merchant_id: "m1", new_dollars_at_work: 100 }),
+          deal({ funder_id: 2, merchant_id: "m2", new_dollars_at_work: 300 }),
+        ],
+        merchants: [
+          { id: "m1", state_id: 1, industry_id: 1 },
+          { id: "m2", state_id: 2, industry_id: 2 },
+        ],
+      }),
+      2
+    );
+
+    expect(result.total).toBe(300);
+    expect(result.states).toEqual([
+      { key: "NY", name: "New York", value: 300, dealCount: 1, share: 1 },
+    ]);
+  });
+
+  it("returns zero shares for an empty scope", () => {
+    const result = buildConcentration(data());
+    expect(result).toEqual({ total: 0, states: [], industries: [] });
   });
 });
 

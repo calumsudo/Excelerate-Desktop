@@ -32,7 +32,7 @@ import { funderColor } from "./chart-colors";
 /** Fired with the funder's display name when a legend entry / slice / bar is clicked. */
 export type FunderClickHandler = (funderName: string) => void;
 
-const ChartSkeleton = ({ height = 250 }: { height?: number }) => (
+export const ChartSkeleton = ({ height = 250 }: { height?: number }) => (
   <div className="p-4">
     <Skeleton className="rounded-lg mb-4">
       <div className="h-4 w-48 bg-default-200"></div>
