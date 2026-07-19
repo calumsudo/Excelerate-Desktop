@@ -14,7 +14,9 @@ import {
 import FunderDealsTable from "@components/dashboard/funder-deals-table";
 import NeedsAttentionCard from "@components/dashboard/needs-attention-card";
 import { ConcentrationSection } from "@components/dashboard/concentration-section";
+import { CommentaryModal } from "@components/dashboard/commentary-modal";
 import { useDashboardAnalytics } from "@/hooks/use-dashboard-analytics";
+import { useState } from "react";
 
 const ALL_PORTFOLIOS_KEY = "all";
 
@@ -49,6 +51,8 @@ function Dashboard() {
     onFunderClick,
   } = useDashboardAnalytics();
 
+  const [commentaryOpen, setCommentaryOpen] = useState(false);
+
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6 gap-4">
@@ -76,26 +80,45 @@ function Dashboard() {
             </p>
           </div>
         )}
-        <Select
-          aria-label="Select Portfolio"
-          className="max-w-[220px]"
-          isDisabled={portfolios.length === 0}
-          selectedKeys={
-            selection != null ? [selection === "all" ? ALL_PORTFOLIOS_KEY : String(selection)] : []
-          }
-          onSelectionChange={(keys) => {
-            const key = Array.from(keys)[0];
-            if (key == null) return;
-            setFunderId(null);
-            setSelection(key === ALL_PORTFOLIOS_KEY ? "all" : Number(key));
-          }}
-        >
-          {[
-            <SelectItem key={ALL_PORTFOLIOS_KEY}>All Portfolios</SelectItem>,
-            ...portfolios.map((p) => <SelectItem key={String(p.id)}>{p.name}</SelectItem>),
-          ]}
-        </Select>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="flat"
+            startContent={<Icon icon="solar:document-text-outline" width={18} />}
+            onPress={() => setCommentaryOpen(true)}
+            isDisabled={portfolios.length === 0}
+          >
+            Monthly commentary
+          </Button>
+          <Select
+            aria-label="Select Portfolio"
+            className="max-w-[220px]"
+            isDisabled={portfolios.length === 0}
+            selectedKeys={
+              selection != null
+                ? [selection === "all" ? ALL_PORTFOLIOS_KEY : String(selection)]
+                : []
+            }
+            onSelectionChange={(keys) => {
+              const key = Array.from(keys)[0];
+              if (key == null) return;
+              setFunderId(null);
+              setSelection(key === ALL_PORTFOLIOS_KEY ? "all" : Number(key));
+            }}
+          >
+            {[
+              <SelectItem key={ALL_PORTFOLIOS_KEY}>All Portfolios</SelectItem>,
+              ...portfolios.map((p) => <SelectItem key={String(p.id)}>{p.name}</SelectItem>),
+            ]}
+          </Select>
+        </div>
       </div>
+
+      <CommentaryModal
+        isOpen={commentaryOpen}
+        onClose={() => setCommentaryOpen(false)}
+        portfolios={portfolios}
+        initialSelection={selection}
+      />
 
       {error && (
         <Card className="mb-6 bg-danger-50 border-danger-200">
