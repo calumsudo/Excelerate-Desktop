@@ -9,6 +9,7 @@ import PivotTables from "@pages/pivot-tables";
 import DatabasePage from "@pages/database";
 import AiChat from "@pages/ai-chat";
 import Settings from "@pages/settings";
+import Users from "@pages/users";
 import Login from "@pages/login";
 import { ProtectedRoute } from "@components/auth/protected-route";
 import { useAuth } from "@/contexts/auth-context-value";
@@ -50,6 +51,7 @@ function App() {
           <Route path="pivot-tables" element={<PivotTables />} />
           <Route path="database" element={<DatabasePage />} />
           <Route path="ai-chat" element={<AiChat />} />
+          <Route path="users" element={<Users />} />
           <Route path="settings" element={<Settings />} />
         </Route>
       </Routes>

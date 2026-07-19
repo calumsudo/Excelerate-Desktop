@@ -840,6 +840,10 @@ export interface Database {
         Args: Record<string, never>;
         Returns: boolean;
       };
+      admin_delete_user: {
+        Args: { target_id: string };
+        Returns: undefined;
+      };
       commit_funder_pivot: {
         Args: {
           p_upload_id: string;

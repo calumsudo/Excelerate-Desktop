@@ -42,6 +42,13 @@ export const items: SidebarItem[] = [
   },
 ];
 
+// Shown only to admins (appended in layout.tsx based on the user's role).
+export const usersItem: SidebarItem = {
+  key: "users",
+  icon: "solar:users-group-rounded-outline",
+  title: "User Management",
+};
+
 export const settingsItem: SidebarItem = {
   key: "settings",
   icon: "solar:settings-outline",

@@ -1,7 +1,8 @@
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { ScrollShadow, Button, Listbox, ListboxItem, Tooltip } from "@heroui/react";
 import Sidebar from "@features/sidebar/sidebar";
-import { items, settingsItem } from "@features/sidebar/sidebar-items";
+import { items, usersItem, settingsItem } from "@features/sidebar/sidebar-items";
+import { useAuth } from "@/contexts/auth-context-value";
 import { UserMenu } from "@components/auth/user-menu";
 import ErrorBoundary from "@components/error-boundary";
 import { useEffect, useState, useRef } from "react";
@@ -12,6 +13,8 @@ function Layout() {
   const navigate = useNavigate();
   const location = useLocation();
   const { theme, toggleTheme } = useTheme();
+  const { profile } = useAuth();
+  const navItems = profile?.role === "admin" ? [...items, usersItem] : items;
   const [selectedKey, setSelectedKey] = useState("dashboard");
   const [isCompact, setIsCompact] = useState(() => {
     const saved = localStorage.getItem("sidebarCompact");
@@ -89,7 +92,7 @@ function Layout() {
         <ScrollShadow className="flex-1 max-h-full py-2">
           <Sidebar
             defaultSelectedKey={selectedKey}
-            items={items}
+            items={navItems}
             isCompact={isCompact}
             onSelect={(key: string) => handleSelect(key)}
             className="select-none"

@@ -1,4 +1,4 @@
-import { supabase } from "./supabase";
+import { supabase, createStatelessAuthClient } from "./supabase";
 import type { User, Session, AuthError } from "@supabase/supabase-js";
 import type { Database } from "./supabase.types";
 type UserProfileUpdate = Database["public"]["Tables"]["user_profiles"]["Update"];
@@ -73,6 +73,82 @@ export class AuthService {
       session: data.session,
       error,
     };
+  }
+
+  /**
+   * Create an account for an invited user WITHOUT signing them in here.
+   * Uses a stateless client so the inviting admin's session is untouched.
+   */
+  static async inviteUser(invite: {
+    email: string;
+    password: string;
+    fullName: string;
+    role: "admin" | "member";
+  }): Promise<{ userId: string | null; error: Error | null }> {
+    const inviteClient = createStatelessAuthClient();
+
+    const { data, error } = await inviteClient.auth.signUp({
+      email: invite.email,
+      password: invite.password,
+      options: {
+        data: {
+          full_name: invite.fullName,
+        },
+      },
+    });
+
+    if (error) {
+      return { userId: null, error };
+    }
+
+    const newUser = data.user;
+    if (!newUser) {
+      return { userId: null, error: new Error("Failed to create user account") };
+    }
+
+    // Supabase returns an obfuscated user with no identities when the email
+    // is already registered (to prevent enumeration).
+    if (newUser.identities && newUser.identities.length === 0) {
+      return { userId: null, error: new Error("This email is already registered.") };
+    }
+
+    // Drop the throwaway session from memory; ignore errors (there is no
+    // session at all when email confirmation is enabled).
+    await inviteClient.auth.signOut({ scope: "local" }).catch(() => undefined);
+
+    // The profile row is created by the on_auth_user_created trigger with
+    // role 'member'; promote via the admin's own session if requested.
+    if (invite.role === "admin") {
+      const { data: updated, error: roleError } = await supabase
+        .from("user_profiles")
+        .update({ role: "admin", updated_at: new Date().toISOString() })
+        .eq("id", newUser.id)
+        .select("id");
+
+      if (roleError || !updated || updated.length === 0) {
+        return {
+          userId: newUser.id,
+          error: new Error(
+            "User was created but could not be made an admin. You can change their role from User Management."
+          ),
+        };
+      }
+    }
+
+    return { userId: newUser.id, error: null };
+  }
+
+  /**
+   * Verify a user's current password without touching the app session.
+   */
+  static async verifyPassword(email: string, password: string): Promise<boolean> {
+    const checkClient = createStatelessAuthClient();
+    const { error } = await checkClient.auth.signInWithPassword({ email, password });
+    if (!error) {
+      await checkClient.auth.signOut({ scope: "local" }).catch(() => undefined);
+      return true;
+    }
+    return false;
   }
 
   /**
