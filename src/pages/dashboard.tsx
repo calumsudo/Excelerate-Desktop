@@ -13,6 +13,7 @@ import {
 } from "@components/dashboard/charts";
 import FunderDealsTable from "@components/dashboard/funder-deals-table";
 import NeedsAttentionCard from "@components/dashboard/needs-attention-card";
+import { ConcentrationSection } from "@components/dashboard/concentration-section";
 import { useDashboardAnalytics } from "@/hooks/use-dashboard-analytics";
 
 const ALL_PORTFOLIOS_KEY = "all";
@@ -42,6 +43,8 @@ function Dashboard() {
     dealsError,
     needsAttention,
     attentionLoading,
+    concentration,
+    concentrationLoading,
     onFunderClick,
   } = useDashboardAnalytics();
 
@@ -164,6 +167,9 @@ function Dashboard() {
           />
         </div>
       )}
+
+      {/* Geographic + industry exposure with concentration-limit flags */}
+      <ConcentrationSection breakdown={concentration} loading={concentrationLoading} />
 
       {/* RTR received over time */}
       <RtrCard series={rtrSeries} loading={loading} onFunderClick={onFunderClick} />

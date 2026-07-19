@@ -195,6 +195,156 @@ export async function getNeedsAttention(
 }
 
 // ---------------------------------------------------------------------------
+// Concentration risk (state / industry exposure)
+// ---------------------------------------------------------------------------
+
+/** Slim deal_computed row — just enough to bucket dollars at work. */
+export interface ConcentrationDealRow {
+  funder_id: number | null;
+  merchant_id: string | null;
+  new_dollars_at_work: number;
+  rtr_dollars_at_work: number;
+}
+
+export interface ConcentrationMerchant {
+  id: string;
+  state_id: number | null;
+  industry_id: number | null;
+}
+
+/** Raw inputs for the concentration transforms, fetched once per scope. */
+export interface ConcentrationData {
+  deals: ConcentrationDealRow[];
+  merchants: ConcentrationMerchant[];
+  states: Array<{ id: number; code: string; name: string }>;
+  industries: Array<{ id: number; name: string }>;
+}
+
+export async function getConcentrationData(
+  selection: PortfolioSelection
+): Promise<ConcentrationData> {
+  const scope = <T extends { eq: (col: string, v: number) => T }>(query: T): T =>
+    selection === "all" ? query : query.eq("portfolio_id", selection);
+
+  const [deals, merchants, statesRes, industriesRes] = await Promise.all([
+    fetchAllPages<ConcentrationDealRow>((from, to) =>
+      scope(
+        supabase
+          .from("deal_computed")
+          .select("funder_id, merchant_id, new_dollars_at_work, rtr_dollars_at_work")
+      )
+        .order("id")
+        .range(from, to)
+    ),
+    fetchAllPages<ConcentrationMerchant>((from, to) =>
+      scope(supabase.from("merchants").select("id, state_id, industry_id"))
+        .order("id")
+        .range(from, to)
+    ),
+    supabase.from("states").select("id, code, name").eq("is_deleted", false),
+    supabase.from("industries").select("id, name").eq("is_deleted", false),
+  ]);
+
+  if (statesRes.error) throw new Error(`Failed to load states: ${statesRes.error.message}`);
+  if (industriesRes.error)
+    throw new Error(`Failed to load industries: ${industriesRes.error.message}`);
+
+  return {
+    deals,
+    merchants,
+    states: statesRes.data ?? [],
+    industries: industriesRes.data ?? [],
+  };
+}
+
+/** One state or industry exposure bucket. */
+export interface ConcentrationBucket {
+  /** State code ("CA"), industry name, or "unknown" for unclassified merchants. */
+  key: string;
+  name: string;
+  /** Dollars at work (new + RTR) attributed to the bucket. */
+  value: number;
+  dealCount: number;
+  /** Fraction of the scope's total dollars at work (unknown included). */
+  share: number;
+}
+
+export interface ConcentrationBreakdown {
+  /** Total dollars at work in scope, the denominator for every share. */
+  total: number;
+  /** Every state with exposure, largest first; "unknown" bucket last if present. */
+  states: ConcentrationBucket[];
+  /** Every industry with exposure, largest first; "unknown" bucket last if present. */
+  industries: ConcentrationBucket[];
+}
+
+export const UNKNOWN_BUCKET_KEY = "unknown";
+
+/**
+ * Bucket dollars at work by merchant state and industry. Deals whose merchant
+ * has no state/industry (or no merchant at all) land in an "unknown" bucket so
+ * the shares always sum to 100% of the scope. Pass funderId to narrow to the
+ * dashboard's funder drill-down.
+ */
+export function buildConcentration(
+  data: ConcentrationData,
+  funderId?: number | null
+): ConcentrationBreakdown {
+  const merchantById = new Map(data.merchants.map((m) => [m.id, m]));
+  const stateById = new Map(data.states.map((s) => [s.id, s]));
+  const industryById = new Map(data.industries.map((i) => [i.id, i]));
+
+  interface Acc {
+    name: string;
+    value: number;
+    dealCount: number;
+  }
+  const stateAcc = new Map<string, Acc>();
+  const industryAcc = new Map<string, Acc>();
+  const add = (acc: Map<string, Acc>, key: string, name: string, value: number) => {
+    const bucket = acc.get(key) ?? { name, value: 0, dealCount: 0 };
+    bucket.value += value;
+    bucket.dealCount += 1;
+    acc.set(key, bucket);
+  };
+
+  let total = 0;
+  for (const deal of data.deals) {
+    if (funderId != null && deal.funder_id !== funderId) continue;
+    const value = (deal.new_dollars_at_work ?? 0) + (deal.rtr_dollars_at_work ?? 0);
+    total += value;
+
+    const merchant = deal.merchant_id != null ? merchantById.get(deal.merchant_id) : undefined;
+    const state = merchant?.state_id != null ? stateById.get(merchant.state_id) : undefined;
+    const industry =
+      merchant?.industry_id != null ? industryById.get(merchant.industry_id) : undefined;
+
+    if (state) add(stateAcc, state.code, state.name, value);
+    else add(stateAcc, UNKNOWN_BUCKET_KEY, "Unknown", value);
+    if (industry) add(industryAcc, industry.name, industry.name, value);
+    else add(industryAcc, UNKNOWN_BUCKET_KEY, "Unknown", value);
+  }
+
+  const toBuckets = (acc: Map<string, Acc>): ConcentrationBucket[] =>
+    [...acc.entries()]
+      .map(([key, b]) => ({
+        key,
+        name: b.name,
+        value: b.value,
+        dealCount: b.dealCount,
+        share: total > 0 ? b.value / total : 0,
+      }))
+      .sort((a, b) => {
+        // Unknown reads as a footnote, not a competitor for the top slots.
+        if (a.key === UNKNOWN_BUCKET_KEY) return 1;
+        if (b.key === UNKNOWN_BUCKET_KEY) return -1;
+        return b.value - a.value;
+      });
+
+  return { total, states: toBuckets(stateAcc), industries: toBuckets(industryAcc) };
+}
+
+// ---------------------------------------------------------------------------
 // Pure transforms (chart/KPI shapes). Kept UI-free so they are unit-testable.
 // ---------------------------------------------------------------------------
 

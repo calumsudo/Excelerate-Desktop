@@ -4,6 +4,8 @@ import {
   getPortfolioAnalytics,
   getFunderDeals,
   getNeedsAttention,
+  getConcentrationData,
+  buildConcentration,
   computeKpis,
   aggregateMonthlyByVintage,
   buildAllocationsByMonth,
@@ -21,6 +23,7 @@ import {
   type MonthlyStatsRow,
   type FunderDealRow,
   type NeedsAttentionDeal,
+  type ConcentrationData,
 } from "@services/analytics-service";
 
 /**
@@ -38,6 +41,10 @@ export function useDashboardAnalytics() {
   // At-risk deals for the Needs Attention card (deal_health, severity > 0)
   const [attention, setAttention] = useState<NeedsAttentionDeal[]>([]);
   const [attentionLoading, setAttentionLoading] = useState(true);
+
+  // State/industry exposure for the Concentration Risk section
+  const [concentrationData, setConcentrationData] = useState<ConcentrationData | null>(null);
+  const [concentrationLoading, setConcentrationLoading] = useState(true);
 
   // Funder drill-down (set by clicking a funder in a legend / pie / bar)
   const [funderId, setFunderId] = useState<number | null>(null);
@@ -96,6 +103,27 @@ export function useDashboardAnalytics() {
       })
       .finally(() => {
         if (!cancelled) setAttentionLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selection]);
+
+  useEffect(() => {
+    if (selection == null) return;
+    let cancelled = false;
+    setConcentrationLoading(true);
+    getConcentrationData(selection)
+      .then((data) => {
+        if (!cancelled) setConcentrationData(data);
+      })
+      .catch(() => {
+        // Non-critical section — on failure show the empty state rather than
+        // blocking the dashboard with a second error banner.
+        if (!cancelled) setConcentrationData(null);
+      })
+      .finally(() => {
+        if (!cancelled) setConcentrationLoading(false);
       });
     return () => {
       cancelled = true;
@@ -169,6 +197,12 @@ export function useDashboardAnalytics() {
   const needsAttention = useMemo(
     () => (funderId != null ? attention.filter((d) => d.funder_id === funderId) : attention),
     [attention, funderId]
+  );
+
+  // The section follows the funder drill-down like every other chart.
+  const concentration = useMemo(
+    () => (concentrationData ? buildConcentration(concentrationData, funderId) : null),
+    [concentrationData, funderId]
   );
 
   const kpis = useMemo(() => computeKpis(monthlyRows), [monthlyRows]);
@@ -303,6 +337,8 @@ export function useDashboardAnalytics() {
     dealsError,
     needsAttention,
     attentionLoading,
+    concentration,
+    concentrationLoading,
     onFunderClick,
   };
 }
