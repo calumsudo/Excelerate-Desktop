@@ -3,6 +3,7 @@ import {
   listPortfolios,
   getPortfolioAnalytics,
   getFunderDeals,
+  getNeedsAttention,
   computeKpis,
   aggregateMonthlyByVintage,
   buildAllocationsByMonth,
@@ -19,6 +20,7 @@ import {
   type PortfolioAnalytics,
   type MonthlyStatsRow,
   type FunderDealRow,
+  type NeedsAttentionDeal,
 } from "@services/analytics-service";
 
 /**
@@ -32,6 +34,10 @@ export function useDashboardAnalytics() {
   const [analytics, setAnalytics] = useState<PortfolioAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // At-risk deals for the Needs Attention card (deal_health, severity > 0)
+  const [attention, setAttention] = useState<NeedsAttentionDeal[]>([]);
+  const [attentionLoading, setAttentionLoading] = useState(true);
 
   // Funder drill-down (set by clicking a funder in a legend / pie / bar)
   const [funderId, setFunderId] = useState<number | null>(null);
@@ -69,6 +75,27 @@ export function useDashboardAnalytics() {
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selection]);
+
+  useEffect(() => {
+    if (selection == null) return;
+    let cancelled = false;
+    setAttentionLoading(true);
+    getNeedsAttention(selection)
+      .then((rows) => {
+        if (!cancelled) setAttention(rows);
+      })
+      .catch(() => {
+        // Non-critical card — on failure show the empty state rather than
+        // blocking the dashboard with a second error banner.
+        if (!cancelled) setAttention([]);
+      })
+      .finally(() => {
+        if (!cancelled) setAttentionLoading(false);
       });
     return () => {
       cancelled = true;
@@ -137,6 +164,12 @@ export function useDashboardAnalytics() {
     if (!analytics) return [];
     return funderId != null ? analytics.rtr.filter((r) => r.funder_id === funderId) : analytics.rtr;
   }, [analytics, funderId]);
+
+  // The card follows the funder drill-down like every other chart.
+  const needsAttention = useMemo(
+    () => (funderId != null ? attention.filter((d) => d.funder_id === funderId) : attention),
+    [attention, funderId]
+  );
 
   const kpis = useMemo(() => computeKpis(monthlyRows), [monthlyRows]);
   const allocations = useMemo(
@@ -268,6 +301,8 @@ export function useDashboardAnalytics() {
     deals,
     dealsLoading,
     dealsError,
+    needsAttention,
+    attentionLoading,
     onFunderClick,
   };
 }

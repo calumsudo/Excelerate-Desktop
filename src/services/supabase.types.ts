@@ -815,6 +815,30 @@ export interface Database {
         };
         Relationships: [];
       };
+      deal_health: {
+        Row: {
+          id: string;
+          portfolio_id: number | null;
+          funder_id: number | null;
+          merchant_id: string | null;
+          advance_id: string | null;
+          funder_advance_id: string | null;
+          date_funded: string | null;
+          term_months: number | null;
+          net_rtr: number | null;
+          total_net_received: number;
+          net_rtr_balance: number | null;
+          pct_rtr_paid: number;
+          last_payment_date: string | null;
+          days_since_last_payment: number | null;
+          months_elapsed: number | null;
+          pct_term_elapsed: number | null;
+          pace_ratio: number | null;
+          health_status: "past_term" | "stale" | "slipping" | "on_track";
+          severity: number;
+        };
+        Relationships: [];
+      };
       funder_allocation_current: {
         Row: {
           portfolio_id: number | null;

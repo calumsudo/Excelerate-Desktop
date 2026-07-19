@@ -6,6 +6,7 @@ import {
   formatFieldValue,
   DEAL_FIELDS,
   EMPTY_FILTERS,
+  HEALTH_OPTIONS,
   OPERATORS_BY_TYPE,
   OPERATOR_LABELS,
   type ExplorerFilters,
@@ -249,6 +250,12 @@ const FilterPanel = ({
             options={STATUS_OPTIONS}
             selected={filters.statuses}
             onChange={(statuses) => onChange({ ...filters, statuses })}
+          />
+          <MultiSelect
+            label="Health"
+            options={HEALTH_OPTIONS}
+            selected={filters.health}
+            onChange={(health) => onChange({ ...filters, health })}
           />
           <MonthSelect
             label="Vintage from"

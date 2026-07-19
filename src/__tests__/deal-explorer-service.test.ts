@@ -66,6 +66,10 @@ const deal = (overrides: Partial<DealRecord> = {}): DealRecord => ({
   funder_name: "BIG",
   portfolio_name: "Alder",
   status: "Active",
+  health_status: "On Track",
+  pace_ratio: 1,
+  days_since_last_payment: 10,
+  last_payment_date: "2025-06-01",
   ...overrides,
 });
 
@@ -118,6 +122,20 @@ describe("applyFilters", () => {
     ).toEqual(["1", "3"]);
     expect(applyFilters(records, filters({ funders: ["CFG"] })).map((r) => r.id)).toEqual(["3"]);
     expect(applyFilters(records, filters({ statuses: ["Defaulted"] })).map((r) => r.id)).toEqual([
+      "2",
+    ]);
+  });
+
+  it("filters by health status labels", () => {
+    const withHealth = [
+      deal({ id: "1", health_status: "Slipping" }),
+      deal({ id: "2", health_status: "On Track" }),
+      deal({ id: "3", health_status: null, status: "Closed", date_closed: "2025-02-01" }),
+    ];
+    expect(applyFilters(withHealth, filters({ health: ["Slipping"] })).map((r) => r.id)).toEqual([
+      "1",
+    ]);
+    expect(applyFilters(withHealth, filters({ health: ["On Track"] })).map((r) => r.id)).toEqual([
       "2",
     ]);
   });

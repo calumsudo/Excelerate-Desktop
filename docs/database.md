@@ -67,6 +67,7 @@ from uploads and replace-on-re-upload depends on them.
 - **weekly_rtr_matrix** — the `RTR` sheet in long form (funder × payment date)
 - **funder_allocation_current** — the `R&H-ALDER-P` allocation snapshot
 - **deal_payments** — per-deal payment rows with portfolio/funder scope (Phase 5, feeds the export's payment matrix)
+- **deal_health** — at-risk flags for open, non-defaulted deals: pace ratio (% RTR collected ÷ % term elapsed), days since last payment, and `health_status` (`past_term` > `stale` > `slipping` > `on_track`, with a numeric `severity` for sorting). Thresholds are constants in the view (stale = 60 days, slipping = pace < 0.5 past 25% of term, balance epsilon $1). Feeds the dashboard's Needs Attention card and Deal Lookup's Health column.
 
 ## Functions (write paths)
 

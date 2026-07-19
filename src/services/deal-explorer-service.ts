@@ -6,8 +6,21 @@ import type { Database } from "./supabase.types";
 import { formatMonth } from "./analytics-service";
 
 type DealComputedRow = Database["public"]["Views"]["deal_computed"]["Row"];
+type DealHealthRow = Database["public"]["Views"]["deal_health"]["Row"];
 
 export type DealStatus = "Active" | "Closed" | "Defaulted";
+
+export type HealthLabel = "On Track" | "Slipping" | "Stale" | "Past Term";
+
+/** Display labels for deal_health statuses, worst first. */
+export const HEALTH_LABELS: Record<DealHealthRow["health_status"], HealthLabel> = {
+  past_term: "Past Term",
+  stale: "Stale",
+  slipping: "Slipping",
+  on_track: "On Track",
+};
+
+export const HEALTH_OPTIONS: HealthLabel[] = ["Past Term", "Stale", "Slipping", "On Track"];
 
 /** A deal_computed row flattened with its lookups, ready for filtering/grouping. */
 export interface DealRecord extends DealComputedRow {
@@ -18,6 +31,11 @@ export interface DealRecord extends DealComputedRow {
   funder_name: string | null;
   portfolio_name: string | null;
   status: DealStatus;
+  /** null for closed/defaulted deals — deal_health only covers open deals. */
+  health_status: HealthLabel | null;
+  pace_ratio: number | null;
+  days_since_last_payment: number | null;
+  last_payment_date: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -82,6 +100,10 @@ export const DEAL_FIELDS: FieldDef[] = [
   { key: "total_net_received", label: "Net Received", type: "money", defaultVisible: true },
   { key: "net_rtr_balance", label: "Net RTR Balance", type: "money", defaultVisible: true },
   { key: "pct_rtr_paid", label: "% RTR Paid", type: "percent", defaultVisible: true },
+  { key: "health_status", label: "Health", type: "text", dimension: true, defaultVisible: true },
+  { key: "pace_ratio", label: "Pace Ratio", type: "number" },
+  { key: "days_since_last_payment", label: "Days Since Payment", type: "number" },
+  { key: "last_payment_date", label: "Last Payment", type: "date" },
   { key: "return_on_cost_basis", label: "Return on Cost Basis", type: "percent" },
   { key: "bad_debt_rtr", label: "Bad Debt RTR", type: "money" },
   { key: "default_dollars_lost", label: "Default $ Lost", type: "money" },
@@ -164,11 +186,23 @@ function dealStatus(deal: DealComputedRow): DealStatus {
   return "Active";
 }
 
+type HealthFields = Pick<
+  DealHealthRow,
+  "id" | "health_status" | "pace_ratio" | "days_since_last_payment" | "last_payment_date"
+>;
+
 /** Every deal visible to the user (RLS scopes reads), flattened with lookups. */
 export async function getDealRecords(): Promise<DealRecord[]> {
-  const [deals, merchants, industries, states, funders, portfolios] = await Promise.all([
+  const [deals, health, merchants, industries, states, funders, portfolios] = await Promise.all([
     fetchAllPages<DealComputedRow>((from, to) =>
       supabase.from("deal_computed").select("*").order("date_funded").range(from, to)
+    ),
+    fetchAllPages<HealthFields>((from, to) =>
+      supabase
+        .from("deal_health")
+        .select("id, health_status, pace_ratio, days_since_last_payment, last_payment_date")
+        .order("id")
+        .range(from, to)
     ),
     fetchAllPages<MerchantLookupRow>((from, to) =>
       supabase
@@ -192,9 +226,11 @@ export async function getDealRecords(): Promise<DealRecord[]> {
   const funderNames = new Map((funders.data ?? []).map((f) => [f.id, f.name]));
   const portfolioNames = new Map((portfolios.data ?? []).map((p) => [p.id, p.name]));
   const merchantsById = new Map(merchants.map((m) => [m.id, m]));
+  const healthById = new Map(health.map((h) => [h.id, h]));
 
   return deals.map((deal) => {
     const merchant = deal.merchant_id != null ? merchantsById.get(deal.merchant_id) : undefined;
+    const dealHealth = healthById.get(deal.id);
     return {
       ...deal,
       merchant_name: merchant?.name ?? null,
@@ -206,6 +242,10 @@ export async function getDealRecords(): Promise<DealRecord[]> {
       portfolio_name:
         deal.portfolio_id != null ? (portfolioNames.get(deal.portfolio_id) ?? null) : null,
       status: dealStatus(deal),
+      health_status: dealHealth != null ? HEALTH_LABELS[dealHealth.health_status] : null,
+      pace_ratio: dealHealth?.pace_ratio ?? null,
+      days_since_last_payment: dealHealth?.days_since_last_payment ?? null,
+      last_payment_date: dealHealth?.last_payment_date ?? null,
     };
   });
 }
@@ -266,6 +306,8 @@ export interface ExplorerFilters {
   industries: string[];
   states: string[];
   statuses: string[];
+  /** Health status labels ("Past Term", "Stale", …). */
+  health: string[];
   /** Vintage month range, "YYYY-MM" keys. */
   monthFrom: string | null;
   monthTo: string | null;
@@ -279,6 +321,7 @@ export const EMPTY_FILTERS: ExplorerFilters = {
   industries: [],
   states: [],
   statuses: [],
+  health: [],
   monthFrom: null,
   monthTo: null,
   rules: [],
@@ -292,6 +335,7 @@ export function countActiveFilters(filters: ExplorerFilters): number {
   if (filters.industries.length > 0) count++;
   if (filters.states.length > 0) count++;
   if (filters.statuses.length > 0) count++;
+  if (filters.health.length > 0) count++;
   if (filters.monthFrom != null || filters.monthTo != null) count++;
   count += filters.rules.length;
   return count;
@@ -375,6 +419,7 @@ export function applyFilters(records: DealRecord[], filters: ExplorerFilters): D
   const industries = new Set(filters.industries);
   const states = new Set(filters.states);
   const statuses = new Set(filters.statuses);
+  const health = new Set(filters.health);
 
   return records.filter((r) => {
     if (needle) {
@@ -389,6 +434,7 @@ export function applyFilters(records: DealRecord[], filters: ExplorerFilters): D
     if (industries.size > 0 && !industries.has(r.industry ?? "")) return false;
     if (states.size > 0 && !states.has(r.state ?? "")) return false;
     if (statuses.size > 0 && !statuses.has(r.status)) return false;
+    if (health.size > 0 && !health.has(r.health_status ?? "")) return false;
     const month = monthOf(r);
     if (filters.monthFrom != null && (month == null || month < filters.monthFrom)) return false;
     if (filters.monthTo != null && (month == null || month > filters.monthTo)) return false;

@@ -37,6 +37,15 @@ const statusColor = (status: string) =>
       ? ("default" as const)
       : ("success" as const);
 
+const healthColor = (health: string) =>
+  health === "Past Term"
+    ? ("danger" as const)
+    : health === "Stale"
+      ? ("warning" as const)
+      : health === "Slipping"
+        ? ("secondary" as const)
+        : ("success" as const);
+
 function compareValues(a: unknown, b: unknown): number {
   if (a == null && b == null) return 0;
   if (a == null) return 1; // nulls last
@@ -205,6 +214,19 @@ const ExplorerTable = ({
                         <Chip size="sm" variant="flat" color={statusColor(record.status)}>
                           {record.status}
                         </Chip>
+                      </TableCell>
+                    );
+                  }
+                  if (def?.key === "health_status") {
+                    return (
+                      <TableCell>
+                        {record.health_status != null ? (
+                          <Chip size="sm" variant="flat" color={healthColor(record.health_status)}>
+                            {record.health_status}
+                          </Chip>
+                        ) : (
+                          "—"
+                        )}
                       </TableCell>
                     );
                   }
