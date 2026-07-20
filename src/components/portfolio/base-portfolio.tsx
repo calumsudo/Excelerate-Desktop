@@ -17,6 +17,8 @@ interface BasePortfolioProps {
   monthlyErrorStates?: Record<string, { hasError: boolean; message?: string }>;
   onExportWorkbook?: () => void;
   isExporting?: boolean;
+  /** Rendered directly below the upload section (completeness tracker). */
+  uploadTracker?: React.ReactNode;
 }
 
 const BasePortfolio: React.FC<BasePortfolioProps> = ({
@@ -31,6 +33,7 @@ const BasePortfolio: React.FC<BasePortfolioProps> = ({
   monthlyErrorStates,
   onExportWorkbook,
   isExporting = false,
+  uploadTracker,
 }) => {
   return (
     <div className="min-h-screen bg-background p-6">
@@ -71,6 +74,9 @@ const BasePortfolio: React.FC<BasePortfolioProps> = ({
               />
             </div>
           )}
+
+          {/* Upload Completeness Tracker */}
+          {uploadTracker}
 
           {/* Export Workbook Button */}
           {onExportWorkbook && (

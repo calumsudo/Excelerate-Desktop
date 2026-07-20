@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { supabase } from "./supabase";
+import { getMostRecentCompletedMonth } from "@utils/report-month";
 
 /** Pivot rows + parser totals returned by the Rust `parse_funder_pivot` command. */
 export interface PivotRowData {
@@ -129,6 +130,19 @@ export interface CloudUploadInfo {
   file_size: number | null;
   storage_path: string | null;
   created_at: string;
+}
+
+/**
+ * Upload-completeness data for one portfolio: which funder files are in for
+ * each recent report month. Drives the tracker grid on the portfolio pages.
+ */
+export interface UploadCompleteness {
+  /** "YYYY-MM" keys, oldest first — recent upload history plus the current report month. */
+  monthKeys: string[];
+  /** UI labels of funders linked to the portfolio via portfolio_funders. */
+  linkedFunders: string[];
+  /** Uploads keyed by `${uiFunderName}|${monthKey}`. */
+  uploads: Record<string, CloudUploadInfo>;
 }
 
 // UI funder labels that differ from funders.name in Supabase
@@ -492,6 +506,65 @@ export class PivotSyncService {
       ...u,
       funder_name: funderNames.get(u.funder_id) ?? `Funder ${u.funder_id}`,
     }));
+  }
+
+  /**
+   * Upload completeness for the tracker grid: the last `monthCount` report
+   * months (from upload history, always including the most recent completed
+   * month), the funders linked to the portfolio, and every upload in that
+   * window keyed by funder + month.
+   */
+  static async getUploadCompleteness(
+    portfolioName: string,
+    monthCount = 6
+  ): Promise<UploadCompleteness> {
+    const portfolioId = await this.getPortfolioId(portfolioName);
+    const [funderNames, linkedRes, datesRes] = await Promise.all([
+      this.getFunderNames(),
+      supabase.from("portfolio_funders").select("funder_id").eq("portfolio_id", portfolioId),
+      supabase
+        .from("funder_uploads")
+        .select("report_date")
+        .eq("portfolio_id", portfolioId)
+        .order("report_date", { ascending: false })
+        .limit(1000),
+    ]);
+    if (linkedRes.error) {
+      throw new Error(`Failed to load portfolio funders: ${linkedRes.error.message}`);
+    }
+    if (datesRes.error) {
+      throw new Error(`Failed to load upload history: ${datesRes.error.message}`);
+    }
+
+    // Report dates are always the last day of a month, so "YYYY-MM" identifies
+    // a report period.
+    const keySet = new Set<string>([getMostRecentCompletedMonth().toString().slice(0, 7)]);
+    (datesRes.data ?? []).forEach((r) => keySet.add(r.report_date.slice(0, 7)));
+    const monthKeys = [...keySet].sort().slice(-monthCount);
+
+    const { data: uploadRows, error: uploadsError } = await supabase
+      .from("funder_uploads")
+      .select("id, funder_id, report_date, original_filename, file_size, storage_path, created_at")
+      .eq("portfolio_id", portfolioId)
+      .gte("report_date", `${monthKeys[0]}-01`)
+      .order("created_at");
+    if (uploadsError) {
+      throw new Error(`Failed to load funder uploads: ${uploadsError.message}`);
+    }
+
+    const uploads: Record<string, CloudUploadInfo> = {};
+    (uploadRows ?? []).forEach((u) => {
+      const dbName = funderNames.get(u.funder_id) ?? `Funder ${u.funder_id}`;
+      uploads[`${uiFunderName(dbName)}|${u.report_date.slice(0, 7)}`] = {
+        ...u,
+        funder_name: dbName,
+      };
+    });
+
+    const linkedFunders = (linkedRes.data ?? []).map((r) =>
+      uiFunderName(funderNames.get(r.funder_id) ?? `Funder ${r.funder_id}`)
+    );
+    return { monthKeys, linkedFunders, uploads };
   }
 
   /** Whether an upload already exists for this (portfolio, funder, date). */
