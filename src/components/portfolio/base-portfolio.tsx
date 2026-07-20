@@ -17,7 +17,7 @@ interface BasePortfolioProps {
   monthlyErrorStates?: Record<string, { hasError: boolean; message?: string }>;
   onExportWorkbook?: () => void;
   isExporting?: boolean;
-  /** Rendered between the date picker and the upload section (completeness tracker). */
+  /** Rendered directly below the upload section (completeness tracker). */
   uploadTracker?: React.ReactNode;
 }
 
@@ -57,9 +57,6 @@ const BasePortfolio: React.FC<BasePortfolioProps> = ({
             />
           </div>
 
-          {/* Upload Completeness Tracker */}
-          {uploadTracker}
-
           {/* Funder Upload Section */}
           {monthlyFunders?.length && (
             <div className="bg-default-50 rounded-lg p-6 border border-default-200">
@@ -77,6 +74,9 @@ const BasePortfolio: React.FC<BasePortfolioProps> = ({
               />
             </div>
           )}
+
+          {/* Upload Completeness Tracker */}
+          {uploadTracker}
 
           {/* Export Workbook Button */}
           {onExportWorkbook && (

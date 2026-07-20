@@ -230,36 +230,6 @@ function WhiteRabbitPortfolio() {
 
       <WorkbookImportWizard portfolioName={PORTFOLIO} />
 
-      {/* Uploaded Files Summary */}
-      {selectedDate && funderUploads.length > 0 && (
-        <div className="max-w-6xl mx-auto mt-6 p-6 bg-default-50 rounded-lg border border-default-200">
-          <h3 className="text-xl font-semibold mb-4">
-            Uploaded Files for {selectedDate.toString()}
-          </h3>
-          <div className="space-y-2">
-            {monthlyFunderList.flatMap((funder) => {
-              if (funder.disabled) return [];
-              const uploaded = funderUploads.find(
-                (u) => uiFunderName(u.funder_name) === funder.name
-              );
-              return (
-                <div
-                  key={funder.name}
-                  className="flex items-center justify-between p-2 bg-default-100 rounded"
-                >
-                  <span className="text-sm">{funder.name}</span>
-                  {uploaded ? (
-                    <span className="text-xs text-success-600">{uploaded.original_filename}</span>
-                  ) : (
-                    <span className="text-xs text-default-400">Not uploaded</span>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
       <PivotReconciliationModal
         isOpen={cloudSync.isModalOpen}
         onOpenChange={cloudSync.setModalOpen}
