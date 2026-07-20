@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.4.0](https://github.com/calumsudo/Excelerate-Desktop/compare/v1.3.0...v1.4.0) (2026-07-20)
+
+
+### Features
+
+* add AI-generated monthly portfolio commentary ([#66](https://github.com/calumsudo/Excelerate-Desktop/issues/66)) ([f4366d5](https://github.com/calumsudo/Excelerate-Desktop/commit/f4366d59a3444aec974249dd97bd6156ffcb949f))
+* add deal health at-risk flags and Needs Attention card ([#62](https://github.com/calumsudo/Excelerate-Desktop/issues/62)) ([c6e6266](https://github.com/calumsudo/Excelerate-Desktop/commit/c6e626619003b1e626b1354b2136c88acb69c02f)), closes [#56](https://github.com/calumsudo/Excelerate-Desktop/issues/56)
+* cmd+k command palette (global search & navigation) ([#68](https://github.com/calumsudo/Excelerate-Desktop/issues/68)) ([050276d](https://github.com/calumsudo/Excelerate-Desktop/commit/050276d88cfbb4973f5598407b1bd4682d194f8b))
+* collections forecast — projected net collections on the RTR chart ([#65](https://github.com/calumsudo/Excelerate-Desktop/issues/65)) ([fbbba9a](https://github.com/calumsudo/Excelerate-Desktop/commit/fbbba9a1afd4082a6295a3c545d5f516ee0e01ef)), closes [#58](https://github.com/calumsudo/Excelerate-Desktop/issues/58)
+* concentration risk — US state map + industry exposure ([#64](https://github.com/calumsudo/Excelerate-Desktop/issues/64)) ([b016319](https://github.com/calumsudo/Excelerate-Desktop/commit/b0163197ffc687bb1ea3b4829e6f1d11d13e9528))
+* funder upload completeness tracker ([#67](https://github.com/calumsudo/Excelerate-Desktop/issues/67)) ([d7a2156](https://github.com/calumsudo/Excelerate-Desktop/commit/d7a2156d3bec02dc3f8bfb13d41fc55449e5fc89))
+
 ## [1.3.0](https://github.com/calumsudo/Excelerate-Desktop/compare/v1.2.0...v1.3.0) (2026-07-16)
 
 
