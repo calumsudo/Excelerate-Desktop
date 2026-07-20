@@ -5,7 +5,8 @@ import { items, usersItem, settingsItem } from "@features/sidebar/sidebar-items"
 import { useAuth } from "@/contexts/auth-context-value";
 import { UserMenu } from "@components/auth/user-menu";
 import ErrorBoundary from "@components/error-boundary";
-import { useEffect, useState, useRef } from "react";
+import { CommandPalette } from "@components/command-palette/command-palette";
+import { useCallback, useEffect, useState, useRef } from "react";
 import { Icon } from "@iconify/react";
 import { useTheme } from "@/contexts/theme-context-value";
 
@@ -22,6 +23,20 @@ function Layout() {
   });
   const navigationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isNavigatingRef = useRef(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const closePalette = useCallback(() => setPaletteOpen(false), []);
+
+  // Cmd+K (Ctrl+K on Windows/Linux) toggles the command palette from anywhere.
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setPaletteOpen((open) => !open);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   useEffect(() => {
     const path = location.pathname === "/" ? "/dashboard" : location.pathname;
@@ -199,6 +214,7 @@ function Layout() {
           <Outlet />
         </ErrorBoundary>
       </div>
+      <CommandPalette isOpen={paletteOpen} onClose={closePalette} />
     </div>
   );
 }
