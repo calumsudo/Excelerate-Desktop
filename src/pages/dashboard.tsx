@@ -80,9 +80,10 @@ function Dashboard() {
             </p>
           </div>
         )}
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2">
           <Button
             variant="flat"
+            className="shrink-0"
             startContent={<Icon icon="solar:document-text-outline" width={18} />}
             onPress={() => setCommentaryOpen(true)}
             isDisabled={portfolios.length === 0}
@@ -91,7 +92,7 @@ function Dashboard() {
           </Button>
           <Select
             aria-label="Select Portfolio"
-            className="max-w-[220px]"
+            className="w-[220px]"
             isDisabled={portfolios.length === 0}
             selectedKeys={
               selection != null
