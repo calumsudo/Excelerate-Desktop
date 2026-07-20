@@ -26,12 +26,32 @@ interface PaletteEntry {
 
 const SEARCH_DEBOUNCE_MS = 200;
 const MIN_QUERY_LENGTH = 2;
+const SECTIONS: PaletteEntry["section"][] = ["Pages", "Merchants", "Deals"];
 
 /**
  * Global Cmd+K palette: jump to any page, or search merchants and deals and
  * land on Deal Lookup pre-filtered to the selection.
  */
 export function CommandPalette({ isOpen, onClose }: Props) {
+  return (
+    <Modal
+      isOpen={isOpen}
+      onOpenChange={(open) => !open && onClose()}
+      placement="top"
+      size="xl"
+      hideCloseButton
+      classNames={{ base: "mt-[10vh]" }}
+    >
+      <ModalContent>
+        {/* The modal unmounts its content when closed, so each open mounts
+            fresh query/results/highlight state — no reset effect needed. */}
+        <PaletteContent onClose={onClose} />
+      </ModalContent>
+    </Modal>
+  );
+}
+
+function PaletteContent({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate();
   const { profile } = useAuth();
   const [query, setQuery] = useState("");
@@ -42,18 +62,8 @@ export function CommandPalette({ isOpen, onClose }: Props) {
   /** Guards against out-of-order responses from overlapping searches. */
   const requestIdRef = useRef(0);
 
-  // Start from a clean slate on every open.
-  useEffect(() => {
-    if (isOpen) {
-      setQuery("");
-      setResults(EMPTY_RESULTS);
-      setHighlighted(0);
-    }
-  }, [isOpen]);
-
   // Debounced merchant/deal search.
   useEffect(() => {
-    if (!isOpen) return;
     const trimmed = query.trim();
     if (trimmed.length < MIN_QUERY_LENGTH) {
       setResults(EMPTY_RESULTS);
@@ -76,7 +86,7 @@ export function CommandPalette({ isOpen, onClose }: Props) {
         });
     }, SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(timer);
-  }, [query, isOpen]);
+  }, [query]);
 
   const goTo = useCallback(
     (path: string, state?: { dealLookupSearch: string }) => {
@@ -89,15 +99,18 @@ export function CommandPalette({ isOpen, onClose }: Props) {
   const entries = useMemo<PaletteEntry[]>(() => {
     const pages = [...items, ...(profile?.role === "admin" ? [usersItem] : []), settingsItem];
     const needle = query.trim().toLowerCase();
-    const pageEntries: PaletteEntry[] = pages
-      .filter((p) => !needle || p.title.toLowerCase().includes(needle))
-      .map((p) => ({
-        key: `page-${p.key}`,
-        section: "Pages",
-        label: p.title,
-        icon: p.icon ?? "solar:document-linear",
-        perform: () => goTo(`/${p.key}`),
-      }));
+    const pageEntries: PaletteEntry[] = pages.flatMap((p) => {
+      if (needle && !p.title.toLowerCase().includes(needle)) return [];
+      return [
+        {
+          key: `page-${p.key}`,
+          section: "Pages" as const,
+          label: p.title,
+          icon: p.icon ?? "solar:document-linear",
+          perform: () => goTo(`/${p.key}`),
+        },
+      ];
+    });
     const merchantEntries: PaletteEntry[] = results.merchants.map((m) => ({
       key: `merchant-${m.id}`,
       section: "Merchants",
@@ -110,7 +123,7 @@ export function CommandPalette({ isOpen, onClose }: Props) {
       return [
         {
           key: `deal-${d.id}`,
-          section: "Deals",
+          section: "Deals" as const,
           label: d.funderAdvanceId ?? d.merchantName ?? "Deal",
           sublabel: d.funderAdvanceId != null ? (d.merchantName ?? undefined) : undefined,
           icon: "solar:document-text-linear",
@@ -121,123 +134,112 @@ export function CommandPalette({ isOpen, onClose }: Props) {
     return [...pageEntries, ...merchantEntries, ...dealEntries];
   }, [query, results, profile?.role, goTo]);
 
-  // Keep the highlight on a real row as the list grows/shrinks.
-  useEffect(() => {
-    setHighlighted((h) => Math.min(h, Math.max(entries.length - 1, 0)));
-  }, [entries]);
+  // Clamp at render time so the highlight stays on a real row as the list
+  // grows and shrinks, without a state-adjusting effect.
+  const activeIndex = entries.length === 0 ? 0 : Math.min(highlighted, entries.length - 1);
 
   useEffect(() => {
     listRef.current
-      ?.querySelector(`[data-entry-index="${highlighted}"]`)
+      ?.querySelector(`[data-entry-index="${activeIndex}"]`)
       ?.scrollIntoView({ block: "nearest" });
-  }, [highlighted]);
+  }, [activeIndex]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (entries.length === 0) return;
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      setHighlighted((h) => (entries.length === 0 ? 0 : (h + 1) % entries.length));
+      setHighlighted((activeIndex + 1) % entries.length);
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
-      setHighlighted((h) => (entries.length === 0 ? 0 : (h - 1 + entries.length) % entries.length));
+      setHighlighted((activeIndex - 1 + entries.length) % entries.length);
     } else if (e.key === "Enter") {
       e.preventDefault();
-      entries[highlighted]?.perform();
+      entries[activeIndex]?.perform();
     }
   };
 
-  const sections: PaletteEntry["section"][] = ["Pages", "Merchants", "Deals"];
   const showEmptyHint =
     !searching && entries.length === 0 && query.trim().length >= MIN_QUERY_LENGTH;
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onOpenChange={(open) => !open && onClose()}
-      placement="top"
-      size="xl"
-      hideCloseButton
-      classNames={{ base: "mt-[10vh]" }}
-    >
-      <ModalContent>
-        <div onKeyDown={handleKeyDown}>
-          <div className="flex items-center gap-2 px-4 pt-4 pb-2 border-b border-divider">
-            <Input
-              autoFocus
-              aria-label="Search pages, merchants, and deals"
-              placeholder="Search pages, merchants, deals…"
-              size="lg"
-              variant="flat"
-              value={query}
-              onValueChange={setQuery}
-              startContent={
-                <Icon icon="solar:magnifer-linear" width={20} className="text-default-400" />
-              }
-              endContent={searching ? <Spinner size="sm" /> : <Kbd keys={["escape"]} />}
-            />
-          </div>
-          <ScrollShadow ref={listRef} className="max-h-[50vh] p-2">
-            {sections.map((section) => {
-              const sectionEntries = entries.filter((e) => e.section === section);
-              if (sectionEntries.length === 0) return null;
-              return (
-                <div key={section} className="mb-1">
-                  <p className="px-2 py-1 text-tiny font-semibold uppercase text-default-400">
-                    {section}
-                  </p>
-                  {sectionEntries.map((entry) => {
-                    const index = entries.indexOf(entry);
-                    return (
-                      <button
-                        key={entry.key}
-                        type="button"
-                        data-entry-index={index}
-                        className={`w-full flex items-center gap-3 px-3 py-2 rounded-medium text-left ${
-                          index === highlighted ? "bg-default-100" : ""
-                        }`}
-                        onMouseMove={() => setHighlighted(index)}
-                        onClick={entry.perform}
-                      >
-                        <Icon icon={entry.icon} width={18} className="text-default-500 shrink-0" />
-                        <span className="text-small truncate">{entry.label}</span>
-                        {entry.sublabel != null && (
-                          <span className="text-tiny text-default-400 truncate">
-                            {entry.sublabel}
-                          </span>
-                        )}
-                        {index === highlighted && (
-                          <Icon
-                            icon="solar:alt-arrow-right-linear"
-                            width={14}
-                            className="ml-auto text-default-400 shrink-0"
-                          />
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              );
-            })}
-            {showEmptyHint && (
-              <p className="px-3 py-6 text-center text-small text-default-400">
-                No matches for “{query.trim()}”
+    <div onKeyDown={handleKeyDown}>
+      <div className="flex items-center gap-2 px-4 pt-4 pb-2 border-b border-divider">
+        <Input
+          autoFocus
+          aria-label="Search pages, merchants, and deals"
+          placeholder="Search pages, merchants, deals…"
+          size="lg"
+          variant="flat"
+          value={query}
+          onValueChange={(value) => {
+            setQuery(value);
+            setHighlighted(0);
+          }}
+          startContent={
+            <Icon icon="solar:magnifer-linear" width={20} className="text-default-400" />
+          }
+          endContent={searching ? <Spinner size="sm" /> : <Kbd keys={["escape"]} />}
+        />
+      </div>
+      <ScrollShadow ref={listRef} className="max-h-[50vh] p-2">
+        {SECTIONS.map((section) => {
+          const sectionEntries = entries.filter((e) => e.section === section);
+          if (sectionEntries.length === 0) return null;
+          return (
+            <div key={section} className="mb-1">
+              <p className="px-2 py-1 text-tiny font-semibold uppercase text-default-400">
+                {section}
               </p>
-            )}
-            {entries.length === 0 && !showEmptyHint && (
-              <p className="px-3 py-6 text-center text-small text-default-400">
-                Type to search merchants and deals
-              </p>
-            )}
-          </ScrollShadow>
-          <div className="flex items-center gap-4 px-4 py-2 border-t border-divider text-tiny text-default-400">
-            <span className="flex items-center gap-1">
-              <Kbd keys={["up", "down"]} /> navigate
-            </span>
-            <span className="flex items-center gap-1">
-              <Kbd keys={["enter"]} /> open
-            </span>
-          </div>
-        </div>
-      </ModalContent>
-    </Modal>
+              {sectionEntries.map((entry) => {
+                const index = entries.indexOf(entry);
+                return (
+                  <button
+                    key={entry.key}
+                    type="button"
+                    data-entry-index={index}
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-medium text-left ${
+                      index === activeIndex ? "bg-default-100" : ""
+                    }`}
+                    onMouseMove={() => setHighlighted(index)}
+                    onClick={entry.perform}
+                  >
+                    <Icon icon={entry.icon} width={18} className="text-default-500 shrink-0" />
+                    <span className="text-small truncate">{entry.label}</span>
+                    {entry.sublabel != null && (
+                      <span className="text-tiny text-default-400 truncate">{entry.sublabel}</span>
+                    )}
+                    {index === activeIndex && (
+                      <Icon
+                        icon="solar:alt-arrow-right-linear"
+                        width={14}
+                        className="ml-auto text-default-400 shrink-0"
+                      />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          );
+        })}
+        {showEmptyHint && (
+          <p className="px-3 py-6 text-center text-small text-default-400">
+            No matches for “{query.trim()}”
+          </p>
+        )}
+        {entries.length === 0 && !showEmptyHint && (
+          <p className="px-3 py-6 text-center text-small text-default-400">
+            Type to search merchants and deals
+          </p>
+        )}
+      </ScrollShadow>
+      <div className="flex items-center gap-4 px-4 py-2 border-t border-divider text-tiny text-default-400">
+        <span className="flex items-center gap-1">
+          <Kbd keys={["up", "down"]} /> navigate
+        </span>
+        <span className="flex items-center gap-1">
+          <Kbd keys={["enter"]} /> open
+        </span>
+      </div>
+    </div>
   );
 }
