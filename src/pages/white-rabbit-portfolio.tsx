@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
-import { DateValue } from "@internationalized/date";
+import { CalendarDate, DateValue } from "@internationalized/date";
 import BasePortfolio from "@components/portfolio/base-portfolio";
 import { getMostRecentCompletedMonth } from "@utils/report-month";
 import { FunderData } from "@components/portfolio/funder-upload-section";
+import UploadCompletenessGrid from "@components/portfolio/upload-completeness-grid";
 import PivotSyncService, { CloudUploadInfo, uiFunderName } from "@services/pivot-sync-service";
 import WorkbookExportService from "@services/workbook-export-service";
 import { toast } from "@services/toast-service";
@@ -69,10 +70,12 @@ function WhiteRabbitPortfolio() {
   const [selectedDate, setSelectedDate] = useState<DateValue | null>(getMostRecentCompletedMonth);
   const [funderUploads, setFunderUploads] = useState<CloudUploadInfo[]>([]);
   const [isExporting, setIsExporting] = useState(false);
+  const [trackerRefresh, setTrackerRefresh] = useState(0);
   const { monthlyErrorStates, setFunderErrorState } = useFileErrorState();
   const cloudSync = useCloudSync();
 
   const refreshUploads = useCallback(async (reportDate: string) => {
+    setTrackerRefresh((n) => n + 1);
     try {
       const uploads = await PivotSyncService.listUploadsForDate(PORTFOLIO, reportDate);
       setFunderUploads(uploads);
@@ -170,6 +173,19 @@ function WhiteRabbitPortfolio() {
     });
   };
 
+  // Grid cell click: switch to that report month, then scroll to the funder's
+  // upload slot once the page re-renders.
+  const handleMissingCellClick = (funderName: string, monthKey: string) => {
+    const [year, month] = monthKey.split("-").map(Number);
+    const monthEnd = new CalendarDate(year, month, 1).add({ months: 1 }).subtract({ days: 1 });
+    handleDateChange(monthEnd);
+    requestAnimationFrame(() => {
+      document
+        .querySelector(`[data-funder-slot="${CSS.escape(funderName)}"]`)
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+  };
+
   const handleExportWorkbook = async () => {
     if (isExporting) return;
     try {
@@ -202,6 +218,14 @@ function WhiteRabbitPortfolio() {
         monthlyErrorStates={monthlyErrorStates}
         onExportWorkbook={handleExportWorkbook}
         isExporting={isExporting}
+        uploadTracker={
+          <UploadCompletenessGrid
+            portfolioName={PORTFOLIO}
+            funders={monthlyFunderList}
+            refreshToken={trackerRefresh}
+            onMissingCellClick={handleMissingCellClick}
+          />
+        }
       />
 
       <WorkbookImportWizard portfolioName={PORTFOLIO} />

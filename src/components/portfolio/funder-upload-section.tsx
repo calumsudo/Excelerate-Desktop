@@ -59,6 +59,7 @@ const FunderUploadSection: React.FC<FunderUploadSectionProps> = ({
           funder.disabled ? (
             <div
               key={funder.name}
+              data-funder-slot={funder.name}
               className="bg-default-100 rounded-lg p-4 border border-default-200 opacity-50"
             >
               <h4 className="text-sm font-medium text-default-400 mb-3 text-center">
@@ -71,6 +72,7 @@ const FunderUploadSection: React.FC<FunderUploadSectionProps> = ({
           ) : (
             <div
               key={funder.name}
+              data-funder-slot={funder.name}
               className="bg-default-50 rounded-lg p-4 border border-default-200"
             >
               <h4 className="text-sm font-medium text-foreground mb-3 text-center">
