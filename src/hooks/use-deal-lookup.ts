@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useToast } from "@/contexts/toast-context-value";
 import { formatMoney } from "@services/analytics-service";
 import {
@@ -142,6 +143,18 @@ export function useDealLookup() {
   useEffect(fetchRecords, [fetchRecords]);
   useEffect(fetchLookups, [fetchLookups]);
   useEffect(fetchUnresolved, [fetchUnresolved]);
+
+  // The command palette lands here with a search term in router state. Apply
+  // it over clean filters, then clear the state so back/refresh don't reapply.
+  const location = useLocation();
+  const navigate = useNavigate();
+  useEffect(() => {
+    const state = location.state as { dealLookupSearch?: string } | null;
+    if (state?.dealLookupSearch == null) return;
+    setFilters({ ...EMPTY_FILTERS, search: state.dealLookupSearch });
+    setActiveViewId(null);
+    navigate(location.pathname, { replace: true, state: null });
+  }, [location.state, location.pathname, navigate]);
 
   const openCreate = () => {
     setEditing(null);
