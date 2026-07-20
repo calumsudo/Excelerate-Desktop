@@ -52,6 +52,14 @@ function Dashboard() {
   } = useDashboardAnalytics();
 
   const [commentaryOpen, setCommentaryOpen] = useState(false);
+  // Remounts the modal on each open so it starts fresh from the current
+  // dashboard scope, instead of resetting state when props change.
+  const [commentaryEpoch, setCommentaryEpoch] = useState(0);
+
+  const openCommentary = () => {
+    setCommentaryEpoch((epoch) => epoch + 1);
+    setCommentaryOpen(true);
+  };
 
   return (
     <div className="p-6">
@@ -85,7 +93,7 @@ function Dashboard() {
             variant="flat"
             className="shrink-0"
             startContent={<Icon icon="solar:document-text-outline" width={18} />}
-            onPress={() => setCommentaryOpen(true)}
+            onPress={openCommentary}
             isDisabled={portfolios.length === 0}
           >
             Monthly commentary
@@ -115,6 +123,7 @@ function Dashboard() {
       </div>
 
       <CommentaryModal
+        key={commentaryEpoch}
         isOpen={commentaryOpen}
         onClose={() => setCommentaryOpen(false)}
         portfolios={portfolios}

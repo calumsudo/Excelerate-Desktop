@@ -237,13 +237,14 @@ export async function generateCommentary(params: {
     onEvent: params.onEvent,
   });
 
-  const text = newMessages
-    .filter((message) => message.role === "assistant")
-    .flatMap((message) => message.blocks)
-    .filter((block): block is Extract<typeof block, { kind: "text" }> => block.kind === "text")
-    .map((block) => block.text)
-    .join("\n\n")
-    .trim();
+  const parts: string[] = [];
+  for (const message of newMessages) {
+    if (message.role !== "assistant") continue;
+    for (const block of message.blocks) {
+      if (block.kind === "text") parts.push(block.text);
+    }
+  }
+  const text = parts.join("\n\n").trim();
 
   if (!text) throw new Error("The model returned no commentary text.");
   return text;
