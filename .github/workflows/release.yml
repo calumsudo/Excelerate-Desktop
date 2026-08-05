@@ -65,6 +65,18 @@ jobs:
 
       - run: npm ci
 
+      # The Supabase env vars are baked into the frontend bundle at build
+      # time (import.meta.env in src/services/supabase.ts). Without them the
+      # app throws before React mounts and shows a blank window, so fail the
+      # build early instead of shipping a broken installer.
+      - name: Ensure frontend env secrets are configured
+        shell: bash
+        run: |
+          if [ -z "${{ secrets.VITE_SUPABASE_URL }}" ] || [ -z "${{ secrets.VITE_SUPABASE_ANON_KEY }}" ]; then
+            echo "::error::VITE_SUPABASE_URL and/or VITE_SUPABASE_ANON_KEY repo secrets are missing; the frontend cannot be built without them."
+            exit 1
+          fi
+
       # macOS: import the Developer ID certificate before building.
       # Uncomment once code signing is set up.
       #
@@ -94,6 +106,9 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Baked into the frontend bundle by Vite during beforeBuildCommand.
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           # --- macOS code signing + notarization (uncomment once set up) ---
           # APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }} # e.g. "Developer ID Application: Your Name (TEAMID)"
           # APPLE_ID: ${{ secrets.APPLE_ID }}
