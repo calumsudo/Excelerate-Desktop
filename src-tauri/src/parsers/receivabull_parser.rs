@@ -9,13 +9,18 @@ use std::path::Path;
 // several rows can share a Deal Id, so rows are grouped by Deal Id.
 //
 // NOTE: Receivabull splits the servicing fee into two columns — the originator
-// fee ("Orginator servicing fee (porportionally)") and Receivabull's own fee
+// fee ("Orig. servicing fee (proportional)") and Receivabull's own fee
 // ("RB Servicing Fee $"). The standard pivot has a single `fee`, so this parser
 // records fee = originator fee + RB fee for reconciliation, and additionally
 // carries each row's originator_fee, rb_fee, and fee_discrepancy through the
 // pivot (see PivotTableRow) into funder_pivot_rows. It trusts the funder's own
 // "Payable Amt (Net)" as `net` rather than deriving it, because in some rows
 // gross - (originator + RB) != net — that gap is the captured fee_discrepancy.
+//
+// Format change (July 2026): Receivabull corrected the originator-fee header —
+// it was "Orginator servicing fee (porportionally)" (sic) — and dropped the
+// "Merchant_name" column, so rows now carry a blank merchant name. The parser
+// still reads the old header spelling for previously-issued files.
 pub struct ReceivabullParser {
     funder_name: String,
     required_columns: Vec<String>,
@@ -34,10 +39,12 @@ impl ReceivabullParser {
             required_columns: vec![
                 "Funding Date".to_string(),
                 "Deal Id".to_string(),
-                "Merchant_name".to_string(),
                 "Deal status".to_string(),
                 "Payable Amt (Gross)".to_string(),
-                "Orginator servicing fee (porportionally)".to_string(),
+                // Renamed by Receivabull in July 2026 (see the format-change note
+                // above); "Merchant_name" was dropped from the export entirely, so
+                // it is no longer required and rows carry a blank merchant name.
+                "Orig. servicing fee (proportional)".to_string(),
                 "RB Servicing Fee $".to_string(),
                 "Payable Amt (Net)".to_string(),
             ],
@@ -122,8 +129,10 @@ impl BaseParser for ReceivabullParser {
             .unwrap_or(0.0);
 
         // Single pivot fee = originator servicing fee + Receivabull servicing fee.
+        // Accept both the current header and Receivabull's original typo'd one.
         let originator_fee = row
-            .get("Orginator servicing fee (porportionally)")
+            .get("Orig. servicing fee (proportional)")
+            .or_else(|| row.get("Orginator servicing fee (porportionally)"))
             .and_then(|v| self.currency_to_float(v).ok())
             .unwrap_or(0.0)
             .abs();
