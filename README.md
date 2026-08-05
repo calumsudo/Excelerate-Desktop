@@ -37,6 +37,21 @@ It's built as a native desktop application with a [Tauri](https://tauri.app/) (R
 | **Backend**  | Tauri 2 · Rust (edition 2021)                        |
 | **Data**     | Supabase (Postgres · Storage · Auth)                 |
 
+## 📦 Installing a Release
+
+Download the installer for your platform from the [releases page](../../releases). The macOS DMG is a universal build that runs natively on both Apple Silicon and Intel Macs.
+
+### macOS: "Excelerate is damaged and can't be opened"
+
+Release builds are not yet signed with an Apple Developer ID certificate or notarized, so macOS Gatekeeper flags the downloaded app as "damaged". The app is fine — clear the quarantine flag once after installing:
+
+```bash
+# Drag Excelerate.app from the DMG into /Applications first, then:
+xattr -cr /Applications/Excelerate.app
+```
+
+Then open the app normally. This is only needed once per install/update. The prompt will go away for good once releases are signed and notarized (the release workflow already has the steps scaffolded — they activate when the Apple Developer certificate secrets are added).
+
 ## 🚀 Getting Started
 
 ### Prerequisites
