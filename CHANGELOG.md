@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.4.1](https://github.com/calumsudo/Excelerate-Desktop/compare/v1.4.0...v1.4.1) (2026-08-05)
+
+
+### Bug Fixes
+
+* **parsers:** update Receivabull for July 2026 header changes ([#69](https://github.com/calumsudo/Excelerate-Desktop/issues/69)) ([2ce59f2](https://github.com/calumsudo/Excelerate-Desktop/commit/2ce59f21f3d72f387e38e4ffc8db2d30b4cf9701))
+* **release:** universal macOS build with ad-hoc signing + Gatekeeper docs ([#71](https://github.com/calumsudo/Excelerate-Desktop/issues/71)) ([f421005](https://github.com/calumsudo/Excelerate-Desktop/commit/f4210056b6a87945a1495ff36f57c2f7095ab2c6))
+
 ## [1.4.0](https://github.com/calumsudo/Excelerate-Desktop/compare/v1.3.0...v1.4.0) (2026-07-20)
 
 
