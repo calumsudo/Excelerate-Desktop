@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.2](https://github.com/calumsudo/Excelerate-Desktop/compare/v1.4.1...v1.4.2) (2026-08-05)
+
+
+### Bug Fixes
+
+* **release:** pass Supabase env to frontend build ([#72](https://github.com/calumsudo/Excelerate-Desktop/issues/72)) ([582d635](https://github.com/calumsudo/Excelerate-Desktop/commit/582d635f731240f603ea898ef54bac6c4e6a5f1d))
+
 ## [1.4.1](https://github.com/calumsudo/Excelerate-Desktop/compare/v1.4.0...v1.4.1) (2026-08-05)
 
 
