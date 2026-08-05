@@ -40,10 +40,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # Single universal binary (Apple Silicon + Intel) instead of two
+          # per-arch DMGs — one download that runs natively on both.
           - platform: macos-latest
-            args: "--target aarch64-apple-darwin"
-          - platform: macos-latest
-            args: "--target x86_64-apple-darwin"
+            args: "--target universal-apple-darwin"
           - platform: windows-latest
             args: ""
     runs-on: ${{ matrix.platform }}
@@ -67,6 +67,14 @@ jobs:
 
       # macOS: import the Developer ID certificate before building.
       # Uncomment once code signing is set up.
+      #
+      # NOTE: until these steps are enabled, macOS builds are only ad-hoc
+      # signed (bundle > macOS > signingIdentity "-" in tauri.conf.json).
+      # Gatekeeper reports downloaded, non-notarized apps as "damaged";
+      # users must clear the quarantine flag once after installing:
+      #   xattr -cr /Applications/Excelerate.app
+      # (see README > Installing a Release). The permanent fix is an Apple
+      # Developer ID certificate + notarization via the env vars below.
       # - name: Import Apple Developer ID certificate
       #   if: matrix.platform == 'macos-latest'
       #   env:
